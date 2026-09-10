@@ -1,0 +1,47 @@
+/**
+ * User-facing copy.
+ *
+ * Code stays in English; only these values are shown in Spanish. Keeping them
+ * in one place avoids scattered literals and makes a future i18n integration a
+ * local change.
+ */
+export const STRINGS = {
+    app: {
+        title: "Seguimiento corporal",
+        description: "Peso y circunferencia abdominal registrados día a día.",
+    },
+    metrics: {
+        weightLabel: "Peso",
+        weightUnit: "kg",
+        waistLabel: "Circunferencia abdominal",
+        waistUnit: "cm",
+    },
+    dashboard: {
+        registeredCount: (count: number) => `${count} registros`,
+        dateRange: (from: string, to: string) => `Del ${from} al ${to}`,
+        empty: "Todavía no hay mediciones registradas.",
+    },
+    charts: {
+        weightDescription: "Evolución del peso durante el período registrado.",
+        waistDescription:
+            "Evolución de la circunferencia abdominal durante el período registrado.",
+        summary: (
+            label: string,
+            unit: string,
+            count: number,
+            firstValue: string,
+            lastValue: string
+        ) =>
+            `${label}: ${count} mediciones, de ${firstValue} ${unit} a ${lastValue} ${unit}.`,
+        keyboardHint:
+            "Con la gráfica enfocada, usa las flechas izquierda y derecha para recorrer los valores.",
+    },
+    table: {
+        title: "Mediciones diarias",
+        caption:
+            "Peso y circunferencia abdominal por día, ordenados del más reciente al más antiguo.",
+        date: "Fecha",
+        weight: "Peso (kg)",
+        waist: "Circunferencia (cm)",
+    },
+} as const;
