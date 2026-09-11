@@ -27,6 +27,29 @@ export const STRINGS = {
         dateRange: (from: string, to: string) => `Del ${from} al ${to}`,
         empty: "Todavía no hay mediciones registradas.",
     },
+    form: {
+        title: "Registrar medición",
+        description:
+            "Anota tu peso y tu circunferencia abdominal de un día. Si ese día ya tenía registro, se reemplaza.",
+        date: "Fecha",
+        weight: "Peso (kg)",
+        waist: "Circunferencia abdominal (cm)",
+        submit: "Guardar registro",
+        submitting: "Guardando…",
+        success:
+            "El registro quedó guardado y el seguimiento ya está actualizado.",
+        saveFailed:
+            "No pudimos guardar la medición. Revisa tu conexión e inténtalo de nuevo; no pierdes lo que escribiste.",
+        validation: {
+            required: "Completa este campo.",
+            notNumber: "Escribe un número válido.",
+            notPositive: "El valor debe ser mayor que cero.",
+            oneDecimal: "Usa como máximo un decimal.",
+            tooLarge: (max: number) => `El valor no puede superar ${max}.`,
+            invalidDate: "Elige una fecha válida.",
+            futureDate: "La fecha no puede ser futura.",
+        },
+    },
     charts: {
         weightDescription: "Evolución del peso durante el período registrado.",
         waistDescription:

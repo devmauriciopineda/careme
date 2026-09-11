@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { measurementSchema, measurementsSchema } from "./schema";
+import {
+    measurementFormSchema,
+    measurementInputSchema,
+    measurementSchema,
+    measurementsSchema,
+} from "./schema";
 
 const VALID_MEASUREMENT = {
     id: "measurement-2026-09-06",
@@ -55,5 +60,106 @@ describe("measurementsSchema", () => {
 
         expect(result.success).toBe(false);
         expect(result.error?.issues[0]?.path).toEqual([1, "date"]);
+    });
+});
+
+describe("measurementInputSchema", () => {
+    const VALID_INPUT = { date: "2020-01-01", weightKg: 80.1, waistCm: 94.8 };
+
+    it("accepts a complete, single-decimal payload", () => {
+        expect(measurementInputSchema.parse(VALID_INPUT)).toEqual(VALID_INPUT);
+    });
+
+    it("rejects a future date", () => {
+        expect(
+            measurementInputSchema.safeParse({ ...VALID_INPUT, date: "2999-01-01" })
+                .success
+        ).toBe(false);
+    });
+
+    it("rejects a value with more than one decimal", () => {
+        expect(
+            measurementInputSchema.safeParse({ ...VALID_INPUT, weightKg: 80.12 })
+                .success
+        ).toBe(false);
+    });
+
+    it("rejects a value above the allowed limit", () => {
+        expect(
+            measurementInputSchema.safeParse({ ...VALID_INPUT, waistCm: 401 })
+                .success
+        ).toBe(false);
+    });
+});
+
+describe("measurementFormSchema", () => {
+    const VALID_FORM = { date: "2020-01-01", weightKg: "80,1", waistCm: "94,8" };
+
+    it("accepts valid text and converts it to a numeric payload", () => {
+        expect(measurementFormSchema.parse(VALID_FORM)).toEqual({
+            date: "2020-01-01",
+            weightKg: 80.1,
+            waistCm: 94.8,
+        });
+    });
+
+    it("accepts a dot as the decimal separator", () => {
+        expect(
+            measurementFormSchema.parse({ ...VALID_FORM, weightKg: "80.1" })
+        ).toMatchObject({ weightKg: 80.1 });
+    });
+
+    it("reports every missing field", () => {
+        const result = measurementFormSchema.safeParse({
+            date: "2020-01-01",
+            weightKg: "",
+            waistCm: "  ",
+        });
+
+        expect(result.success).toBe(false);
+        expect(result.error?.issues.map((issue) => issue.path[0])).toEqual([
+            "weightKg",
+            "waistCm",
+        ]);
+    });
+
+    it("rejects a non-numeric value", () => {
+        const result = measurementFormSchema.safeParse({
+            ...VALID_FORM,
+            weightKg: "ochenta",
+        });
+
+        expect(result.success).toBe(false);
+        expect(result.error?.issues[0]?.path[0]).toBe("weightKg");
+    });
+
+    it("rejects a non-positive value", () => {
+        expect(
+            measurementFormSchema.safeParse({ ...VALID_FORM, waistCm: "0" }).success
+        ).toBe(false);
+    });
+
+    it("rejects a value with more than one decimal", () => {
+        expect(
+            measurementFormSchema.safeParse({ ...VALID_FORM, waistCm: "94,85" })
+                .success
+        ).toBe(false);
+    });
+
+    it("rejects a value above the allowed limit", () => {
+        expect(
+            measurementFormSchema.safeParse({ ...VALID_FORM, weightKg: "501" })
+                .success
+        ).toBe(false);
+    });
+
+    it("rejects a future date", () => {
+        const result = measurementFormSchema.safeParse({
+            ...VALID_FORM,
+            date: "2999-01-01",
+        });
+
+        expect(result.success).toBe(false);
+        expect(result.error?.issues[0]?.path[0]).toBe("date");
     });
 });

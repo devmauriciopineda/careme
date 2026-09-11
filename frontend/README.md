@@ -1,11 +1,13 @@
 # Careme — Frontend
 
 Body tracking dashboard. It shows daily weight and abdominal circumference as
-trend charts and as a table, reading them from the Careme backend API.
+trend charts and as a table, and registers the measurement of a day, all through
+the Careme backend API.
 
-This is the MVP: no authentication and no write operations. Measurements come
-from `GET /api/v1/measurements` on the backend, through a service layer that
-validates the payload before it reaches the UI.
+There is no authentication yet. Measurements come from
+`GET /api/v1/measurements`, and the registration form sends
+`POST /api/v1/measurements`, through a service layer that validates the payload
+before it reaches the backend.
 
 ## Tech stack
 
@@ -86,6 +88,14 @@ returns chronologically sorted measurements. The base URL is read once in
 `src/app/error.tsx` renders a localized message with a retry button instead of the
 framework's error screen.
 
+**Registration is a Server Action.** `MeasurementForm` is a client island with
+controlled inputs that validates the typed text in Spanish with
+`measurementFormSchema` and hands the numeric payload to `registerMeasurement`
+(`src/features/measurements/actions.ts`). The action revalidates the payload
+server-side, calls `measurementService.createMeasurement` and then
+`revalidatePath("/")`, so the charts and the daily detail refresh without a
+manual reload. A failed save keeps every typed value so the user can retry.
+
 **Copy.** Code is written in English; only user-facing strings are Spanish, and
 they all live in `src/features/measurements/lib/strings.ts`.
 
@@ -112,14 +122,18 @@ pnpm test
 ```
 
 30 tests across 4 files. Unit tests cover the pure helpers in `lib/metrics.ts`
-(sorting, series building, axis domain, localization) and the Zod schema. An
-integration test renders `MeasurementsTable` with React Testing Library and
-asserts row order, number formatting and the accessible table caption. The
-service tests mock `fetch` and cover the success path, an error status, a failed
-envelope and a malformed measurement.
+(sorting, series building, axis domain, localization, local-day helpers), the
+Zod schemas (API payloads and the registration form) and the measurement
+service. Integration tests render `MeasurementsTable` with React Testing Library
+and assert row order, number formatting and the accessible table caption, and
+render `MeasurementForm` to cover validation, a successful save, a failed save
+that keeps the typed values and the disabled state while saving.
 
 ## Accessibility
 
+- Every registration control has an associated label, errors are announced with
+  `role="alert"` and referenced from the field through `aria-describedby`, and
+  the save outcome is announced through a live region — never by color alone.
 - Charts are wrapped in a `<figure>` with an `sr-only` `<figcaption>` that
   summarizes the series, and Recharts' `accessibilityLayer` enables keyboard
   navigation across data points.

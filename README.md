@@ -8,12 +8,16 @@ daily table.
 
 The project exists to replace a manual spreadsheet: a single place to log body
 measurements day by day and see the trend without doing the math by hand. It is
-an early MVP, so it is deliberately read-only: it displays measurements, it does
-not create or edit them yet.
+an early MVP with no authentication; the whole product is viewing and registering
+body measurements.
 
 ## General functionality
 
 - Daily records of weight (kg) and abdominal circumference (cm).
+- A registration form that records the measurement of a day; re-registering a day
+  replaces its values instead of creating a second record.
+- Input validation in Spanish: required fields, positive values, a single decimal,
+  the allowed limits and a date that is not in the future.
 - One trend chart per metric, with an axis domain padded around the data range so
   small day-to-day variations stay readable.
 - A daily table sorted from the most recent record to the oldest.
@@ -38,10 +42,12 @@ browser ──▶ frontend (Next.js, port 3000)
 
 - The **frontend** is a Next.js App Router application. The dashboard is an async
   Server Component: it fetches the measurements on the server, validates the
-  payload and derives every chart series, axis domain and date label there.
-  Recharts is the only client-side island.
-- The **backend** is a Spring Boot REST service with a single read endpoint. It
-  follows a layered structure (controller → service → repository) and is the
+  payload and derives every chart series, axis domain and date label there. The
+  registration form is a client island that submits through a Server Action,
+  which revalidates the path so the charts and the table refresh on their own.
+  Recharts is the only other client-side island.
+- The **backend** is a Spring Boot REST service with a read and a write endpoint.
+  It follows a layered structure (controller → service → repository) and is the
   source of truth for the API contract.
 - **Storage** is PostgreSQL, behind a repository interface. Flyway owns the
   schema, so the table exists from the first start without manual DDL.
@@ -68,8 +74,9 @@ Each service is documented in its own README:
 
 - The application consumes **no external or third-party APIs**. There are no
   cloud services, SDKs or analytics integrations.
-- The frontend consumes the backend's own HTTP API (`GET /api/v1/measurements`).
-  The contract is documented in [`backend/README.md`](./backend/README.md).
+- The frontend consumes the backend's own HTTP API
+  (`GET` and `POST /api/v1/measurements`). The contract is documented in
+  [`backend/README.md`](./backend/README.md).
 - Measurements live in a **PostgreSQL** table owned by the backend, created and
   versioned by Flyway migrations.
 - There is **no authentication or authorization** in this MVP.

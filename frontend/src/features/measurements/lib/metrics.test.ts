@@ -8,8 +8,10 @@ import {
     computeDomain,
     formatMeasurementDate,
     formatMetricValue,
+    isFutureIsoDate,
     sortByDateAsc,
     sortByDateDesc,
+    todayIsoDate,
 } from "./metrics";
 import type { Measurement } from "../types";
 
@@ -127,5 +129,26 @@ describe("buildChartSummary", () => {
 
     it("returns an empty summary for an empty series", () => {
         expect(buildChartSummary([], METRICS.weightKg)).toBe("");
+    });
+});
+
+describe("todayIsoDate", () => {
+    it("formats the local calendar day as yyyy-MM-dd", () => {
+        expect(todayIsoDate(new Date(2026, 8, 6))).toBe("2026-09-06");
+    });
+
+    it("does not shift the day near midnight", () => {
+        expect(todayIsoDate(new Date(2026, 0, 1, 23, 59))).toBe("2026-01-01");
+    });
+});
+
+describe("isFutureIsoDate", () => {
+    it("treats a later day as future", () => {
+        expect(isFutureIsoDate("2026-09-11", "2026-09-10")).toBe(true);
+    });
+
+    it("treats today and earlier days as not future", () => {
+        expect(isFutureIsoDate("2026-09-10", "2026-09-10")).toBe(false);
+        expect(isFutureIsoDate("2026-09-09", "2026-09-10")).toBe(false);
     });
 });

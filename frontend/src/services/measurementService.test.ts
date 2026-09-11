@@ -98,3 +98,69 @@ describe("measurementService.getMeasurements", () => {
         await expect(measurementService.getMeasurements()).rejects.toThrow();
     });
 });
+
+const CREATED_RESPONSE = {
+    success: true,
+    messageCode: "SUCCESS",
+    message: "Operation completed successfully",
+    data: {
+        id: "measurement-2026-09-10",
+        date: "2026-09-10",
+        weightKg: 80.1,
+        waistCm: 94.8,
+    },
+};
+
+const INPUT = { date: "2026-09-10", weightKg: 80.1, waistCm: 94.8 };
+
+describe("measurementService.createMeasurement", () => {
+    it("posts the payload and returns the stored measurement", async () => {
+        const fetchMock = stubFetch({
+            ok: true,
+            status: 201,
+            json: async () => CREATED_RESPONSE,
+        });
+
+        const created = await measurementService.createMeasurement(INPUT);
+
+        expect(fetchMock).toHaveBeenCalledWith(
+            expect.stringContaining("/api/v1/measurements"),
+            expect.objectContaining({
+                method: "POST",
+                cache: "no-store",
+                body: JSON.stringify(INPUT),
+            })
+        );
+        expect(created.date).toBe("2026-09-10");
+    });
+
+    it("fails when the API responds with an error status", async () => {
+        silenceConsoleError();
+        stubFetch({
+            ok: false,
+            status: 500,
+            json: async () => ({
+                success: false,
+                error: { message: "boom", code: "INTERNAL_ERROR", details: [] },
+            }),
+        });
+
+        await expect(
+            measurementService.createMeasurement(INPUT)
+        ).rejects.toThrow("500");
+    });
+
+    it("fails when the stored measurement is malformed", async () => {
+        silenceConsoleError();
+        stubFetch({
+            ok: true,
+            status: 201,
+            json: async () => ({
+                ...CREATED_RESPONSE,
+                data: { ...CREATED_RESPONSE.data, waistCm: "94.8" },
+            }),
+        });
+
+        await expect(measurementService.createMeasurement(INPUT)).rejects.toThrow();
+    });
+});

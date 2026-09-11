@@ -115,6 +115,24 @@ export function formatMeasurementDate(isoDate: string): string {
     return DATE_FORMATTER.format(new Date(`${isoDate}T00:00:00Z`));
 }
 
+/**
+ * Today's calendar day as an ISO `yyyy-MM-dd` string.
+ *
+ * Built from the local clock on purpose: the form defaults to the day the user
+ * is living in, and no time-zone conversion can shift it by one day.
+ */
+export function todayIsoDate(now: Date = new Date()): string {
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+}
+
+/** A calendar day is in the future when it sorts after today's ISO day. */
+export function isFutureIsoDate(isoDate: string, today: string): boolean {
+    return isoDate > today;
+}
+
 export function computeDateRange(measurements: readonly Measurement[]): {
     from: string;
     to: string;

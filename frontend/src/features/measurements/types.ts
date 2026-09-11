@@ -13,6 +13,14 @@ export type Measurement = {
     waistCm: number;
 };
 
+/** The values needed to register or replace the measurement of a day. */
+export type MeasurementInput = {
+    /** Calendar date in ISO `yyyy-MM-dd` format. */
+    date: string;
+    weightKg: number;
+    waistCm: number;
+};
+
 /** Presentation and scale configuration for a tracked metric. */
 export type MetricConfig = {
     key: MetricKey;

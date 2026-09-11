@@ -1,7 +1,9 @@
 package com.careme.backend.controller;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -13,10 +15,12 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.careme.backend.dto.MeasurementRequest;
 import com.careme.backend.dto.MeasurementResponse;
 import com.careme.backend.service.MeasurementService;
 
@@ -77,5 +81,71 @@ class MeasurementControllerTest {
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.error.code").value("INTERNAL_ERROR"));
+    }
+
+    @Test
+    void registersAMeasurementAndReturnsItInTheSuccessEnvelope() throws Exception {
+        when(measurementService.register(any(MeasurementRequest.class))).thenReturn(
+                new MeasurementResponse(
+                        OLDEST_ID,
+                        LocalDate.of(2026, 9, 10),
+                        new BigDecimal("80.1"),
+                        new BigDecimal("94.8")));
+
+        mockMvc.perform(post("/api/v1/measurements")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"date":"2026-09-10","weightKg":80.1,"waistCm":94.8}
+                        """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.date").value("2026-09-10"))
+                .andExpect(jsonPath("$.data.weightKg").value(80.1))
+                .andExpect(jsonPath("$.data.waistCm").value(94.8));
+    }
+
+    @Test
+    void rejectsANonPositiveMetricWithAValidationError() throws Exception {
+        mockMvc.perform(post("/api/v1/measurements")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"date":"2026-09-10","weightKg":0,"waistCm":94.8}
+                        """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.error.details[0]").value(
+                        org.hamcrest.Matchers.containsString("weightKg")));
+    }
+
+    @Test
+    void rejectsAMetricWithMoreThanOneDecimal() throws Exception {
+        mockMvc.perform(post("/api/v1/measurements")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"date":"2026-09-10","weightKg":80.12,"waistCm":94.8}
+                        """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void rejectsAFutureDate() throws Exception {
+        mockMvc.perform(post("/api/v1/measurements")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"date":"2999-01-01","weightKg":80.1,"waistCm":94.8}
+                        """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void rejectsAMalformedBody() throws Exception {
+        mockMvc.perform(post("/api/v1/measurements")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("not-json"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("INVALID_REQUEST"));
     }
 }

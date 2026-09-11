@@ -49,6 +49,15 @@ public class MeasurementEntity {
     }
 
     /**
+     * Replaces both metric values on a managed row. The date is the row's
+     * identity within a day and deliberately cannot change.
+     */
+    public void updateValues(BigDecimal weightKg, BigDecimal waistCm) {
+        this.weightKg = weightKg;
+        this.waistCm = waistCm;
+    }
+
+    /**
      * @return the domain representation; the record's invariants reject a row that
      *         was never persisted
      */

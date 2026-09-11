@@ -74,4 +74,42 @@ class MeasurementJpaRepositoryTest extends PostgresIntegrationTest {
                 measurement("2026-09-06", "0.0", "96.0")))
                 .isInstanceOf(DataIntegrityViolationException.class);
     }
+
+    @Test
+    void findsTheMeasurementRecordedOnAGivenDay() {
+        measurementJpaDao.saveAndFlush(measurement("2026-09-06", "81.1", "96.0"));
+
+        Measurement found = measurementJpaRepository.findByDate(LocalDate.of(2026, 9, 6))
+                .orElseThrow();
+
+        assertThat(found.weightKg()).isEqualByComparingTo("81.1");
+    }
+
+    @Test
+    void returnsEmptyWhenNoMeasurementIsRecordedOnTheDay() {
+        assertThat(measurementJpaRepository.findByDate(LocalDate.of(2026, 9, 6))).isEmpty();
+    }
+
+    @Test
+    void createsAMeasurementWhenTheDayHasNone() {
+        Measurement created = measurementJpaRepository.create(
+                LocalDate.of(2026, 9, 6), new BigDecimal("81.1"), new BigDecimal("96.0"));
+
+        assertThat(created.id()).isNotNull();
+        assertThat(measurementJpaRepository.findAll()).hasSize(1);
+    }
+
+    @Test
+    void replacesTheValuesOfTheSameDayInsteadOfAddingARow() {
+        Measurement created = measurementJpaRepository.create(
+                LocalDate.of(2026, 9, 6), new BigDecimal("81.1"), new BigDecimal("96.0"));
+
+        measurementJpaRepository.update(created.id(), new BigDecimal("79.9"), new BigDecimal("93.4"));
+
+        List<Measurement> all = measurementJpaRepository.findAll();
+        assertThat(all).hasSize(1);
+        assertThat(all.getFirst().id()).isEqualTo(created.id());
+        assertThat(all.getFirst().weightKg()).isEqualByComparingTo("79.9");
+        assertThat(all.getFirst().waistCm()).isEqualByComparingTo("93.4");
+    }
 }
