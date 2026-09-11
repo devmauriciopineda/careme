@@ -1,0 +1,338 @@
+[
+  {
+    "id": "measurement-2026-07-18",
+    "date": "2026-07-18",
+    "weightKg": 84.5,
+    "waistCm": 98.4
+  },
+  {
+    "id": "measurement-2026-07-19",
+    "date": "2026-07-19",
+    "weightKg": 84.6,
+    "waistCm": 98.4
+  },
+  {
+    "id": "measurement-2026-07-20",
+    "date": "2026-07-20",
+    "weightKg": 84.1,
+    "waistCm": 98.1
+  },
+  {
+    "id": "measurement-2026-07-21",
+    "date": "2026-07-21",
+    "weightKg": 84.2,
+    "waistCm": 98
+  },
+  {
+    "id": "measurement-2026-07-22",
+    "date": "2026-07-22",
+    "weightKg": 84.5,
+    "waistCm": 98.4
+  },
+  {
+    "id": "measurement-2026-07-23",
+    "date": "2026-07-23",
+    "weightKg": 84.3,
+    "waistCm": 98.3
+  },
+  {
+    "id": "measurement-2026-07-24",
+    "date": "2026-07-24",
+    "weightKg": 84.3,
+    "waistCm": 98.3
+  },
+  {
+    "id": "measurement-2026-07-25",
+    "date": "2026-07-25",
+    "weightKg": 83.5,
+    "waistCm": 97.2
+  },
+  {
+    "id": "measurement-2026-07-26",
+    "date": "2026-07-26",
+    "weightKg": 83.9,
+    "waistCm": 97.6
+  },
+  {
+    "id": "measurement-2026-07-27",
+    "date": "2026-07-27",
+    "weightKg": 84,
+    "waistCm": 97.7
+  },
+  {
+    "id": "measurement-2026-07-28",
+    "date": "2026-07-28",
+    "weightKg": 83.7,
+    "waistCm": 97.3
+  },
+  {
+    "id": "measurement-2026-07-29",
+    "date": "2026-07-29",
+    "weightKg": 83.2,
+    "waistCm": 97.1
+  },
+  {
+    "id": "measurement-2026-07-30",
+    "date": "2026-07-30",
+    "weightKg": 83.1,
+    "waistCm": 96.7
+  },
+  {
+    "id": "measurement-2026-07-31",
+    "date": "2026-07-31",
+    "weightKg": 82.9,
+    "waistCm": 96.9
+  },
+  {
+    "id": "measurement-2026-08-01",
+    "date": "2026-08-01",
+    "weightKg": 82.8,
+    "waistCm": 96.6
+  },
+  {
+    "id": "measurement-2026-08-02",
+    "date": "2026-08-02",
+    "weightKg": 83.1,
+    "waistCm": 96.7
+  },
+  {
+    "id": "measurement-2026-08-03",
+    "date": "2026-08-03",
+    "weightKg": 83.2,
+    "waistCm": 97
+  },
+  {
+    "id": "measurement-2026-08-04",
+    "date": "2026-08-04",
+    "weightKg": 82.8,
+    "waistCm": 96.3
+  },
+  {
+    "id": "measurement-2026-08-05",
+    "date": "2026-08-05",
+    "weightKg": 82.8,
+    "waistCm": 96.4
+  },
+  {
+    "id": "measurement-2026-08-06",
+    "date": "2026-08-06",
+    "weightKg": 82.6,
+    "waistCm": 96.1
+  },
+  {
+    "id": "measurement-2026-08-07",
+    "date": "2026-08-07",
+    "weightKg": 82.2,
+    "waistCm": 96.1
+  },
+  {
+    "id": "measurement-2026-08-08",
+    "date": "2026-08-08",
+    "weightKg": 82.2,
+    "waistCm": 95.9
+  },
+  {
+    "id": "measurement-2026-08-09",
+    "date": "2026-08-09",
+    "weightKg": 82,
+    "waistCm": 95.8
+  },
+  {
+    "id": "measurement-2026-08-10",
+    "date": "2026-08-10",
+    "weightKg": 82.4,
+    "waistCm": 95.8
+  },
+  {
+    "id": "measurement-2026-08-11",
+    "date": "2026-08-11",
+    "weightKg": 81.8,
+    "waistCm": 95.6
+  },
+  {
+    "id": "measurement-2026-08-12",
+    "date": "2026-08-12",
+    "weightKg": 81.6,
+    "waistCm": 95.4
+  },
+  {
+    "id": "measurement-2026-08-13",
+    "date": "2026-08-13",
+    "weightKg": 82,
+    "waistCm": 95.7
+  },
+  {
+    "id": "measurement-2026-08-14",
+    "date": "2026-08-14",
+    "weightKg": 81.6,
+    "waistCm": 95
+  },
+  {
+    "id": "measurement-2026-08-15",
+    "date": "2026-08-15",
+    "weightKg": 81.3,
+    "waistCm": 95
+  },
+  {
+    "id": "measurement-2026-08-16",
+    "date": "2026-08-16",
+    "weightKg": 81.7,
+    "waistCm": 95.4
+  },
+  {
+    "id": "measurement-2026-08-17",
+    "date": "2026-08-17",
+    "weightKg": 81.2,
+    "waistCm": 94.7
+  },
+  {
+    "id": "measurement-2026-08-18",
+    "date": "2026-08-18",
+    "weightKg": 81.2,
+    "waistCm": 94.7
+  },
+  {
+    "id": "measurement-2026-08-19",
+    "date": "2026-08-19",
+    "weightKg": 80.9,
+    "waistCm": 94.4
+  },
+  {
+    "id": "measurement-2026-08-20",
+    "date": "2026-08-20",
+    "weightKg": 81.3,
+    "waistCm": 94.8
+  },
+  {
+    "id": "measurement-2026-08-21",
+    "date": "2026-08-21",
+    "weightKg": 81.2,
+    "waistCm": 94.5
+  },
+  {
+    "id": "measurement-2026-08-22",
+    "date": "2026-08-22",
+    "weightKg": 81,
+    "waistCm": 94.3
+  },
+  {
+    "id": "measurement-2026-08-23",
+    "date": "2026-08-23",
+    "weightKg": 80.9,
+    "waistCm": 94.5
+  },
+  {
+    "id": "measurement-2026-08-24",
+    "date": "2026-08-24",
+    "weightKg": 80.8,
+    "waistCm": 94.2
+  },
+  {
+    "id": "measurement-2026-08-25",
+    "date": "2026-08-25",
+    "weightKg": 80.7,
+    "waistCm": 93.9
+  },
+  {
+    "id": "measurement-2026-08-26",
+    "date": "2026-08-26",
+    "weightKg": 80.2,
+    "waistCm": 93.6
+  },
+  {
+    "id": "measurement-2026-08-27",
+    "date": "2026-08-27",
+    "weightKg": 80.3,
+    "waistCm": 93.7
+  },
+  {
+    "id": "measurement-2026-08-28",
+    "date": "2026-08-28",
+    "weightKg": 80.1,
+    "waistCm": 93.5
+  },
+  {
+    "id": "measurement-2026-08-29",
+    "date": "2026-08-29",
+    "weightKg": 79.9,
+    "waistCm": 93.3
+  },
+  {
+    "id": "measurement-2026-08-30",
+    "date": "2026-08-30",
+    "weightKg": 79.9,
+    "waistCm": 93.5
+  },
+  {
+    "id": "measurement-2026-08-31",
+    "date": "2026-08-31",
+    "weightKg": 80.1,
+    "waistCm": 93.7
+  },
+  {
+    "id": "measurement-2026-09-01",
+    "date": "2026-09-01",
+    "weightKg": 80.1,
+    "waistCm": 93.5
+  },
+  {
+    "id": "measurement-2026-09-02",
+    "date": "2026-09-02",
+    "weightKg": 79.9,
+    "waistCm": 93
+  },
+  {
+    "id": "measurement-2026-09-03",
+    "date": "2026-09-03",
+    "weightKg": 79.6,
+    "waistCm": 92.9
+  },
+  {
+    "id": "measurement-2026-09-04",
+    "date": "2026-09-04",
+    "weightKg": 79.4,
+    "waistCm": 92.9
+  },
+  {
+    "id": "measurement-2026-09-05",
+    "date": "2026-09-05",
+    "weightKg": 79.6,
+    "waistCm": 93
+  },
+  {
+    "id": "measurement-2026-09-06",
+    "date": "2026-09-06",
+    "weightKg": 79.3,
+    "waistCm": 92.8
+  },
+  {
+    "id": "measurement-2026-09-07",
+    "date": "2026-09-07",
+    "weightKg": 79.2,
+    "waistCm": 92.7
+  },
+  {
+    "id": "measurement-2026-09-08",
+    "date": "2026-09-08",
+    "weightKg": 79.3,
+    "waistCm": 92.7
+  },
+  {
+    "id": "measurement-2026-09-09",
+    "date": "2026-09-09",
+    "weightKg": 79,
+    "waistCm": 92.4
+  },
+  {
+    "id": "measurement-2026-09-10",
+    "date": "2026-09-10",
+    "weightKg": 78.8,
+    "waistCm": 92
+  },
+  {
+    "id": "measurement-2026-09-11",
+    "date": "2026-09-11",
+    "weightKg": 78.7,
+    "waistCm": 91.9
+  }
+]

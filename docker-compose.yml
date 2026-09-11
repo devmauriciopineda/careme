@@ -1,0 +1,21 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    image: careme-backend
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+
+  frontend:
+    build:
+      context: ./frontend
+    image: careme-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      # Server-side fetch runs inside the compose network.
+      API_BASE_URL: http://backend:8080
+    depends_on:
+      - backend

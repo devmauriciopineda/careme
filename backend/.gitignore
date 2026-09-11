@@ -1,0 +1,14 @@
+target/
+!.mvn/wrapper/maven-wrapper.properties
+
+# Build output
+*.jar
+*.war
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Logs
+*.log

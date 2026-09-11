@@ -1,0 +1,14 @@
+spring:
+  application:
+    name: careme-backend
+
+server:
+  port: 8080
+
+careme:
+  measurements:
+    # Classpath location of the file that backs the measurements until a
+    # database exists. Swap this for a JDBC/JPA repository later.
+    data-location: classpath:data/measurements.json
+  cors:
+    allowed-origins: http://localhost:3000

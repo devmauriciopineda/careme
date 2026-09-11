@@ -1,0 +1,16 @@
+{
+  // The backend builds with Java 21; the JDK 25 bundled with Android Studio
+  // stays available for other projects.
+  "java.jdt.ls.java.home": "C:\\Users\\mao_p\\.jdks\\jdk-21.0.12.1+1",
+  "java.configuration.runtimes": [
+    {
+      "name": "JavaSE-21",
+      "path": "C:\\Users\\mao_p\\.jdks\\jdk-21.0.12.1+1",
+      "default": true
+    },
+    {
+      "name": "JavaSE-25",
+      "path": "C:\\Program Files\\Android\\Android Studio\\jbr"
+    }
+  ]
+}

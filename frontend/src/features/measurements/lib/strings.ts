@@ -10,6 +10,12 @@ export const STRINGS = {
         title: "Seguimiento corporal",
         description: "Peso y circunferencia abdominal registrados día a día.",
     },
+    errors: {
+        title: "No se pudieron cargar las mediciones",
+        description:
+            "No pudimos conectar con el servidor de datos. Comprueba que el backend esté disponible e inténtalo de nuevo.",
+        retry: "Reintentar",
+    },
     metrics: {
         weightLabel: "Peso",
         weightUnit: "kg",

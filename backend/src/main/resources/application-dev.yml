@@ -1,0 +1,7 @@
+logging:
+  level:
+    com.careme.backend: DEBUG
+
+careme:
+  cors:
+    allowed-origins: http://localhost:3000

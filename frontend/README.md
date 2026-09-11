@@ -1,11 +1,11 @@
 # Careme — Frontend
 
 Body tracking dashboard. It shows daily weight and abdominal circumference as
-trend charts and as a table.
+trend charts and as a table, reading them from the Careme backend API.
 
-This is the MVP: **frontend only**, no authentication and no backend. The data
-comes from a local mock dataset behind a service layer that is already shaped
-like an API client, so swapping in real endpoints does not touch the UI.
+This is the MVP: no authentication and no write operations. Measurements come
+from `GET /api/v1/measurements` on the backend, through a service layer that
+validates the payload before it reaches the UI.
 
 ## Tech stack
 
@@ -13,7 +13,7 @@ like an API client, so swapping in real endpoints does not touch the UI.
 - React 19 + TypeScript 5 in strict mode
 - Tailwind CSS v4 + shadcn/ui components
 - Recharts through the shadcn/ui `chart` component
-- Zod for boundary validation
+- Native server-side `fetch` with Zod validating the API response
 - Vitest + React Testing Library
 - pnpm
 
@@ -24,7 +24,9 @@ pnpm install
 pnpm dev
 ```
 
-The app is served at http://localhost:3000.
+The app is served at http://localhost:3000. It needs the backend running on
+`http://localhost:8080` (or `API_BASE_URL` set to wherever it runs); otherwise it
+shows the error screen. See the [root README](../README.md) for the backend.
 
 ## Scripts
 
@@ -42,25 +44,24 @@ The app is served at http://localhost:3000.
 
 ```
 frontend/
-├── app/                          # Next.js App Router
 ├── e2e/playwright/               # Reserved for end-to-end tests
 ├── src/
-│   ├── app/                      # layout, page, global styles
+│   ├── app/                      # layout, page, error boundary, global styles
 │   ├── components/ui/            # shadcn/ui primitives
 │   ├── features/measurements/    # feature module
 │   │   ├── components/           # dashboard, chart and table
-│   │   ├── data/                 # mock dataset
 │   │   └── lib/                  # pure logic, schema, copy
-│   ├── services/                 # data access boundary
+│   ├── services/                 # API client and base URL configuration
 │   └── test/                     # test setup
 ├── components.json               # shadcn/ui configuration
+├── next.config.ts                # standalone output for containers
 ├── tsconfig.json
 └── vitest.config.mts
 ```
 
 ## Architecture notes
 
-**Server Components first.** `app/page.tsx` renders `MeasurementsDashboard`, an
+**Server Components first.** `src/app/page.tsx` renders `MeasurementsDashboard`, an
 async Server Component that loads the measurements and derives every chart
 series, axis domain and date label on the server. `MetricTrendChart` is the only
 client island, because Recharts needs the browser; it receives ready-to-render
@@ -75,23 +76,34 @@ metric instead of being duplicated per metric.
 helpers. Adding a metric means adding a field to `Measurement`, a value to
 `MetricKey` and an entry to `METRICS`.
 
-**Service boundary.** `src/services/measurementService.ts` is the only place
-that knows where data comes from. It validates the payload with Zod and returns
-chronologically sorted measurements.
+**Service boundary.** `src/services/measurementService.ts` is the only place that
+knows where data comes from. It calls `GET /api/v1/measurements` with
+`cache: "no-store"`, unwraps the response envelope, validates `data` with Zod and
+returns chronologically sorted measurements. The base URL is read once in
+`src/services/apiConfig.ts`.
+
+**Failure handling.** When that call fails, the Server Component throws and
+`src/app/error.tsx` renders a localized message with a retry button instead of the
+framework's error screen.
 
 **Copy.** Code is written in English; only user-facing strings are Spanish, and
 they all live in `src/features/measurements/lib/strings.ts`.
 
-## Replacing the mock with the API
+## Data source and environment
 
-1. Set `NEXT_PUBLIC_API_BASE_URL` (see `.env.example`).
-2. Replace the body of `measurementService.getMeasurements` with a `fetch` of
-   `/measurements`. Keep the Zod validation and the sort.
-3. Nothing else changes: the signature is already `Promise<Measurement[]>` and
-   consumers do not care where the data came from.
+The dashboard reads from the backend API. Copy `.env.example` to `.env.local` and
+set the base URL when the backend does not run on `http://localhost:8080`:
 
-When client-side caching and invalidation are needed, wrap that same method in
-TanStack Query instead of rewriting the data flow.
+```bash
+API_BASE_URL=http://localhost:8080
+```
+
+The variable deliberately has no `NEXT_PUBLIC_` prefix, because the fetch happens
+on the server and the browser never needs the backend address.
+
+The endpoint paths, status codes and response envelope are documented in
+[`../backend/README.md`](../backend/README.md). Running the whole stack, including
+the containers, is covered in the [root README](../README.md).
 
 ## Testing
 
@@ -99,10 +111,12 @@ TanStack Query instead of rewriting the data flow.
 pnpm test
 ```
 
-Unit tests cover the pure helpers in `lib/metrics.ts` (sorting, series
-building, axis domain, localization) and the Zod schema. An integration test
-renders `MeasurementsTable` with React Testing Library and asserts row order,
-number formatting and the accessible table caption.
+30 tests across 4 files. Unit tests cover the pure helpers in `lib/metrics.ts`
+(sorting, series building, axis domain, localization) and the Zod schema. An
+integration test renders `MeasurementsTable` with React Testing Library and
+asserts row order, number formatting and the accessible table caption. The
+service tests mock `fetch` and cover the success path, an error status, a failed
+envelope and a malformed measurement.
 
 ## Accessibility
 

@@ -1,0 +1,7 @@
+logging:
+  level:
+    com.careme.backend: INFO
+
+careme:
+  cors:
+    allowed-origins: ${CAREME_CORS_ALLOWED_ORIGINS:https://pre.careme.local}
