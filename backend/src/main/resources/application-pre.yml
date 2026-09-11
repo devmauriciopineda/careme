@@ -1,3 +1,9 @@
+spring:
+  datasource:
+    url: ${CAREME_DB_URL}
+    username: ${CAREME_DB_USER}
+    password: ${CAREME_DB_PASSWORD}
+
 logging:
   level:
     com.careme.backend: INFO

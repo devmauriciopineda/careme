@@ -7,6 +7,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -14,18 +16,19 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.careme.backend.entity.MeasurementEntity;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
- * Full-stack check of the only endpoint: real data file, real wiring.
+ * Full-stack check of the only endpoint: real database, real Flyway schema, real
+ * wiring.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
-class CaremeBackendApplicationTests {
+class CaremeBackendApplicationTests extends PostgresIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;
@@ -33,22 +36,23 @@ class CaremeBackendApplicationTests {
     @Autowired
     private ObjectMapper objectMapper;
 
-    private JsonNode seedMeasurements() throws Exception {
-        try (var input = new ClassPathResource("data/measurements.json").getInputStream()) {
-            return objectMapper.readTree(input);
-        }
+    private static MeasurementEntity measurement(String date, String weightKg, String waistCm) {
+        return new MeasurementEntity(
+                LocalDate.parse(date), new BigDecimal(weightKg), new BigDecimal(waistCm));
     }
 
     @Test
-    void servesEveryMeasurementFromTheDataFileInChronologicalOrder() throws Exception {
-        int storedCount = seedMeasurements().size();
-        assertThat(storedCount).isPositive();
+    void servesEveryStoredMeasurementInChronologicalOrder() throws Exception {
+        measurementJpaDao.saveAll(List.of(
+                measurement("2026-09-10", "80.1", "94.8"),
+                measurement("2026-09-06", "81.1", "96.0"),
+                measurement("2026-09-08", "80.4", "95.2")));
 
         String body = mockMvc.perform(get("/api/v1/measurements"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.messageCode").value("SUCCESS"))
-                .andExpect(jsonPath("$.data.length()").value(storedCount))
+                .andExpect(jsonPath("$.data.length()").value(3))
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
@@ -56,10 +60,23 @@ class CaremeBackendApplicationTests {
         JsonNode data = objectMapper.readTree(body).path("data");
 
         List<String> dates = new ArrayList<>();
-        data.forEach(measurement -> dates.add(measurement.path("date").asText()));
+        data.forEach(entry -> dates.add(entry.path("date").asText()));
 
-        assertThat(dates).isSorted();
-        assertThat(dates).allMatch(date -> date.matches("\\d{4}-\\d{2}-\\d{2}"));
+        assertThat(dates).containsExactly("2026-09-06", "2026-09-08", "2026-09-10");
+
+        JsonNode oldest = data.get(0);
+        assertThat(oldest.path("id").asText()).matches("[0-9a-fA-F-]{36}");
+        assertThat(oldest.path("weightKg").asDouble()).isEqualTo(81.1);
+        assertThat(oldest.path("waistCm").asDouble()).isEqualTo(96.0);
+    }
+
+    @Test
+    void servesAnEmptyPayloadWhenNothingIsStored() throws Exception {
+        mockMvc.perform(get("/api/v1/measurements"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data").isArray())
+                .andExpect(jsonPath("$.data").isEmpty());
     }
 
     @Test

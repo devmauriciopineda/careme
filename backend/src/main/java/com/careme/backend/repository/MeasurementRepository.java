@@ -7,8 +7,8 @@ import com.careme.backend.entity.Measurement;
 /**
  * Data access contract for measurements.
  *
- * <p>The only implementation reads a JSON file today; replacing it with a
- * Spring Data JPA repository later leaves the service untouched.
+ * <p>The only implementation reads from the database; the service depends on this
+ * interface, not on JPA.
  */
 public interface MeasurementRepository {
 

@@ -5,12 +5,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 
 class MeasurementTest {
 
-    private static final String VALID_ID = "measurement-2026-09-06";
+    private static final UUID VALID_ID = UUID.fromString("6f1d0f9a-1f5f-4a0e-9a4e-4f0f6a1c2b3d");
     private static final LocalDate VALID_DATE = LocalDate.of(2026, 9, 6);
 
     @Test
@@ -26,21 +27,14 @@ class MeasurementTest {
     }
 
     @Test
-    void rejectsABlankId() {
-        assertThatThrownBy(() -> new Measurement(
-                " ",
-                VALID_DATE,
-                new BigDecimal("81.1"),
-                new BigDecimal("96.0")))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("id");
-
+    void rejectsAMissingId() {
         assertThatThrownBy(() -> new Measurement(
                 null,
                 VALID_DATE,
                 new BigDecimal("81.1"),
                 new BigDecimal("96.0")))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("id");
     }
 
     @Test

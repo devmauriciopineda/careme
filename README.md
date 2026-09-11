@@ -31,9 +31,9 @@ browser ──▶ frontend (Next.js, port 3000)
                 │  server-side fetch at request time
                 ▼
             backend (Spring Boot, port 8080)
-                │
+                │  Spring Data JPA
                 ▼
-            measurements.json (classpath resource)
+            PostgreSQL (measurements table, Flyway-managed)
 ```
 
 - The **frontend** is a Next.js App Router application. The dashboard is an async
@@ -43,9 +43,8 @@ browser ──▶ frontend (Next.js, port 3000)
 - The **backend** is a Spring Boot REST service with a single read endpoint. It
   follows a layered structure (controller → service → repository) and is the
   source of truth for the API contract.
-- **Storage** is a JSON file shipped with the backend, behind a repository
-  interface. There is no database yet; replacing the file with JPA/PostgreSQL
-  is intended to be a single-class change.
+- **Storage** is PostgreSQL, behind a repository interface. Flyway owns the
+  schema, so the table exists from the first start without manual DDL.
 
 Each service is documented in its own README:
 
@@ -59,9 +58,10 @@ Each service is documented in its own README:
 | Frontend        | Next.js 16 (App Router, Server Components), React 19, TypeScript 5 (strict) |
 | Frontend UI     | Tailwind CSS v4, shadcn/ui, Recharts, lucide-react                          |
 | Frontend data   | Native `fetch` behind a service layer, Zod validation, Vitest + RTL         |
-| Backend         | Java 21, Spring Boot 3.5 (Web MVC, Bean Validation)                         |
+| Backend         | Java 21, Spring Boot 3.5 (Web MVC, Bean Validation, Data JPA)               |
+| Backend data    | PostgreSQL 17, Hibernate ORM 6, Flyway migrations                           |
 | Backend build   | Maven (wrapper committed), JaCoCo coverage gate                             |
-| Backend testing | JUnit 5, Mockito, MockMvc, Spring Boot Test, AssertJ                        |
+| Backend testing | JUnit 5, Mockito, MockMvc, Spring Boot Test, AssertJ, Testcontainers        |
 | Runtime         | Podman with Compose for the containerized stack; pnpm 10 for the frontend   |
 
 ## Use of APIs or external services
@@ -70,7 +70,8 @@ Each service is documented in its own README:
   cloud services, SDKs or analytics integrations.
 - The frontend consumes the backend's own HTTP API (`GET /api/v1/measurements`).
   The contract is documented in [`backend/README.md`](./backend/README.md).
-- There is **no database**: measurements live in a JSON file inside the backend.
+- Measurements live in a **PostgreSQL** table owned by the backend, created and
+  versioned by Flyway migrations.
 - There is **no authentication or authorization** in this MVP.
 - Images and fonts: no image CDN. The only third-party asset source is
   `next/font/google` (Geist and Geist Mono), which Next.js downloads at build
@@ -86,7 +87,7 @@ careme/
 ├── docs/standards/           # coding standards used by both services
 ├── .github/prompts/          # planning prompts kept with the project
 ├── .vscode/settings.json     # editor JDK configuration (Java 21)
-├── docker-compose.yml        # backend + frontend stack
+├── docker-compose.yml        # postgres + backend + frontend stack
 └── README.md
 ```
 
@@ -99,6 +100,9 @@ careme/
 - Podman (with its machine running) for the containerized stack. `podman compose`
   delegates to an external Compose provider, so `docker-compose` must be on the
   PATH.
+- A container runtime reachable through the Docker API for the backend's
+  integration tests. Podman exposes one; see
+  [`backend/README.md`](./backend/README.md).
 
 **Install dependencies**
 
@@ -109,8 +113,8 @@ cd ../backend && ./mvnw dependency:go-offline   # Windows: .\mvnw.cmd dependency
 
 **Environment variables**
 
-Only the frontend needs one, and only when the backend does not run on its
-default address:
+The frontend needs one, and only when the backend does not run on its default
+address:
 
 ```bash
 # frontend/.env.local
@@ -119,6 +123,11 @@ API_BASE_URL=http://localhost:8080
 
 `API_BASE_URL` is read on the server and deliberately has no `NEXT_PUBLIC_`
 prefix, so it is never exposed to the browser.
+
+The backend needs none in development: it defaults to the Postgres started by
+`docker-compose.yml`. The `pre` and `prd` profiles require `CAREME_DB_URL`,
+`CAREME_DB_USER` and `CAREME_DB_PASSWORD`, and the application refuses to boot
+without them.
 
 ## Run guide
 
@@ -130,13 +139,16 @@ podman compose logs -f backend
 podman compose down
 ```
 
-**Local development**, two terminals
+**Local development**, three terminals
 
 ```bash
-# terminal 1
-cd backend && ./mvnw spring-boot:run      # Windows: .\mvnw.cmd spring-boot:run
+# terminal 1 — database only
+podman compose up -d postgres
 
 # terminal 2
+cd backend && ./mvnw spring-boot:run      # Windows: .\mvnw.cmd spring-boot:run
+
+# terminal 3
 cd frontend && pnpm dev
 ```
 
@@ -147,19 +159,28 @@ cd frontend && pnpm dev
 3. The dashboard shows the date range, the record count, one trend chart per
    metric and the daily table. Hover or focus a chart to read individual values:
    with the chart focused, the left and right arrow keys move across data points.
-4. To change the displayed data, edit
-   `backend/src/main/resources/data/measurements.json` and restart the backend
-   (the file is read once and cached in memory).
+4. The table starts empty, so the dashboard first shows its empty state. To add a
+   record, insert a row and reload the page:
+
+   ```bash
+   podman compose exec postgres psql -U careme -d careme \
+     -c "INSERT INTO measurements (date, weight_kg, waist_cm) VALUES (CURRENT_DATE, 80.1, 94.8)"
+   ```
+
+   The backend reads the database on every request, so there is nothing to
+   restart.
 5. If the backend is not running, the frontend shows a "measurements could not be
    loaded" screen with a retry button instead of crashing.
 
 ## Additional notes
 
-- **Measurements are read-only.** There are no create, update or delete
-  operations, no pagination, no filtering and no runtime i18n.
-- **The dataset is a fixture**, not production data. Its contents and the Java
-  version the backend requires are documented in
-  [`backend/README.md`](./backend/README.md).
+- **Measurements are read-only from the application.** There are no create,
+  update or delete endpoints yet, so rows are inserted directly into the
+  database. There is no pagination, no filtering and no runtime i18n.
+- **One measurement per day.** The table has a unique constraint on `date`.
+- **CORS is not required today** because the frontend fetches on the server. It is
+  configured explicitly so a future client-side call cannot open the API to every
+  origin.
 - **Standards.** Both services follow the documents in `docs/standards/`
   (`next-standards.md`, `java-springboot-standards.md`), adopted progressively
   rather than all at once.

@@ -7,6 +7,7 @@ import static org.mockito.Mockito.when;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -16,11 +17,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.careme.backend.dto.MeasurementResponse;
 import com.careme.backend.entity.Measurement;
-import com.careme.backend.exception.ResourceNotFoundException;
 import com.careme.backend.repository.MeasurementRepository;
 
 @ExtendWith(MockitoExtension.class)
 class MeasurementServiceTest {
+
+    private static final UUID ID = UUID.fromString("6f1d0f9a-1f5f-4a0e-9a4e-4f0f6a1c2b3d");
 
     @Mock
     private MeasurementRepository measurementRepository;
@@ -30,7 +32,7 @@ class MeasurementServiceTest {
 
     private static Measurement measurement(String date, String weightKg, String waistCm) {
         return new Measurement(
-                "measurement-" + date,
+                ID,
                 LocalDate.parse(date),
                 new BigDecimal(weightKg),
                 new BigDecimal(waistCm));
@@ -58,7 +60,7 @@ class MeasurementServiceTest {
 
         MeasurementResponse response = measurementService.findAll().getFirst();
 
-        assertThat(response.id()).isEqualTo("measurement-2026-09-06");
+        assertThat(response.id()).isEqualTo(ID);
         assertThat(response.date()).isEqualTo(LocalDate.of(2026, 9, 6));
         assertThat(response.weightKg()).isEqualByComparingTo("81.1");
         assertThat(response.waistCm()).isEqualByComparingTo("96.0");
@@ -72,11 +74,11 @@ class MeasurementServiceTest {
     }
 
     @Test
-    void propagatesTheNotFoundFailureFromTheRepository() {
+    void propagatesAFailureFromTheRepository() {
         when(measurementRepository.findAll())
-                .thenThrow(new ResourceNotFoundException("Measurements data file not found"));
+                .thenThrow(new IllegalStateException("database is unreachable"));
 
         assertThatThrownBy(measurementService::findAll)
-                .isInstanceOf(ResourceNotFoundException.class);
+                .isInstanceOf(IllegalStateException.class);
     }
 }

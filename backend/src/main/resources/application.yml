@@ -1,14 +1,21 @@
 spring:
   application:
     name: careme-backend
+  datasource:
+    url: ${CAREME_DB_URL:jdbc:postgresql://localhost:5432/careme}
+    username: ${CAREME_DB_USER:careme}
+    password: ${CAREME_DB_PASSWORD:careme}
+  jpa:
+    # The Flyway migration owns the schema; Hibernate only checks that it matches.
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
 
 server:
   port: 8080
 
 careme:
-  measurements:
-    # Classpath location of the file that backs the measurements until a
-    # database exists. Swap this for a JDBC/JPA repository later.
-    data-location: classpath:data/measurements.json
   cors:
     allowed-origins: http://localhost:3000
