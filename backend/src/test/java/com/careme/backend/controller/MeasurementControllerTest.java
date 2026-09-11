@@ -22,6 +22,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import com.careme.backend.dto.MeasurementRequest;
 import com.careme.backend.dto.MeasurementResponse;
+import com.careme.backend.service.MeasurementImportService;
 import com.careme.backend.service.MeasurementService;
 
 @WebMvcTest(MeasurementController.class)
@@ -36,6 +37,9 @@ class MeasurementControllerTest {
 
     @MockitoBean
     private MeasurementService measurementService;
+
+    @MockitoBean
+    private MeasurementImportService measurementImportService;
 
     @Test
     void returnsTheMeasurementsInsideTheSuccessEnvelope() throws Exception {

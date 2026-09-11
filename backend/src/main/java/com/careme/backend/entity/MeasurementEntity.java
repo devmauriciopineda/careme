@@ -57,6 +57,11 @@ public class MeasurementEntity {
         this.waistCm = waistCm;
     }
 
+    /** @return the day this row belongs to, its identity within the table */
+    public LocalDate getDate() {
+        return date;
+    }
+
     /**
      * @return the domain representation; the record's invariants reject a row that
      *         was never persisted

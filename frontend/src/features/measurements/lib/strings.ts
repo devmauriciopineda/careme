@@ -27,6 +27,64 @@ export const STRINGS = {
         dateRange: (from: string, to: string) => `Del ${from} al ${to}`,
         empty: "Todavía no hay mediciones registradas.",
     },
+    import: {
+        title: "Cargar mediciones desde un archivo",
+        description:
+            "Sube un archivo CSV con las columnas date, weight_kg y abdominal_circumference_cm. Si un día ya tenía registro, se reemplaza.",
+        file: "Archivo CSV",
+        selected: (name: string) => `Archivo elegido: ${name}`,
+        preview: "Previsualizar",
+        previewing: "Revisando el archivo…",
+        confirm: "Confirmar carga",
+        importing: "Cargando las mediciones…",
+        discard: "Descartar",
+        previewSummary: (
+            total: number,
+            created: number,
+            replaced: number,
+            ignored: number
+        ) =>
+            `El archivo tiene ${total} filas. Mediciones nuevas: ${created}. Reemplazos de un registro existente: ${replaced}. Filas sin datos: ${ignored}.`,
+        previewRowsTitle: "Mediciones que se cargarían",
+        previewRowsCaption:
+            "Peso y circunferencia abdominal por día, con el efecto que tendría la carga.",
+        previewTruncated: (shown: number, total: number) =>
+            `Se muestran las primeras ${shown} de ${total} filas.`,
+        effectNew: "Nueva",
+        effectReplaced: "Reemplaza",
+        tableDate: "Fecha",
+        tableWeight: "Peso (kg)",
+        tableWaist: "Circunferencia (cm)",
+        tableEffect: "Efecto",
+        noRows: "El archivo no contiene ninguna medición que cargar.",
+        fileTooLarge: "El archivo supera los 10 MB. Divídelo en archivos más pequeños.",
+        result: (created: number, replaced: number, ignored: number) =>
+            `Carga completada. Mediciones nuevas: ${created}. Reemplazos: ${replaced}. Filas sin datos: ${ignored}. El seguimiento ya está actualizado.`,
+        rowIssue: (line: number, field: string, reason: string) =>
+            `Fila ${line}: ${field} — ${reason}.`,
+        errors: {
+            header: "No se cargó ninguna medición.",
+            invalidStructure:
+                "El archivo no tiene la estructura esperada. Debe incluir exactamente las columnas date, weight_kg y abdominal_circumference_cm, con la fecha en formato AAAA-MM-DD.",
+            invalidValues: (count: number) => `Motivos encontrados: ${count}.`,
+            tooLarge:
+                "El archivo supera el límite admitido de 10 MB o 10.000 filas. Divídelo en archivos más pequeños.",
+            empty: "El archivo está vacío. Elige un archivo con mediciones.",
+            unreadable: "No pudimos leer el archivo. Inténtalo de nuevo.",
+            unknown: "No pudimos cargar el archivo. Inténtalo de nuevo.",
+        },
+        reasons: {
+            MISSING_DATE: "falta la fecha",
+            INVALID_DATE: "la fecha no es válida",
+            FUTURE_DATE: "la fecha no puede ser futura",
+            MISSING_VALUE: "falta el valor",
+            NOT_A_NUMBER: "no es un número",
+            NOT_POSITIVE: "debe ser mayor que cero",
+            TOO_MANY_DECIMALS: "usa como máximo un decimal",
+            TOO_LARGE: "supera el límite permitido",
+            unknown: "no es válido",
+        },
+    },
     form: {
         title: "Registrar medición",
         description:

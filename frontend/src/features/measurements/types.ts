@@ -21,6 +21,29 @@ export type MeasurementInput = {
     waistCm: number;
 };
 
+/** A measurement read from a file, and what loading it would do. */
+export type ImportPreviewRow = MeasurementInput & {
+    /** `true` when that day already has a measurement, so it would be replaced. */
+    replacesExisting: boolean;
+};
+
+/** What loading a file would do, without doing it. */
+export type ImportPreview = {
+    rows: ImportPreviewRow[];
+    totalRows: number;
+    newCount: number;
+    replacedCount: number;
+    ignoredCount: number;
+};
+
+/** What loading a file did. */
+export type ImportResult = {
+    createdCount: number;
+    replacedCount: number;
+    ignoredCount: number;
+    totalRows: number;
+};
+
 /** Presentation and scale configuration for a tracked metric. */
 export type MetricConfig = {
     key: MetricKey;

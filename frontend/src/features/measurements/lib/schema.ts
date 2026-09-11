@@ -43,6 +43,57 @@ export const measurementCreatedResponseSchema = z.object({
     message: z.string(),
 });
 
+const nonNegativeCount = z.number().int().nonnegative();
+
+const importPreviewRowSchema = z.object({
+    date: z
+        .string()
+        .regex(ISO_DATE_PATTERN, "Expected a date in yyyy-MM-dd format"),
+    weightKg: z.number().positive().max(WEIGHT_MAX_KG),
+    waistCm: z.number().positive().max(WAIST_MAX_CM),
+    replacesExisting: z.boolean(),
+});
+
+/** Success envelope returned when a file is checked without loading it. */
+export const importPreviewResponseSchema = z.object({
+    success: z.literal(true),
+    data: z.object({
+        rows: z.array(importPreviewRowSchema),
+        totalRows: nonNegativeCount,
+        newCount: nonNegativeCount,
+        replacedCount: nonNegativeCount,
+        ignoredCount: nonNegativeCount,
+    }),
+    messageCode: z.string(),
+    message: z.string(),
+});
+
+/** Success envelope returned when a file has been loaded. */
+export const importResultResponseSchema = z.object({
+    success: z.literal(true),
+    data: z.object({
+        createdCount: nonNegativeCount,
+        replacedCount: nonNegativeCount,
+        ignoredCount: nonNegativeCount,
+        totalRows: nonNegativeCount,
+    }),
+    messageCode: z.string(),
+    message: z.string(),
+});
+
+/**
+ * Error envelope of a rejected import. Its `code` is stable and its `details`
+ * are machine-readable, so the wording stays in this application.
+ */
+export const importErrorResponseSchema = z.object({
+    success: z.literal(false),
+    error: z.object({
+        message: z.string(),
+        code: z.string(),
+        details: z.array(z.string()),
+    }),
+});
+
 /** A number that fits in one decimal place, within JavaScript rounding noise. */
 function hasSingleDecimal(value: number): boolean {
     return Number.isFinite(value) && Math.abs(value * 10 - Math.round(value * 10)) < 1e-9;

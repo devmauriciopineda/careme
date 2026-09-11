@@ -11,6 +11,8 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
 import com.careme.backend.dto.ErrorResponse;
 
@@ -41,6 +43,37 @@ public class ApiExceptionHandler {
                         "Malformed request body",
                         "INVALID_REQUEST",
                         List.of("The request body is not valid JSON or has an unsupported format")));
+    }
+
+    /**
+     * A rejected import is a bad request, not a server failure: the client gets
+     * the stable code and the machine-readable details it needs to explain it.
+     */
+    @ExceptionHandler(MeasurementImportException.class)
+    public ResponseEntity<ErrorResponse> handleRejectedImport(MeasurementImportException ex) {
+        log.debug("Rejected an import with {} issue(s): {}", ex.details().size(), ex.code());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ErrorResponse.of(ex.getMessage(), ex.code(), ex.details()));
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErrorResponse> handleOversizedUpload(MaxUploadSizeExceededException ex) {
+        log.debug("Rejected a file larger than the accepted maximum", ex);
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+                .body(ErrorResponse.of(
+                        "The sent file is larger than the accepted maximum",
+                        MeasurementImportException.IMPORT_TOO_LARGE,
+                        List.of("maxFileSize=10MB")));
+    }
+
+    @ExceptionHandler(MissingServletRequestPartException.class)
+    public ResponseEntity<ErrorResponse> handleMissingFilePart(MissingServletRequestPartException ex) {
+        log.debug("Rejected a request that carried no file part", ex);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ErrorResponse.of(
+                        "The request carried no file",
+                        MeasurementImportException.EMPTY_FILE,
+                        List.of()));
     }
 
     @ExceptionHandler(Exception.class)

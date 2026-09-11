@@ -2,14 +2,19 @@ package com.careme.backend.repository;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.careme.backend.entity.Measurement;
+import com.careme.backend.entity.MeasurementDraft;
 import com.careme.backend.entity.MeasurementEntity;
 
 /**
@@ -58,5 +63,49 @@ public class MeasurementJpaRepository implements MeasurementRepository {
                         "Measurement " + id + " disappeared before it could be updated"));
         entity.updateValues(weightKg, waistCm);
         return measurementJpaDao.saveAndFlush(entity).toDomain();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Set<LocalDate> findExistingDates(Collection<LocalDate> dates) {
+        if (dates.isEmpty()) {
+            return Set.of();
+        }
+
+        return measurementJpaDao.findByDateIn(dates).stream()
+                .map(MeasurementEntity::getDate)
+                .collect(Collectors.toSet());
+    }
+
+    @Override
+    @Transactional
+    public List<Measurement> upsertAll(List<MeasurementDraft> drafts) {
+        if (drafts.isEmpty()) {
+            return List.of();
+        }
+
+        Map<LocalDate, MeasurementEntity> existing = measurementJpaDao
+                .findByDateIn(drafts.stream().map(MeasurementDraft::date).toList())
+                .stream()
+                .collect(Collectors.toMap(MeasurementEntity::getDate, entity -> entity));
+
+        List<MeasurementEntity> rows = drafts.stream()
+                .map(draft -> merge(existing.get(draft.date()), draft))
+                .toList();
+
+        // One flush for the whole batch: the caller sees stored rows, and a
+        // failure rolls the batch back as a unit.
+        return measurementJpaDao.saveAllAndFlush(rows).stream()
+                .map(MeasurementEntity::toDomain)
+                .toList();
+    }
+
+    private static MeasurementEntity merge(MeasurementEntity existing, MeasurementDraft draft) {
+        if (existing == null) {
+            return new MeasurementEntity(draft.date(), draft.weightKg(), draft.waistCm());
+        }
+
+        existing.updateValues(draft.weightKg(), draft.waistCm());
+        return existing;
     }
 }

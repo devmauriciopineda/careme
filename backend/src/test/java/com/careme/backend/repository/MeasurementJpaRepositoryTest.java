@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.careme.backend.PostgresIntegrationTest;
 import com.careme.backend.entity.Measurement;
+import com.careme.backend.entity.MeasurementDraft;
 import com.careme.backend.entity.MeasurementEntity;
 
 /**
@@ -30,6 +32,11 @@ class MeasurementJpaRepositoryTest extends PostgresIntegrationTest {
 
     private static MeasurementEntity measurement(String date, String weightKg, String waistCm) {
         return new MeasurementEntity(
+                LocalDate.parse(date), new BigDecimal(weightKg), new BigDecimal(waistCm));
+    }
+
+    private static MeasurementDraft draft(String date, String weightKg, String waistCm) {
+        return new MeasurementDraft(
                 LocalDate.parse(date), new BigDecimal(weightKg), new BigDecimal(waistCm));
     }
 
@@ -111,5 +118,64 @@ class MeasurementJpaRepositoryTest extends PostgresIntegrationTest {
         assertThat(all.getFirst().id()).isEqualTo(created.id());
         assertThat(all.getFirst().weightKg()).isEqualByComparingTo("79.9");
         assertThat(all.getFirst().waistCm()).isEqualByComparingTo("93.4");
+    }
+
+    @Test
+    void createsTheDaysThatHaveNoMeasurementAndReplacesTheOnesThatHave() {
+        measurementJpaDao.saveAndFlush(measurement("2026-09-06", "81.1", "96.0"));
+
+        List<Measurement> stored = measurementJpaRepository.upsertAll(List.of(
+                draft("2026-09-06", "79.9", "93.4"),
+                draft("2026-09-08", "80.4", "95.2")));
+
+        assertThat(stored).hasSize(2);
+        assertThat(measurementJpaRepository.findAll()).hasSize(2);
+
+        Measurement replaced = measurementJpaRepository.findByDate(LocalDate.of(2026, 9, 6))
+                .orElseThrow();
+        assertThat(replaced.weightKg()).isEqualByComparingTo("79.9");
+        assertThat(replaced.waistCm()).isEqualByComparingTo("93.4");
+    }
+
+    @Test
+    void keepsTheIdentityOfTheDayItReplaces() {
+        Measurement created = measurementJpaRepository.create(
+                LocalDate.of(2026, 9, 6), new BigDecimal("81.1"), new BigDecimal("96.0"));
+
+        List<Measurement> stored = measurementJpaRepository.upsertAll(
+                List.of(draft("2026-09-06", "79.9", "93.4")));
+
+        assertThat(stored.getFirst().id()).isEqualTo(created.id());
+    }
+
+    @Test
+    void storesNothingWhenThereAreNoMeasurementsToStore() {
+        assertThat(measurementJpaRepository.upsertAll(List.of())).isEmpty();
+    }
+
+    @Test
+    void refusesABatchThatNamesTheSameDayTwice() {
+        List<MeasurementDraft> drafts = List.of(
+                draft("2026-09-06", "81.1", "96.0"),
+                draft("2026-09-06", "79.9", "93.4"));
+
+        assertThatThrownBy(() -> measurementJpaRepository.upsertAll(drafts))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void reportsWhichOfTheGivenDaysAreAlreadyRecorded() {
+        measurementJpaDao.saveAndFlush(measurement("2026-09-06", "81.1", "96.0"));
+
+        Set<LocalDate> existing = measurementJpaRepository.findExistingDates(List.of(
+                LocalDate.of(2026, 9, 6),
+                LocalDate.of(2026, 9, 8)));
+
+        assertThat(existing).containsExactly(LocalDate.of(2026, 9, 6));
+    }
+
+    @Test
+    void reportsNoDayWhenNoneIsAsked() {
+        assertThat(measurementJpaRepository.findExistingDates(List.of())).isEmpty();
     }
 }
