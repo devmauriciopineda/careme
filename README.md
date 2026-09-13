@@ -8,14 +8,22 @@ daily table.
 
 The project exists to replace a manual spreadsheet: a single place to log body
 measurements day by day and see the trend without doing the math by hand. It is
-an early MVP with no authentication; the whole product is viewing and registering
-body measurements.
+an early MVP with no authentication; today the product is limited to viewing and
+registering body measurements.
+
+> **Product direction.** The project is expanding into an AI assistant for a
+> personal clinical history. The assistant becomes the entry point of the
+> application and body tracking moves to a secondary view. None of this is
+> implemented yet; [`docs/roadmap/`](./docs/roadmap) holds the roadmap and the
+> scope of the MVP of the assistant.
 
 ## General functionality
 
 - Daily records of weight (kg) and abdominal circumference (cm).
 - A registration form that records the measurement of a day; re-registering a day
   replaces its values instead of creating a second record.
+- A CSV import that loads a whole history at once, with a preview that separates
+  the days that are new from the ones that would be replaced.
 - Input validation in Spanish: required fields, positive values, a single decimal,
   the allowed limits and a date that is not in the future.
 - One trend chart per metric, with an axis domain padded around the data range so
@@ -46,9 +54,9 @@ browser ──▶ frontend (Next.js, port 3000)
   registration form is a client island that submits through a Server Action,
   which revalidates the path so the charts and the table refresh on their own.
   Recharts is the only other client-side island.
-- The **backend** is a Spring Boot REST service with a read and a write endpoint.
-  It follows a layered structure (controller → service → repository) and is the
-  source of truth for the API contract.
+- The **backend** is a Spring Boot REST service with read, write and import
+  endpoints. It follows a layered structure (controller → service → repository)
+  and is the source of truth for the API contract.
 - **Storage** is PostgreSQL, behind a repository interface. Flyway owns the
   schema, so the table exists from the first start without manual DDL.
 
@@ -72,11 +80,13 @@ Each service is documented in its own README:
 
 ## Use of APIs or external services
 
-- The application consumes **no external or third-party APIs**. There are no
-  cloud services, SDKs or analytics integrations.
+- The application consumes **no external or third-party APIs** today. There are no
+  cloud services, SDKs or analytics integrations. The planned assistant will call
+  an OpenAI-compatible LLM provider from the backend, with its key read from an
+  environment variable; see [`docs/roadmap/`](./docs/roadmap).
 - The frontend consumes the backend's own HTTP API
-  (`GET` and `POST /api/v1/measurements`). The contract is documented in
-  [`backend/README.md`](./backend/README.md).
+  (`GET` and `POST /api/v1/measurements`, plus the CSV import endpoints). The
+  contract is documented in [`backend/README.md`](./backend/README.md).
 - Measurements live in a **PostgreSQL** table owned by the backend, created and
   versioned by Flyway migrations.
 - There is **no authentication or authorization** in this MVP.
@@ -91,7 +101,9 @@ Each service is documented in its own README:
 careme/
 ├── backend/                  # Spring Boot REST service (own README)
 ├── frontend/                 # Next.js dashboard (own README)
+├── docs/roadmap/             # roadmap and MVP scope of the AI assistant
 ├── docs/standards/           # coding standards used by both services
+├── docs/use-cases/           # formal use cases (UC-001 …)
 ├── .github/prompts/          # planning prompts kept with the project
 ├── .vscode/settings.json     # editor JDK configuration (Java 21)
 ├── docker-compose.yml        # postgres + backend + frontend stack
@@ -166,24 +178,19 @@ cd frontend && pnpm dev
 3. The dashboard shows the date range, the record count, one trend chart per
    metric and the daily table. Hover or focus a chart to read individual values:
    with the chart focused, the left and right arrow keys move across data points.
-4. The table starts empty, so the dashboard first shows its empty state. To add a
-   record, insert a row and reload the page:
-
-   ```bash
-   podman compose exec postgres psql -U careme -d careme \
-     -c "INSERT INTO measurements (date, weight_kg, waist_cm) VALUES (CURRENT_DATE, 80.1, 94.8)"
-   ```
-
-   The backend reads the database on every request, so there is nothing to
-   restart.
+4. The table starts empty, so the dashboard first shows its empty state. Register
+   the measurement of a day with the registration form, or load a CSV file with
+   the import action. Re-registering a day replaces its values, because there is
+   at most one measurement per day.
 5. If the backend is not running, the frontend shows a "measurements could not be
    loaded" screen with a retry button instead of crashing.
 
 ## Additional notes
 
-- **Measurements are read-only from the application.** There are no create,
-  update or delete endpoints yet, so rows are inserted directly into the
-  database. There is no pagination, no filtering and no runtime i18n.
+- **Measurements can be registered and imported, but not edited or deleted.**
+  The registration form replaces the values of a day that already has one, and
+  the CSV import does the same in bulk. There is no delete endpoint, no
+  pagination, no filtering and no runtime i18n.
 - **One measurement per day.** The table has a unique constraint on `date`.
 - **CORS is not required today** because the frontend fetches on the server. It is
   configured explicitly so a future client-side call cannot open the API to every

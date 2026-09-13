@@ -6,3 +6,16 @@ Thumbs.db
 .env
 .env.local
 .env.*.local
+
+# context-mode runtime artifacts
+*.db
+*.db-shm
+*.db-wal
+
+# context-mode session files
+.github/context-mode/sessions/
+
+# graphify output
+graphify-out/cost.json
+graphify-out/cache/
+graphify-out/20*
