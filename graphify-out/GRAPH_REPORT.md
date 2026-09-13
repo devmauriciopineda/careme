@@ -1,26 +1,26 @@
 # Graph Report - careme  (2026-09-13)
 
 ## Corpus Check
-- 166 files · ~86,119 words
+- 180 files · ~94,796 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1374 nodes · 2462 edges · 114 communities (99 shown, 15 thin omitted)
-- Extraction: 92% EXTRACTED · 8% INFERRED · 0% AMBIGUOUS · INFERRED: 207 edges (avg confidence: 0.82)
+- 1526 nodes · 2679 edges · 130 communities (114 shown, 16 thin omitted)
+- Extraction: 92% EXTRACTED · 8% INFERRED · 0% AMBIGUOUS · INFERRED: 218 edges (avg confidence: 0.82)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `61a2d7a4`
+- Built from commit: `8f622cdf`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
 - MeasurementImportControllerTest
-- Measurement
+- MeasurementJpaRepositoryTest
 - schema.ts
 - actions.ts
 - metrics.ts
-- org.junit.jupiter.api.Test
+- MeasurementCsvParserTest
 - ClinicalEventIntent
 - dependencies
 - compilerOptions
@@ -36,7 +36,7 @@
 - Careme Backend README
 - MeasurementImportService
 - application.yml
-- CorsConfig.java
+- .configurationForApiMapping
 - CaremeBackendApplication
 - MeasurementForm.tsx
 - V1__create_measurements_table.sql
@@ -81,13 +81,13 @@
 - ClinicalEventMarkdownStore
 - .process
 - Decisions
-- ClinicalEvent.java
+- ClinicalEventDateNormalizer
 - openspec-explore/SKILL.md
 - opsx-explore.prompt.md
 - scripts
 - proposal.md
 - Kind
-- ClinicalEventType
+- Requirement: Confirmar el resultado y mantener atomicidad ante fallos
 - package.json
 - tasks.md
 - Kind
@@ -97,12 +97,12 @@
 - @testing-library/react
 - @types/react
 - MeasurementCsvParser
-- MeasurementRepository
-- MeasurementImportService
-- ChatWorkspace.tsx
+- MeasurementServiceTest
+- MeasurementController.java
+- ChatWorkspace.test.tsx
 - MeasurementImportServiceTest
 - Requirement: Return explicit chat outcomes
-- MeasurementControllerTest
+- MeasurementRepository
 - Requirement: Return explicit chat outcomes
 - Requirement: Produce provider-neutral clinical intents
 - Requirement: Produce provider-neutral clinical intents
@@ -116,18 +116,34 @@
 - Requirement: Register clinical events through the conversation boundary
 - 2026-09-13-assistant-chat-llm-integration/tasks.md
 - LlmIntegrationException
+- ChatOrchestrator
+- org.junit.jupiter.api.Test
+- CaremeBackendApplicationTests
+- OpenAiClinicalIntentInterpreterTest
+- OpenAiClinicalIntentInterpreter
+- Measurement
+- MeasurementEntity
+- Decisions
+- 2026-09-13-chat-server-side-transport/design.md
+- Requirement: Represent clarification, success, duplicate, and failure states
+- Status
+- 2026-09-13-chat-server-side-transport/proposal.md
+- 2026-09-13-fix-clinical-event-storage/proposal.md
+- 2026-09-13-fix-clinical-event-storage/tasks.md
+- Requirement: Allow the declared origin to reach the operations a browser client uses
+- 2026-09-13-chat-server-side-transport/tasks.md
 
 ## God Nodes (most connected - your core abstractions)
-1. `ClinicalEvent` - 46 edges
+1. `ClinicalEvent` - 48 edges
 2. `MeasurementCsvParserTest` - 29 edges
-3. `Measurement` - 27 edges
-4. `ClinicalEventIntent` - 26 edges
-5. `ClinicalEventMarkdownStore` - 22 edges
+3. `ClinicalEventIntent` - 27 edges
+4. `Measurement` - 27 edges
+5. `ClinicalEventMarkdownStore` - 27 edges
 6. `MeasurementJpaRepositoryTest` - 22 edges
 7. `MeasurementDraft` - 21 edges
 8. `Especificación de alcance — MVP del asistente de historia clínica personal` - 21 edges
 9. `MeasurementCsvParser` - 20 edges
-10. `MeasurementEntity` - 18 edges
+10. `ClinicalEventRegistrationService` - 19 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `Response Envelope Pattern` --semantically_similar_to--> `ApiResponse Envelope`  [INFERRED] [semantically similar]
@@ -149,15 +165,15 @@
 - **Frontend Measurement Feature** — _github_prompts_plan_carememeasurements_prompt_measurements_dashboard, _github_prompts_plan_carememeasurements_prompt_metric_trend_chart, _github_prompts_plan_carememeasurements_prompt_measurements_table, _github_prompts_plan_carememeasurements_prompt_measurement_service, _github_prompts_plan_carememeasurements_prompt_metrics_lib [EXTRACTED 1.00]
 - **JPA Persistence Stack** — _github_prompts_plan_postgrespersistence_prompt_measurement_entity, _github_prompts_plan_postgrespersistence_prompt_measurement_jpa_dao, _github_prompts_plan_postgrespersistence_prompt_measurement_jpa_repository, _github_prompts_plan_postgrespersistence_prompt_flyway, readme_postgresql [EXTRACTED 1.00]
 
-## Communities (114 total, 15 thin omitted)
+## Communities (130 total, 16 thin omitted)
 
 ### Community 0 - "MeasurementImportControllerTest"
-Cohesion: 0.16
+Cohesion: 0.17
 Nodes (6): ImportPreviewResponse, ImportPreviewRow, ImportResultResponse, MeasurementImportControllerTest, MockMultipartFile, org.springframework.mock.web.MockMultipartFile
 
-### Community 1 - "Measurement"
-Cohesion: 0.06
-Nodes (24): Measurement, Measurement, MeasurementEntity, MeasurementJpaDao, Override, MeasurementJpaRepository, CaremeBackendApplicationTests, ChatControllerTest (+16 more)
+### Community 1 - "MeasurementJpaRepositoryTest"
+Cohesion: 0.17
+Nodes (5): Override, MeasurementJpaRepository, MeasurementJpaRepositoryTest, org.springframework.stereotype.Repository, org.springframework.transaction.annotation.Transactional
 
 ### Community 2 - "schema.ts"
 Cohesion: 0.13
@@ -171,13 +187,9 @@ Nodes (14): ConfirmImportResult, confirmMeasurementImport(), ImportErrorInfo, Pr
 Cohesion: 0.18
 Nodes (22): Separator(), CHART_DESCRIPTIONS, MeasurementsDashboard(), MeasurementsTable(), MetricTrendChart(), buildChartSummary(), buildSeries(), computeDateRange() (+14 more)
 
-### Community 5 - "org.junit.jupiter.api.Test"
-Cohesion: 0.09
-Nodes (8): MeasurementDraft, ClinicalEventTest, MeasurementDraftTest, MeasurementCsvParserTest, OpenAiClinicalIntentInterpreterTest, com.sun.net.httpserver.HttpServer, org.junit.jupiter.api.AfterEach, org.junit.jupiter.api.Test
-
 ### Community 6 - "ClinicalEventIntent"
-Cohesion: 0.13
-Nodes (13): Candidate, ClinicalEventIntent, InterpretationContext, FakeClinicalIntentInterpreter, Override, Override, OpenAiClinicalIntentInterpreter, ClinicalEventIntentValidatorTest (+5 more)
+Cohesion: 0.16
+Nodes (9): Candidate, ClinicalEventIntent, PendingEvent, InterpretationContext, Override, Override, ClinicalEventIntentValidatorTest, FakeClinicalIntentInterpreterTest (+1 more)
 
 ### Community 7 - "dependencies"
 Cohesion: 0.09
@@ -196,8 +208,8 @@ Cohesion: 0.10
 Nodes (21): eslint, eslint-config-next, devDependencies, eslint, eslint-config-next, tailwindcss, @testing-library/jest-dom, @testing-library/user-event (+13 more)
 
 ### Community 11 - "org.springframework.http.ResponseEntity"
-Cohesion: 0.09
-Nodes (22): ChatController, ClinicalEventIndexController, ErrorDetail, ErrorResponse, ApiExceptionHandler, ClinicalEventIndexRebuilder, ClinicalEventIndexStartupReconciler, ApiExceptionHandlerTest (+14 more)
+Cohesion: 0.14
+Nodes (17): ErrorDetail, ErrorResponse, ApiExceptionHandler, ClinicalEventIndexStartupReconciler, ApiExceptionHandlerTest, org.slf4j.Logger, org.springframework.boot.context.event.ApplicationReadyEvent, org.springframework.context.event.EventListener (+9 more)
 
 ### Community 12 - "components.json"
 Cohesion: 0.09
@@ -235,9 +247,9 @@ Nodes (5): All-or-nothing Transaction, Apache Commons CSV, MeasurementCsvParser,
 Cohesion: 0.20
 Nodes (11): Flyway Migrations, PostgreSQL Persistence, Testcontainers, UNIQUE(date) Constraint, UUID Primary Key, V1__create_measurements_table.sql, PostgresIntegrationTest, Dev Profile Configuration (+3 more)
 
-### Community 21 - "CorsConfig.java"
-Cohesion: 0.43
-Nodes (5): CorsConfig, org.springframework.context.annotation.Bean, org.springframework.context.annotation.Configuration, org.springframework.web.servlet.config.annotation.WebMvcConfigurer, WebMvcConfigurer
+### Community 21 - ".configurationForApiMapping"
+Cohesion: 0.21
+Nodes (9): CorsConfig, CorsConfigTest, InspectableCorsRegistry, org.springframework.context.annotation.Bean, org.springframework.context.annotation.Configuration, org.springframework.web.cors.CorsConfiguration, org.springframework.web.servlet.config.annotation.CorsRegistry, org.springframework.web.servlet.config.annotation.WebMvcConfigurer (+1 more)
 
 ### Community 23 - "MeasurementForm.tsx"
 Cohesion: 0.14
@@ -364,27 +376,27 @@ Cohesion: 0.67
 Nodes (3): 9. Responsabilidades del LLM y del backend, Backend, LLM
 
 ### Community 63 - "Requirements"
-Cohesion: 0.08
-Nodes (24): clinical-event-registration Specification, Purpose, Requirement: Confirmar el resultado y mantener atomicidad ante fallos, Requirement: Conservar la precisión temporal, Requirement: Evitar duplicados dentro de la conversación, Requirement: Rechazar contenido no registrable o ambiguo, Requirement: Registrar eventos clínicos mediante la frontera conversacional, Requirement: Registrar hechos clínicos propios (+16 more)
+Cohesion: 0.06
+Nodes (34): clinical-event-registration Specification, Purpose, Requirement: Asignar códigos de evento únicos y no reutilizables, Requirement: Confirmar el resultado y mantener atomicidad ante fallos, Requirement: Conservar la precisión temporal, Requirement: Evitar duplicados dentro de la conversación, Requirement: Garantizar la persistencia y el diagnóstico del almacenamiento Markdown, Requirement: Rechazar contenido no registrable o ambiguo (+26 more)
 
 ### Community 64 - "ADDED Requirements"
 Cohesion: 0.10
 Nodes (19): ADDED Requirements, Purpose, Requirement: Confirmar el resultado y mantener atomicidad ante fallos, Requirement: Conservar la precisión temporal, Requirement: Evitar duplicados dentro de la conversación, Requirement: Rechazar contenido no registrable o ambiguo, Requirement: Registrar hechos clínicos propios, Scenario: Confirmar un registro exitoso (+11 more)
 
 ### Community 65 - "ClinicalEvent"
-Cohesion: 0.15
-Nodes (10): ClinicalEvent, EventSource, PATIENT, ClinicalEventConversationRegistry, ClinicalEventIndexWriter, ClinicalEventIntentValidator, ClinicalEventRegistrationResult, ClinicalEventRegistrationService (+2 more)
+Cohesion: 0.09
+Nodes (17): EventSummary, ClinicalEvent, ClinicalEventType, DIAGNOSIS, MEASUREMENT, MEDICATION, NOTE, EventSource (+9 more)
 
 ### Community 67 - ".process"
-Cohesion: 0.10
-Nodes (16): ChatMessageRequest, ChatMessageResponse, EventSummary, Status, CLARIFICATION_REQUIRED, DUPLICATE, FAILED, GENERAL_CONVERSATION (+8 more)
+Cohesion: 0.19
+Nodes (5): ChatMessageRequest, ChatMessageResponse, ConversationStateStore, State, ChatOrchestratorTest
 
 ### Community 68 - "Decisions"
 Cohesion: 0.17
 Nodes (11): Context, Contrato estructurado entre chat y registro, Decisions, Duplicación limitada a la conversación actual, Goals / Non-Goals, La aplicación valida antes de persistir, Markdown como fuente primaria y PostgreSQL como índice derivado, Migration Plan (+3 more)
 
-### Community 69 - "ClinicalEvent.java"
-Cohesion: 0.18
+### Community 69 - "ClinicalEventDateNormalizer"
+Cohesion: 0.19
 Nodes (8): DatePrecision, APPROXIMATE, EXACT, UNKNOWN, ClinicalEventDateNormalizer, NormalizedDate, ClinicalEventDateNormalizerTest, java.util.regex.Pattern
 
 ### Community 70 - "openspec-explore/SKILL.md"
@@ -407,9 +419,9 @@ Nodes (6): Capabilities, Impact, Modified Capabilities, New Capabilities, What C
 Cohesion: 0.25
 Nodes (7): Status, Kind, CLARIFICATION, CONVERSATION, DUPLICATE, FAILURE, REGISTERED
 
-### Community 75 - "ClinicalEventType"
-Cohesion: 0.40
-Nodes (5): ClinicalEventType, DIAGNOSIS, MEASUREMENT, MEDICATION, NOTE
+### Community 75 - "Requirement: Confirmar el resultado y mantener atomicidad ante fallos"
+Cohesion: 0.10
+Nodes (20): ADDED Requirements, MODIFIED Requirements, Requirement: Asignar códigos de evento únicos y no reutilizables, Requirement: Confirmar el resultado y mantener atomicidad ante fallos, Requirement: Garantizar la persistencia y el diagnóstico del almacenamiento Markdown, Requirement: Registrar eventos clínicos mediante la frontera conversacional, Scenario: Configurar la ubicación de la fuente de verdad, Scenario: Confirmar un registro exitoso (+12 more)
 
 ### Community 76 - "package.json"
 Cohesion: 0.40
@@ -424,28 +436,28 @@ Cohesion: 0.50
 Nodes (4): Kind, CLARIFICATION, CONVERSATION, EVENTS
 
 ### Community 94 - "MeasurementCsvParser"
-Cohesion: 0.19
-Nodes (7): MeasurementRequest, MeasurementImportException, MeasurementCsvParser, ParsedCsv, jakarta.validation.ConstraintViolation, jakarta.validation.Validator, org.apache.commons.csv.CSVFormat
+Cohesion: 0.22
+Nodes (6): MeasurementImportException, MeasurementCsvParser, ParsedCsv, jakarta.validation.ConstraintViolation, jakarta.validation.Validator, org.apache.commons.csv.CSVFormat
 
-### Community 95 - "MeasurementRepository"
-Cohesion: 0.21
-Nodes (5): MeasurementRepository, Measurement, MeasurementServiceTest, org.junit.jupiter.api.extension.ExtendWith, org.mockito.junit.jupiter.MockitoExtension
-
-### Community 96 - "MeasurementImportService"
-Cohesion: 0.25
-Nodes (7): MeasurementController, ApiResponse, MeasurementImportService, MeasurementService, org.springframework.web.bind.annotation.GetMapping, org.springframework.web.bind.annotation.PostMapping, org.springframework.web.multipart.MultipartFile
-
-### Community 97 - "ChatWorkspace.tsx"
+### Community 95 - "MeasurementServiceTest"
 Cohesion: 0.18
-Nodes (10): metadata, ChatWorkspace(), submit(), Message, statusLabels, ChatResponse, ChatStatus, API_BASE_URL (+2 more)
+Nodes (5): MeasurementResponse, Measurement, MeasurementServiceTest, org.junit.jupiter.api.extension.ExtendWith, org.mockito.junit.jupiter.MockitoExtension
+
+### Community 96 - "MeasurementController.java"
+Cohesion: 0.37
+Nodes (5): MeasurementController, ApiResponse, org.springframework.web.bind.annotation.GetMapping, org.springframework.web.bind.annotation.PostMapping, org.springframework.web.multipart.MultipartFile
+
+### Community 97 - "ChatWorkspace.test.tsx"
+Cohesion: 0.08
+Nodes (23): metadata, sendChatMessage(), SendChatResult, chatServiceMock, RESPONSE, ChatWorkspace(), recordFailure(), submit() (+15 more)
 
 ### Community 99 - "Requirement: Return explicit chat outcomes"
-Cohesion: 0.12
-Nodes (15): assistant-conversation Specification, Purpose, Requirement: Make message retries idempotent, Requirement: Process chat messages through a bounded conversation, Requirement: Return explicit chat outcomes, Requirements, Scenario: Continue a conversation after clarification, Scenario: Conversation state is lost after restart (+7 more)
+Cohesion: 0.11
+Nodes (18): assistant-conversation Specification, Purpose, Requirement: Allow the declared origin to reach the operations a browser client uses, Requirement: Make message retries idempotent, Requirement: Process chat messages through a bounded conversation, Requirement: Return explicit chat outcomes, Requirements, Scenario: Accept a preflight for a browser write (+10 more)
 
-### Community 100 - "MeasurementControllerTest"
-Cohesion: 0.20
-Nodes (4): MeasurementResponse, MeasurementControllerTest, org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest, org.springframework.test.context.TestPropertySource
+### Community 100 - "MeasurementRepository"
+Cohesion: 0.15
+Nodes (7): MeasurementRequest, MeasurementRepository, MeasurementImportService, MeasurementService, MeasurementControllerTest, org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest, org.springframework.test.context.TestPropertySource
 
 ### Community 101 - "Requirement: Return explicit chat outcomes"
 Cohesion: 0.13
@@ -464,8 +476,8 @@ Cohesion: 0.17
 Nodes (11): Backend owns orchestration, Context, Decisions, Ephemeral state with bounded keys, Frontend client boundary, Goals / Non-Goals, Markdown plus derived PostgreSQL index, Migration Plan (+3 more)
 
 ### Community 105 - "Requirement: Represent clarification, success, duplicate, and failure states"
-Cohesion: 0.18
-Nodes (10): assistant-chat-interface Specification, Purpose, Requirement: Represent clarification, success, duplicate, and failure states, Requirement: Send and display assistant turns, Requirements, Scenario: Continue after clarification, Scenario: Retry a failed request, Scenario: Show request progress (+2 more)
+Cohesion: 0.15
+Nodes (12): assistant-chat-interface Specification, Purpose, Requirement: Represent clarification, success, duplicate, and failure states, Requirement: Send and display assistant turns, Requirements, Scenario: Continue after clarification, Scenario: Retry a failed request, Scenario: Send a turn without exposing the API address (+4 more)
 
 ### Community 106 - "MetricTrendChart.tsx"
 Cohesion: 0.31
@@ -495,25 +507,89 @@ Nodes (5): ADDED Requirements, Requirement: Register clinical events through the
 Cohesion: 0.33
 Nodes (5): 1. Backend conversation contract, 2. LLM intent adapter, 3. Clinical event integration, 4. Frontend chat interface, 5. Security and verification
 
+### Community 114 - "ChatOrchestrator"
+Cohesion: 0.18
+Nodes (7): ChatController, ClinicalEventIndexController, ChatOrchestrator, ClinicalEventIndexRebuilder, ChatControllerTest, org.springframework.web.bind.annotation.RequestMapping, org.springframework.web.bind.annotation.RestController
+
+### Community 115 - "org.junit.jupiter.api.Test"
+Cohesion: 0.24
+Nodes (4): MeasurementDraft, ClinicalEventTest, MeasurementDraftTest, org.junit.jupiter.api.Test
+
+### Community 116 - "CaremeBackendApplicationTests"
+Cohesion: 0.19
+Nodes (7): CaremeBackendApplicationTests, PostgresIntegrationTest, org.springframework.beans.factory.annotation.Autowired, org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc, org.springframework.boot.test.context.SpringBootTest, org.springframework.test.web.servlet.MockMvc, org.testcontainers.containers.PostgreSQLContainer
+
+### Community 117 - "OpenAiClinicalIntentInterpreterTest"
+Cohesion: 0.24
+Nodes (4): OpenAiClinicalIntentInterpreterTest, com.sun.net.httpserver.HttpServer, org.junit.jupiter.api.AfterEach, org.junit.jupiter.api.BeforeEach
+
+### Community 118 - "OpenAiClinicalIntentInterpreter"
+Cohesion: 0.21
+Nodes (8): ClinicalIntentInterpreter, FakeClinicalIntentInterpreter, OpenAiClinicalIntentInterpreter, Builder, com.fasterxml.jackson.databind.ObjectMapper, org.springframework.boot.autoconfigure.condition.ConditionalOnProperty, org.springframework.web.client.RestClient, Resource
+
+### Community 119 - "Measurement"
+Cohesion: 0.21
+Nodes (3): Measurement, Measurement, MeasurementTest
+
+### Community 120 - "MeasurementEntity"
+Cohesion: 0.23
+Nodes (5): MeasurementEntity, MeasurementJpaDao, jakarta.persistence.Entity, jakarta.persistence.Table, org.springframework.data.jpa.repository.JpaRepository
+
+### Community 121 - "Decisions"
+Cohesion: 0.15
+Nodes (12): Context, Decisions, Event codes are derived from the persisted documents, Goals / Non-Goals, Migration Plan, Open Questions, Publication is create-only, Risks / Trade-offs (+4 more)
+
+### Community 122 - "2026-09-13-chat-server-side-transport/design.md"
+Cohesion: 0.17
+Nodes (11): apiConfig keeps the local fallback but loses the public branch, chatService validates the response and normalizes its failures, Context, Decisions, Goals / Non-Goals, Migration Plan, Open Questions, Risks / Trade-offs (+3 more)
+
+### Community 123 - "Requirement: Represent clarification, success, duplicate, and failure states"
+Cohesion: 0.18
+Nodes (10): MODIFIED Requirements, Requirement: Represent clarification, success, duplicate, and failure states, Requirement: Send and display assistant turns, Scenario: Continue after clarification, Scenario: Retry a failed request, Scenario: Send a turn without exposing the API address, Scenario: Show request progress, Scenario: Submit a message (+2 more)
+
+### Community 124 - "Status"
+Cohesion: 0.22
+Nodes (8): Status, CLARIFICATION_REQUIRED, DUPLICATE, FAILED, GENERAL_CONVERSATION, REGISTERED, value(), com.fasterxml.jackson.annotation.JsonValue
+
+### Community 125 - "2026-09-13-chat-server-side-transport/proposal.md"
+Cohesion: 0.29
+Nodes (6): Capabilities, Impact, Modified Capabilities, New Capabilities, What Changes, Why
+
+### Community 126 - "2026-09-13-fix-clinical-event-storage/proposal.md"
+Cohesion: 0.29
+Nodes (6): Capabilities, Impact, Modified Capabilities, New Capabilities, What Changes, Why
+
+### Community 127 - "2026-09-13-fix-clinical-event-storage/tasks.md"
+Cohesion: 0.29
+Nodes (6): 1. Configurable source-of-truth location, 2. Writable data directory in the image, 3. Durable Markdown source of truth, 4. Diagnosability, 5. Verification, 6. Event code allocation and non-destructive publication
+
+### Community 128 - "Requirement: Allow the declared origin to reach the operations a browser client uses"
+Cohesion: 0.40
+Nodes (4): ADDED Requirements, Requirement: Allow the declared origin to reach the operations a browser client uses, Scenario: Accept a preflight for a browser write, Scenario: Keep unused verbs closed
+
+### Community 129 - "2026-09-13-chat-server-side-transport/tasks.md"
+Cohesion: 0.40
+Nodes (4): 1. API reachability for a browser client, 2. Server-side chat transport, 3. Interface, 4. Verification
+
 ## Knowledge Gaps
-- **521 isolated node(s):** `com.careme:backend`, `REGISTERED`, `CLARIFICATION_REQUIRED`, `GENERAL_CONVERSATION`, `DUPLICATE` (+516 more)
+- **602 isolated node(s):** `com.careme:backend`, `REGISTERED`, `CLARIFICATION_REQUIRED`, `GENERAL_CONVERSATION`, `DUPLICATE` (+597 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **15 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **16 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `ClinicalEvent` connect `ClinicalEvent` to `ClinicalEventMarkdownStore`, `.process`, `ClinicalEvent.java`, `ClinicalEventIntent`, `org.junit.jupiter.api.Test`, `org.springframework.http.ResponseEntity`, `ClinicalEventType`?**
-  _High betweenness centrality (0.017) - this node is a cross-community bridge._
-- **Why does `ClinicalEventIntent` connect `ClinicalEventIntent` to `ClinicalEvent`, `.process`, `ClinicalEvent.java`, `Kind`?**
-  _High betweenness centrality (0.007) - this node is a cross-community bridge._
-- **Why does `MeasurementDraft` connect `org.junit.jupiter.api.Test` to `MeasurementImportControllerTest`, `Measurement`, `MeasurementImportServiceTest`, `MeasurementCsvParser`?**
-  _High betweenness centrality (0.007) - this node is a cross-community bridge._
-- **Are the 5 inferred relationships involving `ClinicalEvent` (e.g. with `.acceptsAnApproximateEventWithoutInventedDate()` and `.acceptsAnExactPatientEvent()`) actually correct?**
-  _`ClinicalEvent` has 5 INFERRED edges - model-reasoned connections that need verification._
+- **Why does `ClinicalEvent` connect `ClinicalEvent` to `ClinicalEventMarkdownStore`, `.process`, `ClinicalEventDateNormalizer`, `ClinicalEventIntent`, `ChatOrchestrator`, `org.junit.jupiter.api.Test`, `OpenAiClinicalIntentInterpreterTest`, `OpenAiClinicalIntentInterpreter`, `Status`?**
+  _High betweenness centrality (0.013) - this node is a cross-community bridge._
+- **Why does `ClinicalEventMarkdownStore` connect `ClinicalEventMarkdownStore` to `ClinicalEvent`, `ChatOrchestrator`, `CaremeBackendApplicationTests`, `ClinicalEventDateNormalizer`?**
+  _High betweenness centrality (0.010) - this node is a cross-community bridge._
+- **Why does `MeasurementDraft` connect `org.junit.jupiter.api.Test` to `MeasurementImportControllerTest`, `MeasurementJpaRepositoryTest`, `MeasurementImportServiceTest`, `MeasurementRepository`, `CaremeBackendApplicationTests`, `Measurement`, `MeasurementEntity`, `MeasurementCsvParser`?**
+  _High betweenness centrality (0.006) - this node is a cross-community bridge._
+- **Are the 4 inferred relationships involving `ClinicalEvent` (e.g. with `.acceptsAnApproximateEventWithoutInventedDate()` and `.acceptsAnExactPatientEvent()`) actually correct?**
+  _`ClinicalEvent` has 4 INFERRED edges - model-reasoned connections that need verification._
+- **Are the 3 inferred relationships involving `ClinicalEventIntent` (e.g. with `.registersEventAndReturnsOriginalOutcomeOnRetry()` and `.acceptsEventsClarificationsAndConversation()`) actually correct?**
+  _`ClinicalEventIntent` has 3 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 4 inferred relationships involving `Measurement` (e.g. with `.acceptsACompleteMeasurement()` and `.rejectsAMissingDate()`) actually correct?**
   _`Measurement` has 4 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 5 inferred relationships involving `ClinicalEventIntent` (e.g. with `.registersEventAndReturnsOriginalOutcomeOnRetry()` and `.acceptsEventsClarificationsAndConversation()`) actually correct?**
-  _`ClinicalEventIntent` has 5 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `com.careme:backend`, `REGISTERED`, `CLARIFICATION_REQUIRED` to the rest of the system?**
-  _521 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _602 weakly-connected nodes found - possible documentation gaps or missing edges._

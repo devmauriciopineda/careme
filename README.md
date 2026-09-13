@@ -76,7 +76,7 @@ Each service is documented in its own README:
 | Backend data    | PostgreSQL 17, Hibernate ORM 6, Flyway migrations                           |
 | Backend build   | Maven (wrapper committed), JaCoCo coverage gate                             |
 | Backend testing | JUnit 5, Mockito, MockMvc, Spring Boot Test, AssertJ, Testcontainers        |
-| Runtime         | Podman with Compose for the containerized stack; pnpm 10 for the frontend   |
+| Runtime         | Podman (preferred) or Docker with Compose; pnpm 10 for the frontend        |
 
 ## Use of APIs or external services
 
@@ -116,11 +116,27 @@ careme/
 
 - Java 21 (JDK). The backend build fails on a different major version.
 - Node.js 22+ and pnpm 10 (`corepack enable`).
-- Podman (with its machine running) for the containerized stack. `podman compose`
-  delegates to an external Compose provider, so `docker-compose` must be on the
-  PATH.
-- A container runtime reachable through the Docker API for the backend's
-  integration tests. Podman exposes one; see
+- A container runtime for PostgreSQL and the containerized stack (see below).
+
+**Container runtime — Podman first, Docker as fallback**
+
+Containers run with **Podman** whenever it is available. Use **Docker** only when
+Podman is not installed: every `podman` command below has a `docker` equivalent.
+
+| Purpose              | Preferred (Podman)                 | Fallback (Docker)                 |
+| -------------------- | ---------------------------------- | --------------------------------- |
+| Whole stack          | `podman compose up --build -d`     | `docker compose up --build -d`    |
+| Database only        | `podman compose up -d postgres`    | `docker compose up -d postgres`   |
+| Follow backend logs  | `podman compose logs -f backend`   | `docker compose logs -f backend`  |
+| Stop the stack       | `podman compose down`              | `docker compose down`             |
+
+- On macOS/Windows, start the Podman machine first (`podman machine start`).
+- `podman compose` delegates to an external Compose provider, so `docker-compose`
+  must be on the PATH. Verified here: `podman compose` runs
+  `docker-compose.exe` (Docker Compose v5), so the Docker **engine** is not
+  needed — only the `docker-compose` CLI plus a running Podman machine.
+- The backend's integration tests need a container runtime reachable through the
+  Docker API. Podman exposes one; see
   [`backend/README.md`](./backend/README.md).
 
 **Install dependencies**
@@ -150,26 +166,87 @@ without them.
 
 ## Run guide
 
-**Whole stack with containers** (verified)
+### Option A — Whole stack with containers
+
+No local JDK, Node or PostgreSQL needed; the images build everything.
 
 ```bash
-podman compose up --build -d
-podman compose logs -f backend
-podman compose down
+podman compose up --build -d       # Docker: docker compose up --build -d
+podman compose logs -f backend     # wait for "Started CaremeBackendApplication"
+podman compose down                # stop and remove the stack
 ```
 
-**Local development**, three terminals
+Then: frontend at http://localhost:3000, backend at http://localhost:8080,
+PostgreSQL at `localhost:5432`.
+
+### Option B — Local development, three terminals
 
 ```bash
-# terminal 1 — database only
-podman compose up -d postgres
+# terminal 1 — database only (port 5432)
+podman compose up -d postgres      # Docker: docker compose up -d postgres
 
-# terminal 2
-cd backend && ./mvnw spring-boot:run      # Windows: .\mvnw.cmd spring-boot:run
+# terminal 2 — backend (port 8080)
+cd backend
+./mvnw spring-boot:run             # Windows: .\mvnw.cmd spring-boot:run
 
-# terminal 3
-cd frontend && pnpm dev
+# terminal 3 — frontend (port 3000)
+cd frontend
+pnpm install
+pnpm dev
 ```
+
+Start the database first: the backend refuses to start without it, and the
+frontend needs the backend to render data.
+
+### Run the tests
+
+```bash
+# backend — unit, web-layer and integration tests
+cd backend
+./mvnw test                        # Windows: .\mvnw.cmd test
+./mvnw verify                      # tests + JaCoCo coverage gate
+
+# frontend — Vitest
+cd frontend
+pnpm test
+```
+
+The backend integration tests start their own PostgreSQL container through
+Testcontainers, so the container runtime is required but `docker-compose.yml`
+does not need to be running. The frontend tests run in jsdom and need neither the
+backend nor the database.
+
+### If something is already running, or a port is taken
+
+> **Do not run Option A and Option B at the same time.** Ports 3000 and 8080 are
+> published on the host by the containers and used directly by the local
+> servers. When both run, `podman compose up -d` still exits `0` and `podman ps`
+> still shows healthy containers, but the host ports stay with the local
+> processes, so you silently keep using the old instance. Check who owns the port
+> before starting anything.
+
+**Check the ports first**
+
+```powershell
+# Windows
+Get-NetTCPConnection -LocalPort 3000,8080,5432 -State Listen -ErrorAction SilentlyContinue |
+  Select-Object LocalPort, OwningProcess
+```
+
+```bash
+# Linux / macOS
+lsof -iTCP:3000 -iTCP:8080 -iTCP:5432 -sTCP:LISTEN
+```
+
+**What each failure looks like**
+
+| Symptom                                                                                     | Cause                                                                            | Fix                                                                                                              |
+| ------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `Web server failed to start. Port 8080 was already in use.` + `APPLICATION FAILED TO START` | Another backend owns 8080: a previous `spring-boot:run`, the packaged jar or `careme-backend-1` | Stop it (Ctrl+C in its terminal, or kill the PID from the port check).                              |
+| `Port 3000 is in use by process …, using available port 3001 instead` + `Another next dev server is already running` | A previous `pnpm dev` is still alive. Next.js does **not** fail, it moves to **3001** | Stop the old server. Port 3001 will not match `careme.cors.allowed-origins` (`http://localhost:3000`). |
+| `rootlessport listen tcp4 0.0.0.0:5432: bind: address already in use` (exit 1)                | Another PostgreSQL or a second compose project owns 5432                          | `podman compose down`, or stop the local PostgreSQL service.                                                     |
+| `postgres` reports `Running` and exit is `0`                                                  | The database was already up; compose is idempotent                               | Nothing to fix. Run `podman compose down` first when you want a clean restart.                                    |
+| `podman ps` shows `Up` with `0.0.0.0:8080->8080/tcp`, but the browser serves the old build    | The stack was started while the local servers were running, so the host port was never published | Use one mode only: `podman compose down` and stop the local servers, or keep the local servers. |
 
 ## Basic usage
 

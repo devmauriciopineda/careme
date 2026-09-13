@@ -21,14 +21,36 @@ before it reaches the backend.
 
 ## Getting started
 
+Prerequisites: Node.js 22+ and pnpm 10 (`corepack enable`). The backend and its
+PostgreSQL database must already be running; see the
+[root README](../README.md) for how to start them.
+
 ```bash
-pnpm install
-pnpm dev
+pnpm install                       # once, and after dependency changes
+pnpm dev                           # development server at http://localhost:3000
 ```
 
-The app is served at http://localhost:3000. It needs the backend running on
-`http://localhost:8080` (or `API_BASE_URL` set to wherever it runs); otherwise it
-shows the error screen. See the [root README](../README.md) for the backend.
+The app is served at http://localhost:3000 and calls the backend at
+`http://localhost:8080` by default. If the backend runs elsewhere, set
+`API_BASE_URL` (see [Data source and environment](#data-source-and-environment));
+otherwise the dashboard shows its error screen.
+
+Containers run with **Podman** preferred and **Docker** as fallback. To run only
+the frontend in a container, from the repository root:
+
+```bash
+podman compose up --build frontend    # Docker: docker compose up --build frontend
+```
+
+**If port 3000 is already taken**, Next.js does **not** fail: it prints
+`Port 3000 is in use by process …, using available port 3001 instead` and serves
+on **3001**. The extra line `Another next dev server is already running` means a
+previous `pnpm dev` is still alive. Stop it — the backend's CORS allowlist is
+`http://localhost:3000`, so a server on 3001 will not match the documented URLs.
+
+Do not run this dev server while the `careme-frontend-1` container is up: both
+want port 3000 and the one that started first keeps it, which makes it easy to
+test an old build by mistake.
 
 ## Scripts
 
@@ -118,8 +140,11 @@ the containers, is covered in the [root README](../README.md).
 ## Testing
 
 ```bash
-pnpm test
+pnpm test        # Vitest, single run
+pnpm test:watch  # Vitest in watch mode
 ```
+
+Tests run in jsdom and need neither the backend nor the database.
 
 30 tests across 4 files. Unit tests cover the pure helpers in `lib/metrics.ts`
 (sorting, series building, axis domain, localization, local-day helpers), the

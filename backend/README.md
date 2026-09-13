@@ -29,9 +29,9 @@ contract.
   a non-streaming structured outcome. The default `CAREME_LLM_MODE=fake` is safe for
   local development; `CAREME_LLM_MODE=openai` uses DeepSeek's OpenAI-compatible API
   with the backend-only `CAREME_LLM_API_KEY` credential.
-- Clinical events are Markdown files under `data/events/`; PostgreSQL stores only the
-  derived index. The index is rebuilt at startup and with `POST
-  /api/v1/clinical-events/reindex`.
+- Clinical events are Markdown files under `data/events/`, configurable with
+  `careme.events.directory`; PostgreSQL stores only the derived index. The index is
+  rebuilt at startup and with `POST /api/v1/clinical-events/reindex`.
 
 ## Architecture overview
 
@@ -240,7 +240,8 @@ backend/
 - No Maven installation needed; the wrapper downloads Maven 3.9.9 on first use.
 - A reachable PostgreSQL 17 instance. From the repository root,
   `podman compose up -d postgres` starts one on `localhost:5432` with the
-  defaults below.
+  defaults below (`docker compose up -d postgres` when Docker is used instead of
+  Podman).
 
 ```bash
 cd backend
@@ -257,6 +258,14 @@ cd backend
 | `spring.datasource.password`   | `careme` (`CAREME_DB_PASSWORD`)                |
 | `spring.jpa.hibernate.ddl-auto` | `validate`                                    |
 | `careme.cors.allowed-origins`  | `http://localhost:3000`                        |
+| `careme.events.directory`      | `data/events` (`CAREME_EVENTS_DIRECTORY`)      |
+
+`careme.events.directory` holds the Markdown source of truth for clinical events.
+It must be writable by the user that runs the process and must outlive the
+container. The image creates `/app/data/events` owned by the non-root `careme`
+user, and the Compose stack mounts a named volume on `/app/data`; mounting the
+volume lower would leave the directory root-owned and the registration would fail
+with `AccessDeniedException`.
 
 Profiles `dev`, `pre` and `prd` override logging and CORS origins; in `pre` and
 `prd` the origins come from `CAREME_CORS_ALLOWED_ORIGINS` and the datasource
@@ -264,24 +273,49 @@ variables have no defaults, so the application refuses to boot without them.
 
 ## Run guide
 
+The backend needs PostgreSQL running first. Containers run with **Podman**
+preferred; when Podman is not installed, replace `podman` with `docker` in every
+command.
+
+**1. Start the database** (from the repository root)
+
 ```bash
-# database, from the repository root
-podman compose up -d postgres
-
-# development, from the backend folder
-./mvnw spring-boot:run                # Windows: .\mvnw.cmd spring-boot:run
-
-# packaged jar
-./mvnw package && java -jar target/backend-0.0.1-SNAPSHOT.jar
-
-# container, from the repository root
-podman compose up --build backend
+podman compose up -d postgres     # Docker: docker compose up -d postgres
 ```
 
-Flyway creates the `measurements` table on the first start. Verify it manually
+**2. Start the backend** — pick one
+
+```bash
+# Development server with live reload, from backend/ (port 8080)
+./mvnw spring-boot:run            # Windows: .\mvnw.cmd spring-boot:run
+
+# Packaged jar
+./mvnw package -DskipTests && java -jar target/backend-0.0.1-SNAPSHOT.jar
+
+# Container, from the repository root (builds the image too)
+podman compose up --build postgres backend   # Docker: docker compose up --build postgres backend
+```
+
+Flyway creates the `measurements` table on the first start. Verify the service
 with `curl http://localhost:8080/api/v1/measurements`.
 
+**If port 8080 is already taken**, the startup aborts with
+`Web server failed to start. Port 8080 was already in use.` and
+`APPLICATION FAILED TO START` (exit 1) — never a silent fallback to another
+port. The usual owner is a previous `spring-boot:run`, the packaged jar or the
+`careme-backend-1` container. Stop it before starting again:
+
+```powershell
+# Windows: show the process holding 8080
+Get-NetTCPConnection -LocalPort 8080 -State Listen | Select-Object OwningProcess
+```
+
 ## Testing
+
+Integration tests start their own PostgreSQL container through Testcontainers, so
+the suite needs a container runtime reachable through the Docker API — Podman is
+the default and Docker also works. The compose database does **not** need to be
+running.
 
 ```bash
 ./mvnw test        # unit, web-layer and integration tests

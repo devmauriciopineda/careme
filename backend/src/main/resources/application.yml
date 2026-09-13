@@ -24,6 +24,10 @@ server:
 careme:
   cors:
     allowed-origins: http://localhost:3000
+  events:
+    # Directory holding the Markdown source of truth for clinical events. It must
+    # be writable by the process user and outlive the container that runs it.
+    directory: ${CAREME_EVENTS_DIRECTORY:data/events}
   llm:
     mode: ${CAREME_LLM_MODE:fake}
     base-url: ${CAREME_LLM_BASE_URL:https://api.deepseek.com}

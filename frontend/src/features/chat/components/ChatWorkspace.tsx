@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { ArrowUp, HeartPulse, LoaderCircle, RotateCcw, Scale } from "lucide-react";
-import { FormEvent, useState } from "react";
+import { FormEvent, useState, useTransition } from "react";
 
-import { sendChatMessage } from "@/services/chatService";
+import { sendChatMessage } from "../actions";
 import type { ChatResponse } from "../types";
 
 type Message = {
@@ -23,42 +23,69 @@ const statusLabels: Record<NonNullable<Message["status"]>, string> = {
   failed: "No se pudo completar",
 };
 
+/**
+ * Shown when a turn is not sent. It says what happened without naming a cause,
+ * because the cause is an implementation detail the user cannot act on.
+ */
+const SEND_FAILED_MESSAGE = "No se pudo completar el envío. Inténtalo de nuevo.";
+
 export function ChatWorkspace() {
   const [conversationId, setConversationId] = useState<string>();
   const [draft, setDraft] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
-  const [pending, setPending] = useState(false);
+  const [isPending, startTransition] = useTransition();
 
-  async function submit(event: FormEvent, text = draft) {
+  /** Keeps the failed turn available so the retry can send it again. */
+  function recordFailure(messageId: string, text: string) {
+    setMessages((current) => [
+      ...current,
+      {
+        id: `${messageId}-error`,
+        role: "assistant",
+        text: SEND_FAILED_MESSAGE,
+        status: "failed",
+        retryText: text,
+      },
+    ]);
+  }
+
+  function submit(event: FormEvent, text = draft) {
     event.preventDefault();
     const message = text.trim();
-    if (!message || pending) return;
+    if (!message || isPending) return;
 
     const messageId = crypto.randomUUID();
     setDraft("");
     setMessages((current) => [...current, { id: messageId, role: "user", text: message }]);
-    setPending(true);
-    try {
-      const response = await sendChatMessage({ message, conversationId, messageId });
-      setConversationId(response.conversationId);
-      setMessages((current) => [
-        ...current,
-        { id: `${messageId}-assistant`, role: "assistant", text: response.message, status: response.status },
-      ]);
-    } catch (error) {
+
+    startTransition(async () => {
+      let outcome: Awaited<ReturnType<typeof sendChatMessage>>;
+
+      try {
+        outcome = await sendChatMessage({ message, conversationId, messageId });
+      } catch (error) {
+        console.error("Failed to reach the chat action:", error);
+        recordFailure(messageId, message);
+        return;
+      }
+
+      if (!outcome.ok) {
+        console.error(`Chat turn was not sent: ${outcome.errorCode}`);
+        recordFailure(messageId, message);
+        return;
+      }
+
+      setConversationId(outcome.response.conversationId);
       setMessages((current) => [
         ...current,
         {
-          id: `${messageId}-error`,
+          id: `${messageId}-assistant`,
           role: "assistant",
-          text: error instanceof Error ? error.message : "No se pudo completar la solicitud.",
-          status: "failed",
-          retryText: message,
+          text: outcome.response.message,
+          status: outcome.response.status,
         },
       ]);
-    } finally {
-      setPending(false);
-    }
+    });
   }
 
   return (
@@ -107,13 +134,13 @@ export function ChatWorkspace() {
                 )}
               </div>
             ))}
-            {pending && <div className="flex items-center gap-2 text-sm text-muted-foreground" role="status"><LoaderCircle aria-hidden="true" className="size-4 animate-spin" /> Procesando tu mensaje...</div>}
+            {isPending && <div className="flex items-center gap-2 text-sm text-muted-foreground" role="status"><LoaderCircle aria-hidden="true" className="size-4 animate-spin" /> Procesando tu mensaje...</div>}
           </div>
 
           <form className="mt-4 flex items-end gap-2 rounded-2xl border border-border bg-card p-2 shadow-sm" onSubmit={submit}>
             <label className="sr-only" htmlFor="chat-message">Mensaje para el asistente</label>
-            <textarea className="min-h-12 flex-1 resize-none border-0 bg-transparent px-3 py-3 text-sm outline-none placeholder:text-muted-foreground" disabled={pending} id="chat-message" onChange={(event) => setDraft(event.target.value)} placeholder="Escribe un hecho médico..." value={draft} />
-            <button aria-label="Enviar mensaje" className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40" disabled={!draft.trim() || pending} title="Enviar mensaje" type="submit">
+            <textarea className="min-h-12 flex-1 resize-none border-0 bg-transparent px-3 py-3 text-sm outline-none placeholder:text-muted-foreground" disabled={isPending} id="chat-message" onChange={(event) => setDraft(event.target.value)} placeholder="Escribe un hecho médico..." value={draft} />
+            <button aria-label="Enviar mensaje" className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40" disabled={!draft.trim() || isPending} title="Enviar mensaje" type="submit">
               <ArrowUp aria-hidden="true" className="size-5" />
             </button>
           </form>

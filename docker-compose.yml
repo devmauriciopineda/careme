@@ -30,6 +30,11 @@ services:
       CAREME_LLM_API_KEY: ${CAREME_LLM_API_KEY:-}
       CAREME_LLM_CONNECT_TIMEOUT: ${CAREME_LLM_CONNECT_TIMEOUT:-PT5S}
       CAREME_LLM_READ_TIMEOUT: ${CAREME_LLM_READ_TIMEOUT:-PT30S}
+      CAREME_EVENTS_DIRECTORY: /app/data/events
+    volumes:
+      # The Markdown source of truth must outlive the container: the derived
+      # index is rebuilt from it on every start.
+      - careme-events:/app/data
     depends_on:
       postgres:
         condition: service_healthy
@@ -48,3 +53,4 @@ services:
 
 volumes:
   careme-pgdata:
+  careme-events:

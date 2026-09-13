@@ -2,17 +2,20 @@ package com.careme.backend.service;
 
 import com.careme.backend.entity.ClinicalEvent;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.List;
-import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 /** Reads and writes the Markdown source of truth for clinical events. */
@@ -21,8 +24,14 @@ public class ClinicalEventMarkdownStore {
 
     private final Path eventsDirectory;
 
-    public ClinicalEventMarkdownStore() {
-        this(Path.of("data", "events"));
+    /**
+     * Resolves the directory that holds the Markdown source of truth from
+     * configuration, so a deployment can point at a writable, persistent path.
+     */
+    @Autowired
+    public ClinicalEventMarkdownStore(
+            @Value("${careme.events.directory:data/events}") String directory) {
+        this(Path.of(directory));
     }
 
     ClinicalEventMarkdownStore(Path eventsDirectory) {
@@ -35,10 +44,27 @@ public class ClinicalEventMarkdownStore {
         Files.writeString(target, serialize(event), StandardCharsets.UTF_8);
     }
 
+    /**
+     * Publishes the documents of one attempt.
+     *
+     * Create-only: a code that already has a document aborts the attempt before
+     * any temporary file is staged. Replacing an existing document would destroy
+     * a registered clinical event, and the caller's rollback removes the
+     * documents of the attempt by code, which is only safe when every published
+     * document was created by that attempt.
+     */
     public void writeAtomically(List<ClinicalEvent> events) throws IOException {
         Files.createDirectories(eventsDirectory);
-        List<Path> temporaryFiles = new java.util.ArrayList<>();
-        List<Path> publishedFiles = new java.util.ArrayList<>();
+        List<Path> targets = new ArrayList<>(events.size());
+        for (ClinicalEvent event : events) {
+            Path target = eventsDirectory.resolve(event.code() + ".md");
+            if (Files.exists(target)) {
+                throw new IOException("Clinical event document already exists: " + target.getFileName());
+            }
+            targets.add(target);
+        }
+        List<Path> temporaryFiles = new ArrayList<>();
+        List<Path> publishedFiles = new ArrayList<>();
         try {
             for (ClinicalEvent event : events) {
                 Path temporary = eventsDirectory.resolve("." + event.code() + "." + UUID.randomUUID() + ".tmp");
@@ -46,15 +72,58 @@ public class ClinicalEventMarkdownStore {
                 temporaryFiles.add(temporary);
             }
             for (int index = 0; index < events.size(); index++) {
-                Path target = eventsDirectory.resolve(events.get(index).code() + ".md");
-                Files.move(temporaryFiles.get(index), target, StandardCopyOption.ATOMIC_MOVE);
-                publishedFiles.add(target);
+                Files.move(temporaryFiles.get(index), targets.get(index), StandardCopyOption.ATOMIC_MOVE);
+                publishedFiles.add(targets.get(index));
             }
         } catch (IOException exception) {
             temporaryFiles.forEach(this::deleteQuietly);
             publishedFiles.forEach(this::deleteQuietly);
             throw exception;
         }
+    }
+
+    /**
+     * Reserves the next free event codes.
+     *
+     * The code is the document name, so the persisted documents are the only
+     * authority on what is still free. A counter held in memory would restart
+     * with the process and hand out a code that is already published.
+     */
+    public synchronized List<String> reserveCodes(int count) {
+        long highest = highestCodeNumber();
+        List<String> codes = new ArrayList<>(count);
+        for (int offset = 1; offset <= count; offset++) {
+            codes.add(formatCode(highest + offset));
+        }
+        return codes;
+    }
+
+    private long highestCodeNumber() {
+        if (!Files.exists(eventsDirectory)) {
+            return 0;
+        }
+        try (var paths = Files.list(eventsDirectory)) {
+            return paths.mapToLong(path -> codeNumber(path.getFileName().toString())).max().orElse(0);
+        } catch (IOException exception) {
+            throw new UncheckedIOException("Cannot read the clinical event directory", exception);
+        }
+    }
+
+    /** The number of an `evt_NNN.md` document name, or 0 when it is not one. */
+    private static long codeNumber(String fileName) {
+        if (!fileName.startsWith("evt_") || !fileName.endsWith(".md")) {
+            return 0;
+        }
+        String digits = fileName.substring("evt_".length(), fileName.length() - ".md".length());
+        try {
+            return Long.parseLong(digits);
+        } catch (NumberFormatException notACode) {
+            return 0;
+        }
+    }
+
+    private static String formatCode(long number) {
+        return "evt_" + String.format("%03d", number);
     }
 
     public void delete(String code) throws IOException {

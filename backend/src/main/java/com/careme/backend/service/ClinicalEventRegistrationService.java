@@ -8,13 +8,14 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicLong;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 @Service
 public class ClinicalEventRegistrationService {
 
-    private static final AtomicLong NEXT_CODE = new AtomicLong(1);
+    private static final Logger log = LoggerFactory.getLogger(ClinicalEventRegistrationService.class);
 
     private final ClinicalEventIntentValidator intentValidator;
     private final ClinicalEventDateNormalizer dateNormalizer;
@@ -50,7 +51,7 @@ public class ClinicalEventRegistrationService {
                         ClinicalEventRegistrationResult.Kind.CONVERSATION, List.of(), "Conversación general");
             }
 
-            List<ClinicalEvent> newEvents = new ArrayList<>();
+            List<PendingEvent> pending = new ArrayList<>();
             List<ClinicalEvent> duplicates = new ArrayList<>();
             for (ClinicalEventIntent.Candidate candidate : intent.events()) {
                 ClinicalEventDateNormalizer.NormalizedDate normalizedDate = dateNormalizer.normalize(
@@ -61,28 +62,38 @@ public class ClinicalEventRegistrationService {
                     duplicates.add(existing);
                     continue;
                 }
-                ClinicalEvent event = new ClinicalEvent(
-                        UUID.randomUUID(),
-                        nextCode(),
-                        candidate.type(),
-                        normalizedDate.date(),
-                        normalizedDate.precision(),
-                        normalizedDate.text(),
-                        candidate.content(),
-                        ClinicalEvent.EventSource.PATIENT,
-                        OffsetDateTime.now(ZoneOffset.UTC));
-                newEvents.add(event);
+                pending.add(new PendingEvent(candidate, normalizedDate));
             }
 
-            if (newEvents.isEmpty()) {
+            if (pending.isEmpty()) {
                 return new ClinicalEventRegistrationResult(
                         ClinicalEventRegistrationResult.Kind.DUPLICATE, duplicates, "El hecho ya estaba registrado.");
+            }
+
+            // One reservation for the whole batch: nothing is published until
+            // every document is written, so allocating per event would hand out
+            // the same code twice.
+            List<String> codes = markdownStore.reserveCodes(pending.size());
+            List<ClinicalEvent> newEvents = new ArrayList<>(pending.size());
+            for (int index = 0; index < pending.size(); index++) {
+                PendingEvent entry = pending.get(index);
+                newEvents.add(new ClinicalEvent(
+                        UUID.randomUUID(),
+                        codes.get(index),
+                        entry.candidate().type(),
+                        entry.date().date(),
+                        entry.date().precision(),
+                        entry.date().text(),
+                        entry.candidate().content(),
+                        ClinicalEvent.EventSource.PATIENT,
+                        OffsetDateTime.now(ZoneOffset.UTC)));
             }
 
             try {
                 markdownStore.writeAtomically(newEvents);
                 indexWriter.writeAll(newEvents);
             } catch (Exception exception) {
+                log.error("Could not persist clinical events conversationId={}", conversationId, exception);
                 newEvents.forEach(event -> deleteQuietly(event.code()));
                 indexWriter.deleteAll(newEvents);
                 return new ClinicalEventRegistrationResult(
@@ -98,6 +109,7 @@ public class ClinicalEventRegistrationService {
                     registered,
                     confirmation(registered));
         } catch (RuntimeException exception) {
+            log.error("Could not register clinical events conversationId={}", conversationId, exception);
             return new ClinicalEventRegistrationResult(
                     ClinicalEventRegistrationResult.Kind.FAILURE,
                     List.of(),
@@ -105,8 +117,10 @@ public class ClinicalEventRegistrationService {
         }
     }
 
-    private static String nextCode() {
-        return "evt_" + String.format("%03d", NEXT_CODE.getAndIncrement());
+    /** A candidate that survived deduplication and still awaits its code. */
+    private record PendingEvent(
+            ClinicalEventIntent.Candidate candidate,
+            ClinicalEventDateNormalizer.NormalizedDate date) {
     }
 
     private static String fingerprint(ClinicalEventIntent.Candidate candidate,

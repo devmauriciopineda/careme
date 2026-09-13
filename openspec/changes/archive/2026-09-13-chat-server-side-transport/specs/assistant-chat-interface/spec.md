@@ -1,10 +1,4 @@
-# assistant-chat-interface Specification
-
-## Purpose
-
-Provide a focused and accessible chat surface for the assistant, including message submission, conversation continuity, clarification, retry, and failure states without adding clinical search or event inspection views.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Send and display assistant turns
 
