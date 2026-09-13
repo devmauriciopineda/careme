@@ -1,10 +1,4 @@
 {
-  ".github/context-mode/sessions/stats-pid-12544.json": {
-    "mtime": 1789189764.8825288,
-    "seen": 1789230949.2801967,
-    "ast_hash": "fb3edcb4788a6efd8a6d533ce658369c",
-    "semantic_hash": "fb3edcb4788a6efd8a6d533ce658369c"
-  },
   ".github/hooks/context-mode.json": {
     "mtime": 1789143930.1110904,
     "seen": 1789230949.2802107,
@@ -599,18 +593,6 @@
     "ast_hash": "b6e0a9c1a7b488c11a1c5812b4ed319b",
     "semantic_hash": "b6e0a9c1a7b488c11a1c5812b4ed319b"
   },
-  ".github/context-mode/sessions/stats-pid-31400.json": {
-    "mtime": 1789248963.2135952,
-    "seen": 1789274566.4391332,
-    "ast_hash": "098b11450636eb22fce72059ab6dce9b",
-    "semantic_hash": ""
-  },
-  ".github/context-mode/sessions/stats-pid-8364.json": {
-    "mtime": 1789274529.380855,
-    "seen": 1789274566.439136,
-    "ast_hash": "bf639edde1e3c79674ae9b47efb651f0",
-    "semantic_hash": ""
-  },
   ".github/prompts/plan-alignCaremeAssistantDocs.prompt.md": {
     "mtime": 1789243005.941787,
     "seen": 1789274566.4469955,
@@ -663,6 +645,216 @@
     "mtime": 1789245173.6174245,
     "seen": 1789274566.4492702,
     "ast_hash": "a4d4ac418b6a07c25445b0cab4ef0762",
+    "semantic_hash": ""
+  },
+  "backend/src/main/java/com/careme/backend/dto/ClinicalEventIntent.java": {
+    "mtime": 1789278122.6294749,
+    "seen": 1789278329.2829092,
+    "ast_hash": "c278dc41f713d08fc33c56743b2c1d13",
+    "semantic_hash": ""
+  },
+  "backend/src/main/java/com/careme/backend/entity/ClinicalEvent.java": {
+    "mtime": 1789277575.457486,
+    "seen": 1789278329.2835314,
+    "ast_hash": "a25a653aadb101b0b9578d4fa0ab3a09",
+    "semantic_hash": ""
+  },
+  "backend/src/main/java/com/careme/backend/service/ClinicalEventConversationRegistry.java": {
+    "mtime": 1789278122.6334765,
+    "seen": 1789278329.2844129,
+    "ast_hash": "72ffbe9f2fb84d5b158175b225ca7a57",
+    "semantic_hash": ""
+  },
+  "backend/src/main/java/com/careme/backend/service/ClinicalEventDateNormalizer.java": {
+    "mtime": 1789278122.6294749,
+    "seen": 1789278329.2844145,
+    "ast_hash": "325b565de8705b27c2d1334f72d5f82e",
+    "semantic_hash": ""
+  },
+  "backend/src/main/java/com/careme/backend/service/ClinicalEventIndexRebuilder.java": {
+    "mtime": 1789278122.6294749,
+    "seen": 1789278329.2844164,
+    "ast_hash": "782b0ac360d659515e9d52682538e6e5",
+    "semantic_hash": ""
+  },
+  "backend/src/main/java/com/careme/backend/service/ClinicalEventIndexWriter.java": {
+    "mtime": 1789278122.6334765,
+    "seen": 1789278329.2844183,
+    "ast_hash": "2ce81b59fe24391c49efb860e502c013",
+    "semantic_hash": ""
+  },
+  "backend/src/main/java/com/careme/backend/service/ClinicalEventIntentValidator.java": {
+    "mtime": 1789278122.6314752,
+    "seen": 1789278329.2844195,
+    "ast_hash": "588ffb1855c9c48bf1b394b9f52ddb78",
+    "semantic_hash": ""
+  },
+  "backend/src/main/java/com/careme/backend/service/ClinicalEventMarkdownStore.java": {
+    "mtime": 1789278122.6254756,
+    "seen": 1789278329.284421,
+    "ast_hash": "77fe1f3678fc588593a888f9b2cace61",
+    "semantic_hash": ""
+  },
+  "backend/src/main/java/com/careme/backend/service/ClinicalEventRegistrationResult.java": {
+    "mtime": 1789278122.6334765,
+    "seen": 1789278329.2844224,
+    "ast_hash": "a6508adfa4e950293b0a9d4801e2f617",
+    "semantic_hash": ""
+  },
+  "backend/src/main/java/com/careme/backend/service/ClinicalEventRegistrationService.java": {
+    "mtime": 1789278122.6334765,
+    "seen": 1789278329.2844236,
+    "ast_hash": "c9073c8499a7ff5413871d39d09407cd",
+    "semantic_hash": ""
+  },
+  "backend/src/main/resources/db/migration/V2__create_clinical_event_index.sql": {
+    "mtime": 1789278122.628472,
+    "seen": 1789278329.2848215,
+    "ast_hash": "c3270e0bef18dd7b540bef2c10fad2b7",
+    "semantic_hash": ""
+  },
+  "backend/src/test/java/com/careme/backend/entity/ClinicalEventTest.java": {
+    "mtime": 1789277582.0764148,
+    "seen": 1789278329.2852342,
+    "ast_hash": "38715eba454208fb982852c80f7f311c",
+    "semantic_hash": ""
+  },
+  "backend/src/test/java/com/careme/backend/service/ClinicalEventDateNormalizerTest.java": {
+    "mtime": 1789278122.6294749,
+    "seen": 1789278329.2857568,
+    "ast_hash": "c3284ec518b63aa099aefb1fc6fd6d7d",
+    "semantic_hash": ""
+  },
+  "backend/src/test/java/com/careme/backend/service/ClinicalEventIntentValidatorTest.java": {
+    "mtime": 1789278122.6324735,
+    "seen": 1789278329.2857583,
+    "ast_hash": "84ab3f984905f6d8994bb7a3dd760315",
+    "semantic_hash": ""
+  },
+  "backend/src/test/java/com/careme/backend/service/ClinicalEventMarkdownStoreTest.java": {
+    "mtime": 1789278122.6274726,
+    "seen": 1789278329.2857592,
+    "ast_hash": "7148249651aa795d3e0e25e8398f9f8a",
+    "semantic_hash": ""
+  },
+  "backend/src/test/java/com/careme/backend/service/ClinicalEventRegistrationServiceTest.java": {
+    "mtime": 1789278122.635475,
+    "seen": 1789278329.2857604,
+    "ast_hash": "2cfcf70ef2f809ce5780526ebe8849c2",
+    "semantic_hash": ""
+  },
+  ".github/prompts/opsx-apply.prompt.md": {
+    "mtime": 1789276248.7290456,
+    "seen": 1789278329.2905443,
+    "ast_hash": "d93420623417d1a2d97058a9ca76fe2b",
+    "semantic_hash": ""
+  },
+  ".github/prompts/opsx-archive.prompt.md": {
+    "mtime": 1789276248.7341292,
+    "seen": 1789278329.2905455,
+    "ast_hash": "aacb47e2a3471ccad642c74b3344fd82",
+    "semantic_hash": ""
+  },
+  ".github/prompts/opsx-explore.prompt.md": {
+    "mtime": 1789276248.728049,
+    "seen": 1789278329.2905467,
+    "ast_hash": "7d088f3aaca49c57627924fb7dbb3918",
+    "semantic_hash": ""
+  },
+  ".github/prompts/opsx-propose.prompt.md": {
+    "mtime": 1789276248.7361288,
+    "seen": 1789278329.2905486,
+    "ast_hash": "34184507f15ff98d89bc251d050d8731",
+    "semantic_hash": ""
+  },
+  ".github/prompts/opsx-sync.prompt.md": {
+    "mtime": 1789276248.7320454,
+    "seen": 1789278329.2905498,
+    "ast_hash": "30f06a002a0f6bd461661c7814cefd14",
+    "semantic_hash": ""
+  },
+  ".github/prompts/opsx-update.prompt.md": {
+    "mtime": 1789276248.731045,
+    "seen": 1789278329.290551,
+    "ast_hash": "14ddea249bb9875add1c5e56facbd920",
+    "semantic_hash": ""
+  },
+  ".github/skills/openspec-apply-change/SKILL.md": {
+    "mtime": 1789276248.713774,
+    "seen": 1789278329.2910576,
+    "ast_hash": "fcb796d79391da1c895fddae250c25bd",
+    "semantic_hash": ""
+  },
+  ".github/skills/openspec-archive-change/SKILL.md": {
+    "mtime": 1789276248.7240465,
+    "seen": 1789278329.291059,
+    "ast_hash": "01b4b927f8295160fa58721db97506cb",
+    "semantic_hash": ""
+  },
+  ".github/skills/openspec-explore/SKILL.md": {
+    "mtime": 1789276248.708768,
+    "seen": 1789278329.29106,
+    "ast_hash": "7cf64862b37a3e274f812cdfca93c95d",
+    "semantic_hash": ""
+  },
+  ".github/skills/openspec-propose/SKILL.md": {
+    "mtime": 1789276248.7260454,
+    "seen": 1789278329.2910607,
+    "ast_hash": "b596a66394cb7c992809ef3afc54ef1a",
+    "semantic_hash": ""
+  },
+  ".github/skills/openspec-sync-specs/SKILL.md": {
+    "mtime": 1789276248.7220466,
+    "seen": 1789278329.2910619,
+    "ast_hash": "9cd36d9a5e25247b10d94a518e423752",
+    "semantic_hash": ""
+  },
+  ".github/skills/openspec-update-change/SKILL.md": {
+    "mtime": 1789276248.7180507,
+    "seen": 1789278329.2910628,
+    "ast_hash": "dcb19e8eff6daaf3a8eafd92dd780489",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-09-13-uc-004/.openspec.yaml": {
+    "mtime": 1789276545.2837005,
+    "seen": 1789278329.2927372,
+    "ast_hash": "023bd6a30a4a37ec1d0180ed76f93c32",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-09-13-uc-004/design.md": {
+    "mtime": 1789277544.6746347,
+    "seen": 1789278329.292739,
+    "ast_hash": "824b06714684f45eaea4b1ef168df6af",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-09-13-uc-004/proposal.md": {
+    "mtime": 1789277586.8078623,
+    "seen": 1789278329.2927396,
+    "ast_hash": "b9551ba539366c2f220636ea50a75f2b",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-09-13-uc-004/specs/clinical-event-registration/spec.md": {
+    "mtime": 1789277132.293286,
+    "seen": 1789278329.2927408,
+    "ast_hash": "865b9815ad132e7fdde5b762fb6bbf12",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-09-13-uc-004/tasks.md": {
+    "mtime": 1789278122.624472,
+    "seen": 1789278329.2927415,
+    "ast_hash": "8afa225fe78e201099e6a73335ede587",
+    "semantic_hash": ""
+  },
+  "openspec/config.yaml": {
+    "mtime": 1789276248.7501297,
+    "seen": 1789278329.2927425,
+    "ast_hash": "4cfc970f2481e0f48a506901c5616100",
+    "semantic_hash": ""
+  },
+  "openspec/specs/clinical-event-registration/spec.md": {
+    "mtime": 1789278238.485562,
+    "seen": 1789278329.2927437,
+    "ast_hash": "20a5a38ee5178034643498e33b82c191",
     "semantic_hash": ""
   }
 }

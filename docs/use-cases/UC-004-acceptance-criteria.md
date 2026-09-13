@@ -142,3 +142,57 @@ And ofrece a la persona volver a intentarlo
 - **Alternate flows:** Cubiertos por `Conservar una fecha aproximada` (`A1`), `Registrar un hecho sin fecha conocida` (`A2`), `Resolver una expresión temporal relativa` (`A3`), `Registrar varios hechos médicos del mismo mensaje` (`A4`), `Pedir aclaración antes de registrar un mensaje ambiguo` (`A5`), `No registrar una creencia o sospecha como hecho` (`A6`), `Responder normalmente a un mensaje sin hecho médico` (`A7`) y `Evitar duplicar un hecho ya registrado en la conversación` (`A8`).
 - **Exceptions:** Cubiertas por `No registrar si la persona no aporta la aclaración solicitada` (`E1`) e `Informar un fallo sin dejar un registro incompleto` (`E2`).
 - **Edge cases:** No aplican como categoría independiente; los límites y variaciones explícitamente definidos por el caso de uso están cubiertos por el flujo principal, `A1`–`A8` y `E1`–`E2`.
+
+## Conversation integration scenarios
+
+Estos escenarios completan la frontera entre el chat, el intérprete de lenguaje
+natural y el registro clínico. No sustituyen las reglas clínicas anteriores.
+
+### Scenario: Reintentar el mismo mensaje sin duplicar el evento
+
+**Ref:** Contrato de conversación — idempotencia
+
+Given la persona envía un mensaje con un `conversationId` y un `messageId`
+And el sistema completa el registro
+When la misma solicitud se repite con los mismos identificadores
+Then el sistema devuelve el resultado original
+And no invoca una nueva escritura ni crea otro evento
+
+### Scenario: Rechazar una respuesta estructurada inválida del intérprete
+
+**Ref:** Contrato LLM — validación antes de persistir
+
+Given la persona envía un mensaje registrable
+When el intérprete devuelve JSON malformado, un tipo no admitido o campos incompletos
+Then el sistema informa de un fallo controlado en español
+And no persiste ningún evento
+And no muestra el prompt ni detalles internos del proveedor
+
+### Scenario: Informar indisponibilidad temporal del proveedor
+
+**Ref:** Contrato LLM — timeout o proveedor no disponible
+
+Given la persona envía un mensaje al asistente
+When el proveedor no responde dentro del tiempo configurado o está indisponible
+Then el sistema informa de un fallo recuperable en español
+And conserva el texto enviado para que pueda reintentarse
+And la historia clínica permanece sin cambios
+
+### Scenario: Continuar una aclaración durante la sesión
+
+**Ref:** Estado conversacional efímero
+
+Given el asistente solicita una aclaración antes de registrar un hecho
+When la persona responde en la misma conversación activa
+Then el sistema interpreta la respuesta junto con el mensaje pendiente
+And registra solo el hecho validado
+
+### Scenario: Perder una aclaración tras reiniciar el backend
+
+**Ref:** Estado conversacional efímero
+
+Given existe una aclaración pendiente en memoria
+When el backend se reinicia antes de recibir la respuesta
+Then la aclaración pendiente se descarta
+And ningún evento parcial aparece en la historia clínica
+And los eventos ya persistidos como Markdown permanecen disponibles

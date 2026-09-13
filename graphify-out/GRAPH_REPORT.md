@@ -1,16 +1,16 @@
-# Graph Report - careme  (2026-09-12)
+# Graph Report - careme  (2026-09-13)
 
 ## Corpus Check
-- 105 files · ~52,448 words
+- 135 files · ~76,689 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 935 nodes · 1728 edges · 63 communities (55 shown, 8 thin omitted)
-- Extraction: 92% EXTRACTED · 8% INFERRED · 0% AMBIGUOUS · INFERRED: 146 edges (avg confidence: 0.82)
+- 1135 nodes · 2049 edges · 94 communities (81 shown, 13 thin omitted)
+- Extraction: 91% EXTRACTED · 9% INFERRED · 0% AMBIGUOUS · INFERRED: 176 edges (avg confidence: 0.82)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `84223a1f`
+- Built from commit: `a2cb5639`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -21,7 +21,7 @@
 - actions.ts
 - metrics.ts
 - org.junit.jupiter.api.Test
-- MeasurementServiceTest
+- .register
 - dependencies
 - compilerOptions
 - Careme Frontend README
@@ -75,28 +75,49 @@
 - 8. Herramientas del LLM
 - 9. Responsabilidades del LLM y del backend
 - 7. Búsqueda
+- Requirements
+- ADDED Requirements
+- org.springframework.stereotype.Service
+- ClinicalEventMarkdownStore
+- ClinicalEvent
+- Decisions
+- ClinicalEventDateNormalizer
+- openspec-explore/SKILL.md
+- opsx-explore.prompt.md
+- scripts
+- proposal.md
+- Kind
+- ClinicalEventType
+- package.json
+- tasks.md
+- Kind
+- V2__create_clinical_event_index.sql
+- jsdom
+- @tailwindcss/postcss
+- @testing-library/react
+- @types/react
 
 ## God Nodes (most connected - your core abstractions)
-1. `MeasurementCsvParserTest` - 29 edges
-2. `Measurement` - 27 edges
-3. `MeasurementJpaRepositoryTest` - 22 edges
-4. `MeasurementDraft` - 21 edges
-5. `Especificación de alcance — MVP del asistente de historia clínica personal` - 21 edges
-6. `MeasurementCsvParser` - 20 edges
-7. `MeasurementEntity` - 18 edges
-8. `MeasurementRepository` - 18 edges
-9. `MeasurementImportControllerTest` - 18 edges
-10. `MeasurementImportService` - 17 edges
+1. `ClinicalEvent` - 39 edges
+2. `MeasurementCsvParserTest` - 29 edges
+3. `Measurement` - 27 edges
+4. `ClinicalEventMarkdownStore` - 22 edges
+5. `MeasurementJpaRepositoryTest` - 22 edges
+6. `MeasurementDraft` - 21 edges
+7. `Especificación de alcance — MVP del asistente de historia clínica personal` - 21 edges
+8. `MeasurementCsvParser` - 20 edges
+9. `MeasurementEntity` - 18 edges
+10. `MeasurementRepository` - 18 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `Response Envelope Pattern` --semantically_similar_to--> `ApiResponse Envelope`  [INFERRED] [semantically similar]
   docs/standards/java-springboot-standards.md → .github/prompts/plan-backendSpringbootMeasurements.prompt.md
-- `Layered Architecture (Standard)` --semantically_similar_to--> `Layered Architecture (Backend)`  [INFERRED] [semantically similar]
-  docs/standards/java-springboot-standards.md → backend/README.md
 - `JaCoCo 90% Gate` --semantically_similar_to--> `JaCoCo Coverage Gate`  [INFERRED] [semantically similar]
   backend/README.md → .github/prompts/plan-backendSpringbootMeasurements.prompt.md
 - `90% Coverage Threshold` --semantically_similar_to--> `JaCoCo Coverage Gate`  [INFERRED] [semantically similar]
   docs/standards/java-springboot-standards.md → .github/prompts/plan-backendSpringbootMeasurements.prompt.md
+- `Layered Architecture (Standard)` --semantically_similar_to--> `Layered Architecture (Backend)`  [INFERRED] [semantically similar]
+  docs/standards/java-springboot-standards.md → backend/README.md
 - `Server Components Default` --semantically_similar_to--> `Server Components`  [INFERRED] [semantically similar]
   docs/standards/next-standards.md → .github/prompts/plan-caremeMeasurements.prompt.md
 
@@ -108,15 +129,15 @@
 - **Frontend Measurement Feature** — _github_prompts_plan_carememeasurements_prompt_measurements_dashboard, _github_prompts_plan_carememeasurements_prompt_metric_trend_chart, _github_prompts_plan_carememeasurements_prompt_measurements_table, _github_prompts_plan_carememeasurements_prompt_measurement_service, _github_prompts_plan_carememeasurements_prompt_metrics_lib [EXTRACTED 1.00]
 - **JPA Persistence Stack** — _github_prompts_plan_postgrespersistence_prompt_measurement_entity, _github_prompts_plan_postgrespersistence_prompt_measurement_jpa_dao, _github_prompts_plan_postgrespersistence_prompt_measurement_jpa_repository, _github_prompts_plan_postgrespersistence_prompt_flyway, readme_postgresql [EXTRACTED 1.00]
 
-## Communities (63 total, 8 thin omitted)
+## Communities (94 total, 13 thin omitted)
 
 ### Community 0 - "MeasurementCsvParser"
-Cohesion: 0.06
+Cohesion: 0.05
 Nodes (33): MeasurementController, ApiResponse, ImportPreviewResponse, ImportPreviewRow, ImportResultResponse, MeasurementRequest, MeasurementResponse, MeasurementImportException (+25 more)
 
 ### Community 1 - "Measurement"
-Cohesion: 0.07
-Nodes (20): Measurement, Measurement, MeasurementEntity, MeasurementJpaDao, MeasurementJpaRepository, CaremeBackendApplicationTests, PostgresIntegrationTest, MeasurementJpaRepositoryTest (+12 more)
+Cohesion: 0.06
+Nodes (18): Measurement, MeasurementDraft, Measurement, MeasurementEntity, MeasurementJpaDao, MeasurementJpaRepository, MeasurementDraftTest, MeasurementTest (+10 more)
 
 ### Community 2 - "schema.ts"
 Cohesion: 0.12
@@ -131,12 +152,16 @@ Cohesion: 0.12
 Nodes (30): Card(), CardContent(), CardDescription(), CardHeader(), CardTitle(), Separator(), CHART_DESCRIPTIONS, MeasurementsDashboard() (+22 more)
 
 ### Community 5 - "org.junit.jupiter.api.Test"
-Cohesion: 0.08
-Nodes (6): MeasurementDraft, MeasurementControllerTest, MeasurementDraftTest, MeasurementTest, MeasurementCsvParserTest, org.junit.jupiter.api.Test
+Cohesion: 0.09
+Nodes (9): CaremeBackendApplicationTests, MeasurementControllerTest, ClinicalEventTest, MeasurementCsvParserTest, com.fasterxml.jackson.databind.ObjectMapper, org.junit.jupiter.api.Test, org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc, org.springframework.boot.test.context.SpringBootTest (+1 more)
+
+### Community 6 - ".register"
+Cohesion: 0.21
+Nodes (6): Candidate, ClinicalEventIntent, ClinicalEventIntentValidator, ClinicalEventRegistrationService, ClinicalEventIntentValidatorTest, ClinicalEventRegistrationServiceTest
 
 ### Community 7 - "dependencies"
-Cohesion: 0.06
-Nodes (35): class-variance-authority, cn, dependencies, class-variance-authority, cn, lucide-react, next, radix-ui (+27 more)
+Cohesion: 0.09
+Nodes (23): class-variance-authority, cn, dependencies, class-variance-authority, cn, lucide-react, next, radix-ui (+15 more)
 
 ### Community 8 - "compilerOptions"
 Cohesion: 0.06
@@ -147,12 +172,12 @@ Cohesion: 0.16
 Nodes (20): measurementService, MeasurementsDashboard, measurements.mock.ts, MeasurementsTable, MetricTrendChart, metrics.ts, METRICS Registry, Recharts (+12 more)
 
 ### Community 10 - "devDependencies"
-Cohesion: 0.07
-Nodes (29): eslint, eslint-config-next, devDependencies, eslint, eslint-config-next, jsdom, tailwindcss, @tailwindcss/postcss (+21 more)
+Cohesion: 0.10
+Nodes (21): eslint, eslint-config-next, devDependencies, eslint, eslint-config-next, tailwindcss, @testing-library/jest-dom, @testing-library/user-event (+13 more)
 
 ### Community 11 - "ErrorResponse"
-Cohesion: 0.21
-Nodes (12): ErrorDetail, ErrorResponse, ApiExceptionHandler, ApiExceptionHandlerTest, org.springframework.http.converter.HttpMessageNotReadableException, org.springframework.http.ResponseEntity, org.springframework.validation.FieldError, org.springframework.web.bind.annotation.ExceptionHandler (+4 more)
+Cohesion: 0.18
+Nodes (13): ErrorDetail, ErrorResponse, ApiExceptionHandler, ApiExceptionHandlerTest, org.slf4j.Logger, org.springframework.http.converter.HttpMessageNotReadableException, org.springframework.http.ResponseEntity, org.springframework.validation.FieldError (+5 more)
 
 ### Community 12 - "components.json"
 Cohesion: 0.09
@@ -318,25 +343,85 @@ Nodes (4): 8.1 create_event, 8.2 search_events, 8.3 get_event y list_events, 8. 
 Cohesion: 0.67
 Nodes (3): 9. Responsabilidades del LLM y del backend, Backend, LLM
 
+### Community 63 - "Requirements"
+Cohesion: 0.10
+Nodes (20): clinical-event-registration Specification, Purpose, Requirement: Confirmar el resultado y mantener atomicidad ante fallos, Requirement: Conservar la precisión temporal, Requirement: Evitar duplicados dentro de la conversación, Requirement: Rechazar contenido no registrable o ambiguo, Requirement: Registrar hechos clínicos propios, Requirements (+12 more)
+
+### Community 64 - "ADDED Requirements"
+Cohesion: 0.10
+Nodes (19): ADDED Requirements, Purpose, Requirement: Confirmar el resultado y mantener atomicidad ante fallos, Requirement: Conservar la precisión temporal, Requirement: Evitar duplicados dentro de la conversación, Requirement: Rechazar contenido no registrable o ambiguo, Requirement: Registrar hechos clínicos propios, Scenario: Confirmar un registro exitoso (+11 more)
+
+### Community 65 - "org.springframework.stereotype.Service"
+Cohesion: 0.15
+Nodes (5): ClinicalEventConversationRegistry, ClinicalEventIndexRebuilder, ClinicalEventIndexWriter, org.springframework.jdbc.core.JdbcTemplate, org.springframework.stereotype.Service
+
+### Community 67 - "ClinicalEvent"
+Cohesion: 0.29
+Nodes (5): ClinicalEvent, EventSource, PATIENT, ClinicalEventRegistrationResult, java.util.regex.Pattern
+
+### Community 68 - "Decisions"
+Cohesion: 0.17
+Nodes (11): Context, Contrato estructurado entre chat y registro, Decisions, Duplicación limitada a la conversación actual, Goals / Non-Goals, La aplicación valida antes de persistir, Markdown como fuente primaria y PostgreSQL como índice derivado, Migration Plan (+3 more)
+
+### Community 69 - "ClinicalEventDateNormalizer"
+Cohesion: 0.27
+Nodes (7): DatePrecision, APPROXIMATE, EXACT, UNKNOWN, ClinicalEventDateNormalizer, NormalizedDate, ClinicalEventDateNormalizerTest
+
+### Community 70 - "openspec-explore/SKILL.md"
+Cohesion: 0.18
+Nodes (10): Check for context, Ending Discovery, Guardrails, Handling Different Entry Points, OpenSpec Awareness, The Stance, What You Don't Have To Do, What You Might Do (+2 more)
+
+### Community 71 - "opsx-explore.prompt.md"
+Cohesion: 0.20
+Nodes (9): Check for context, Ending Discovery, Guardrails, OpenSpec Awareness, The Stance, What You Don't Have To Do, What You Might Do, When a change exists (+1 more)
+
+### Community 72 - "scripts"
+Cohesion: 0.25
+Nodes (8): scripts, build, dev, lint, start, test, test:watch, typecheck
+
+### Community 73 - "proposal.md"
+Cohesion: 0.29
+Nodes (6): Capabilities, Impact, Modified Capabilities, New Capabilities, What Changes, Why
+
+### Community 74 - "Kind"
+Cohesion: 0.33
+Nodes (6): Kind, CLARIFICATION, CONVERSATION, DUPLICATE, FAILURE, REGISTERED
+
+### Community 75 - "ClinicalEventType"
+Cohesion: 0.40
+Nodes (5): ClinicalEventType, DIAGNOSIS, MEASUREMENT, MEDICATION, NOTE
+
+### Community 76 - "package.json"
+Cohesion: 0.40
+Nodes (4): name, packageManager, private, version
+
+### Community 77 - "tasks.md"
+Cohesion: 0.40
+Nodes (4): 1. Modelo y persistencia de eventos, 2. Interpretación y normalización, 3. Registro y coordinación conversacional, 4. Verificación de integración
+
+### Community 78 - "Kind"
+Cohesion: 0.50
+Nodes (4): Kind, CLARIFICATION, CONVERSATION, EVENTS
+
 ## Knowledge Gaps
-- **347 isolated node(s):** `com.careme:backend`, `measurements`, `$schema`, `style`, `rsc` (+342 more)
+- **426 isolated node(s):** `com.careme:backend`, `EVENTS`, `CLARIFICATION`, `CONVERSATION`, `DIAGNOSIS` (+421 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **8 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **13 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `Careme Backend README` connect `Careme Backend README` to `Careme Frontend README`, `application.yml`, `Backend Project Standards`, `Careme`?**
-  _High betweenness centrality (0.006) - this node is a cross-community bridge._
-- **Why does `Measurement` connect `Measurement` to `MeasurementCsvParser`, `org.junit.jupiter.api.Test`, `MeasurementServiceTest`?**
-  _High betweenness centrality (0.006) - this node is a cross-community bridge._
-- **Why does `MeasurementDraft` connect `org.junit.jupiter.api.Test` to `MeasurementCsvParser`, `Measurement`?**
-  _High betweenness centrality (0.005) - this node is a cross-community bridge._
+- **Why does `ClinicalEvent` connect `ClinicalEvent` to `org.springframework.stereotype.Service`, `ClinicalEventMarkdownStore`, `ClinicalEventDateNormalizer`, `.register`, `org.junit.jupiter.api.Test`, `ClinicalEventType`?**
+  _High betweenness centrality (0.019) - this node is a cross-community bridge._
+- **Why does `ClinicalEventRegistrationResult` connect `ClinicalEvent` to `Kind`, `.register`?**
+  _High betweenness centrality (0.008) - this node is a cross-community bridge._
+- **Why does `MeasurementImportService` connect `MeasurementCsvParser` to `org.springframework.stereotype.Service`, `Measurement`, `ErrorResponse`, `org.junit.jupiter.api.Test`?**
+  _High betweenness centrality (0.008) - this node is a cross-community bridge._
+- **Are the 4 inferred relationships involving `ClinicalEvent` (e.g. with `.acceptsAnApproximateEventWithoutInventedDate()` and `.acceptsAnExactPatientEvent()`) actually correct?**
+  _`ClinicalEvent` has 4 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 4 inferred relationships involving `Measurement` (e.g. with `.acceptsACompleteMeasurement()` and `.rejectsAMissingDate()`) actually correct?**
   _`Measurement` has 4 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 6 inferred relationships involving `MeasurementDraft` (e.g. with `.keepsTheGivenValues()` and `.rejectsAMissingDate()`) actually correct?**
-  _`MeasurementDraft` has 6 INFERRED edges - model-reasoned connections that need verification._
-- **What connects `com.careme:backend`, `measurements`, `$schema` to the rest of the system?**
-  _347 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **What connects `com.careme:backend`, `EVENTS`, `CLARIFICATION` to the rest of the system?**
+  _426 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `MeasurementCsvParser` be split into smaller, more focused modules?**
-  _Cohesion score 0.0593505039193729 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.05164797825348284 - nodes in this community are weakly interconnected._

@@ -24,6 +24,15 @@ server:
 careme:
   cors:
     allowed-origins: http://localhost:3000
+  llm:
+    mode: ${CAREME_LLM_MODE:fake}
+    base-url: ${CAREME_LLM_BASE_URL:https://api.deepseek.com}
+    model: ${CAREME_LLM_MODEL:deepseek-flash}
+    connect-timeout: ${CAREME_LLM_CONNECT_TIMEOUT:PT5S}
+    read-timeout: ${CAREME_LLM_READ_TIMEOUT:PT30S}
+  chat:
+    max-conversations: ${CAREME_CHAT_MAX_CONVERSATIONS:1000}
+    ttl: ${CAREME_CHAT_TTL:PT2H}
   import:
     # A file above this many data rows is rejected before anything is stored.
     max-rows: 10000

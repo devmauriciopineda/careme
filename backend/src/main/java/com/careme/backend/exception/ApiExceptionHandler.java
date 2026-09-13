@@ -31,8 +31,13 @@ public class ApiExceptionHandler {
                 .toList();
 
         log.debug("Rejected a request with {} invalid field(s)", details.size());
+        boolean chatRequest = ex.getParameter().getContainingClass().getName()
+                .equals("com.careme.backend.controller.ChatController");
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(ErrorResponse.of("Invalid measurement payload", "VALIDATION_ERROR", details));
+                .body(ErrorResponse.of(
+                        chatRequest ? "El mensaje no es válido" : "Invalid measurement payload",
+                        "VALIDATION_ERROR",
+                        details));
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)

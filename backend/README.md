@@ -2,8 +2,8 @@
 
 ## Project description
 
-Spring Boot REST service for the Careme body-tracking application. It exposes the
-measurements that the frontend renders: date, weight and abdominal circumference.
+Spring Boot REST service for the Careme personal clinical assistant and body-tracking
+application. It exposes the chat flow and the measurements that the frontend renders.
 
 It exists as its own service so the UI does not own the data. Measurements are
 stored in PostgreSQL, one row per day, and the persistence layer is isolated
@@ -25,6 +25,13 @@ contract.
 - Measurements live in a PostgreSQL table. Flyway owns the schema; Hibernate only
   validates against it.
 - CORS is configured explicitly and scoped to known origins.
+- `POST /api/v1/chat/messages` receives Spanish natural-language messages and returns
+  a non-streaming structured outcome. The default `CAREME_LLM_MODE=fake` is safe for
+  local development; `CAREME_LLM_MODE=openai` uses DeepSeek's OpenAI-compatible API
+  with the backend-only `CAREME_LLM_API_KEY` credential.
+- Clinical events are Markdown files under `data/events/`; PostgreSQL stores only the
+  derived index. The index is rebuilt at startup and with `POST
+  /api/v1/clinical-events/reindex`.
 
 ## Architecture overview
 
@@ -82,11 +89,38 @@ Domain       Measurement (record)       identity + invariants
 
 ## Use of APIs or external services
 
-- It consumes **no external or third-party APIs**.
+- It can consume DeepSeek's OpenAI-compatible LLM API when explicitly enabled.
+- Local real-provider configuration belongs in the root `.env` file, which is ignored
+  by git. Copy the root `.env.example`, set `CAREME_LLM_MODE=openai`, and add the
+  manually provisioned `CAREME_LLM_API_KEY`.
+- Defaults are `CAREME_LLM_BASE_URL=https://api.deepseek.com` and
+  `CAREME_LLM_MODEL=deepseek-flash`. The client calls `/chat/completions` and uses
+  configurable connect/read timeouts.
+- Chat messages are limited to 4,000 characters. In-memory conversation state is
+  limited to 1,000 conversations and expires after 2 hours by default. The MVP has
+  no application-level rate limiter; provider account limits still apply.
+- The application does not select or guarantee a provider processing region or
+  retention policy. Treat those as deployment approval requirements before sending
+  real clinical data. Conversation turns are not persisted by Careme, but provider
+  handling follows the selected provider account and policy.
+- The assistant records patient-stated facts only. It must not diagnose, infer
+  conditions, recommend treatment, or turn suspicions into clinical events.
+- Logs retain conversation/message identifiers for correlation, but do not log the
+  clinical message, prompt, provider response, API key, or stack trace for a normal
+  provider failure.
 - It **exposes** one HTTP API, documented below.
 - It **stores data in PostgreSQL** and owns the schema through Flyway migrations.
 - There is **no authentication or authorization**.
 - No message broker, cache server or cloud service is used.
+
+### `POST /api/v1/chat/messages`
+
+Accepts `{ "message": "...", "messageId": "...", "conversationId": "..." }`.
+`conversationId` is optional on the first turn. The response contains a generated
+conversation id, the message id, a status (`registered`, `clarification_required`,
+`general_conversation`, `duplicate` or `failed`) and a Spanish user-facing message.
+Conversation state is in memory and is not persisted; successfully registered events
+survive because their Markdown documents are the source of truth.
 
 ## API
 
