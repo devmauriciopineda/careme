@@ -8,15 +8,20 @@
 
 ## 1. Resumen ejecutivo
 
-Careme es una aplicación de seguimiento corporal: una persona registra un peso y
-una circunferencia abdominal por día, y el sistema los muestra como tendencia y
-como detalle por fecha. Se compone de dos servicios independientes —un frontend
-Next.js y un backend Spring Boot— más una base de datos PostgreSQL. El backend es
-la fuente de verdad del contrato HTTP; el frontend no posee los datos.
+Careme es una aplicación de asistente clínico personal y seguimiento corporal: su
+punto de entrada es un chat en el que una persona cuenta hechos médicos en
+lenguaje natural —diagnósticos, medicaciones, mediciones y notas— y el sistema
+los registra en su historia clínica conservando la precisión temporal; además
+registra un peso y una circunferencia abdominal por día y los muestra como
+tendencia y detalle por fecha. Se compone de dos servicios independientes —un
+frontend Next.js y un backend Spring Boot— más una base de datos PostgreSQL. El
+backend es la fuente de verdad del contrato HTTP; el frontend no posee los datos.
 
-**Propuesta de valor:** seguimiento corporal mínimo, sin cuentas de usuario, con
-una sola medición por día y con la precisión del dato en manos del dominio
-(invariantes en el constructor del record) en lugar de la interfaz.
+**Propuesta de valor:** historia clínica personal fiel —los hechos se conservan
+con las palabras y la precisión temporal de la persona— y seguimiento corporal
+mínimo, sin cuentas de usuario, con una sola medición por día y con la precisión
+del dato en manos del dominio (invariantes en el constructor del record) en lugar
+de la interfaz.
 
 **Lenguaje ubicuo:**
 
@@ -31,6 +36,12 @@ una sola medición por día y con la precisión del dato en manos del dominio
 | **Carga / importación** | Leer mediciones desde un archivo CSV y persistirlas | `backend/src/main/java/com/careme/backend/service/MeasurementImportService.java` |
 | **Previsualización** | Informe de lo que haría una carga, sin guardar nada | `backend/src/main/java/com/careme/backend/dto/ImportPreviewResponse.java` |
 | **Envoltura de respuesta** (ApiResponse) | Sobre único para toda respuesta, éxito o error | `backend/src/main/java/com/careme/backend/dto/ApiResponse.java` |
+| **Hecho clínico** (ClinicalEvent) | Un hecho médico contado por la persona, con tipo, contenido y precisión temporal | `backend/src/main/java/com/careme/backend/entity/ClinicalEvent.java` |
+| **Intención clínica** (ClinicalEventIntent) | Resultado estructurado del chat: `events`, `clarification` o `conversation` | `backend/src/main/java/com/careme/backend/dto/ClinicalEventIntent.java` |
+| **Precisión temporal** (date_precision) | `exact`, `approximate` o `unknown`; nunca mayor que la aportada | `backend/src/main/java/com/careme/backend/entity/ClinicalEvent.java` |
+| **Fuente de verdad Markdown** | Documentos `evt_NNN.md` en `data/events/` donde viven los hechos | `backend/src/main/java/com/careme/backend/service/ClinicalEventMarkdownStore.java` |
+| **Índice derivado** | Tabla PostgreSQL `clinical_event_index`, reconstruible desde el Markdown | `backend/src/main/resources/db/migration/V2__create_clinical_event_index.sql` |
+| **Turno del chat** (ChatMessageResponse) | Respuesta del asistente: estado, mensaje y eventos | `backend/src/main/java/com/careme/backend/dto/ChatMessageResponse.java` |
 
 ---
 
@@ -47,10 +58,12 @@ flowchart LR
     persona -->|"usa, HTTP<br/>navegador :3000"| app
 ```
 
-**Sistemas externos:** ninguno. El backend no consume APIs de terceros, ni
-brokers, ni caché, ni proveedores de identidad (`backend/README.md`, sección
-*Use of APIs or external services*). La única dependencia externa de runtime es
-PostgreSQL.
+**Sistemas externos:** un proveedor LLM compatible con OpenAI (DeepSeek por
+defecto) cuando el chat se habilita con `CAREME_LLM_MODE=openai`; con el
+default `CAREME_LLM_MODE=fake` no hay llamada de red. No hay brokers, caché ni
+proveedores de identidad (`backend/README.md`, sección *Use of APIs or external
+services*; `backend/.../service/OpenAiClinicalIntentInterpreter.java`). Las demás
+dependencias de runtime son PostgreSQL y el filesystem local.
 
 **Fuera del alcance del repositorio:**
 
@@ -59,12 +72,13 @@ PostgreSQL.
 - Multi-usuario — el modelo no distingue mediciones de distintas personas
   (`docs/use-cases/UC-001.md`, *Fuera de alcance*).
 - Objetivos, notificaciones y recomendaciones (`docs/use-cases/UC-002.md`).
-- Integración continua — ⚠️ NO DETECTADO: `.github/` solo contiene `prompts/`,
-  `hooks/` y `context-mode/`; no hay `.github/workflows/`. Verificar si el CI
-  vive en otro proveedor.
-- Convención OpenSpec — ⚠️ NO DETECTADO: no existe carpeta `openspec/`. La
-  documentación funcional vive en `docs/use-cases/` (UC-001…UC-004) y
-  `docs/roadmap/`. Verificar cómo verificar: `Get-ChildItem -Recurse -Force openspec`.
+- Integración continua — ⚠️ NO DETECTADO: `.github/` contiene `prompts/`,
+  `hooks/`, `skills/`, `context-mode/` y `copilot-instructions.md`, pero no hay
+  `.github/workflows/`. Verificar si el CI vive en otro proveedor.
+- Convención OpenSpec — ✅ RESUELTO: existe `openspec/` con `config.yaml`,
+  `openspec/specs/` (capacidades vigentes) y `openspec/changes/archive/` (cambios
+  archivados). Coexiste con la documentación funcional en `docs/use-cases/`
+  (UC-001…UC-004) y `docs/roadmap/`.
 
 ---
 
@@ -89,6 +103,7 @@ PostgreSQL.
 | Backend build | Maven Wrapper + enforcer | 3.9.9 / JDK 21 | Build reproducible sin Maven instalado | `backend/pom.xml`, `backend/.mvn/wrapper/` |
 | Backend tests | JUnit 5, Mockito, AssertJ, MockMvc, Spring Boot Test, Testcontainers | — | Unit + capa web + integración real | `backend/pom.xml` |
 | Backend cobertura | JaCoCo (gate 90 % ramas / 90 % líneas) | 0.8.12 | Bound a `verify`, no a `test` | `backend/pom.xml` |
+| Backend LLM | Spring `RestClient` (JDK HttpClient) a una API compatible con OpenAI | `deepseek-flash` | Chat opt-in (`CAREME_LLM_MODE=openai`), prompt en `prompts/clinical-intent-v1.txt` | `backend/.../service/OpenAiClinicalIntentInterpreter.java`, `backend/src/main/resources/application.yml` |
 | Datos | PostgreSQL | 17 (`postgres:17-alpine`) | Estándar del repo y de los tests de integración | `docker-compose.yml`, `backend/README.md` |
 | Empaquetado | Docker multi-stage | `maven:3.9-eclipse-temurin-21` → `eclipse-temurin:21-jre-alpine` | Imagen no-root | `backend/Dockerfile` |
 | Orquestación local | Docker/Podman Compose | — | Levanta los tres contenedores | `docker-compose.yml` |
@@ -103,7 +118,7 @@ flowchart TB
     subgraph careme["Careme [Sistema]"]
         fe["Frontend<br/>[Contenedor: Next.js 16 / Node]<br/>Server Components + Server Action<br/>:3000"]
         be["Backend<br/>[Contenedor: Spring Boot 3.5 / Java 21]<br/>API REST JSON :8080"]
-        db[("Base de datos<br/>[Contenedor: PostgreSQL 17]<br/>tabla measurements :5432")]
+        db[("Base de datos<br/>[Contenedor: PostgreSQL 17]<br/>measurements + clinical_event_index :5432")]
     end
     persona -->|"HTTP, navegador"| fe
     fe -->|"fetch en servidor, JSON<br/>API_BASE_URL"| be
@@ -114,7 +129,7 @@ flowchart TB
 | --- | --- | --- |
 | **Frontend** | Renderizar tendencia y detalle diario; validar payloads antes de enviarlos; refrescar la vista tras registrar | Servidor Node: `fetch` server-side a la API (`frontend/src/services/measurementService.ts`). Entrega HTML/JS al navegador |
 | **Backend** | Poseer el contrato HTTP, validar, aplicar invariantes, persistir y ordenar | Expone HTTP/JSON en `/api/v1/**` (`backend/.../controller/MeasurementController.java`); habla JDBC con PostgreSQL |
-| **PostgreSQL** | Almacenar una fila por día; imponer `UNIQUE(date)` y `CHECK > 0` | Volumen `careme-pgdata`; healthcheck `pg_isready` (`docker-compose.yml`) |
+| **PostgreSQL** | Almacenar una fila de medición por día (`UNIQUE(date)`, `CHECK > 0`) y el índice derivado `clinical_event_index` | Volumen `careme-pgdata`; healthcheck `pg_isready` (`docker-compose.yml`) |
 
 **Protocolos:** todo síncrono, sin colas ni eventos. El frontend consume la API
 desde el servidor (no desde el navegador), por lo que CORS no es estrictamente
@@ -122,8 +137,11 @@ necesario hoy — está configurado de forma explícita para un cliente futuro
 (`backend/src/main/java/com/careme/backend/config/CorsConfig.java`).
 
 **Arranque local** (`docker-compose.yml`): `postgres` (healthcheck) →
-`backend` (`depends_on: service_healthy`, `SPRING_PROFILES_ACTIVE=dev`) →
-`frontend` (`API_BASE_URL=http://backend:8080`, dentro de la red de Compose).
+`backend` (`depends_on: service_healthy`, `SPRING_PROFILES_ACTIVE=dev`, variables
+`CAREME_LLM_*` y `CAREME_EVENTS_DIRECTORY=/app/data/events`) →
+`frontend` (`API_BASE_URL=http://backend:8080`, dentro de la red de Compose). El
+backend monta el volumen `careme-events` en `/app/data` para que la fuente de
+verdad Markdown sobreviva a la recreación del contenedor.
 
 ---
 
@@ -143,11 +161,20 @@ flowchart TB
         dao["MeasurementJpaDao<br/>Spring Data JPA"]
         entity["MeasurementEntity<br/>@Entity → tabla measurements"]
         domain["Measurement / MeasurementDraft<br/>records de dominio, invariantes"]
-        dtos["dto/*<br/>MeasurementRequest · MeasurementResponse<br/>Import* · ApiResponse · ErrorResponse"]
+        chatCtrl["ChatController<br/>POST /api/v1/chat/messages"]
+        orchestrator["ChatOrchestrator<br/>turno + estado de conversación"]
+        interpreter["ClinicalIntentInterpreter<br/>Fake · OpenAI"]
+        regSvc["ClinicalEventRegistrationService<br/>valida, deduplica, publica"]
+        mdStore["ClinicalEventMarkdownStore<br/>fuente de verdad"]
+        idxWriter["ClinicalEventIndexWriter<br/>índice derivado"]
+        evtCtrl["ClinicalEventIndexController<br/>POST /api/v1/clinical-events/reindex"]
+        evtDomain["ClinicalEvent / ClinicalEventIntent<br/>records de dominio, invariantes"]
+        dtos["dto/*<br/>Measurement* · Import* · ChatMessage*<br/>ClinicalEventIntent · ApiResponse · ErrorResponse"]
         exc["ApiExceptionHandler<br/>@RestControllerAdvice"]
         cors["CorsConfig"]
     end
     pg[("PostgreSQL")]
+    fs[("data/events/<br/>Markdown")]
     ctrl --> svc
     ctrl --> imp
     ctrl --> dtos
@@ -160,16 +187,29 @@ flowchart TB
     adapter --> entity
     entity --> domain
     dao --> pg
+    chatCtrl --> orchestrator
+    orchestrator --> interpreter
+    orchestrator --> regSvc
+    regSvc --> evtDomain
+    regSvc --> mdStore
+    regSvc --> idxWriter
+    evtCtrl --> mdStore
+    evtCtrl --> idxWriter
+    mdStore --> fs
+    idxWriter --> pg
     exc -.-> ctrl
+    exc -.-> chatCtrl
     cors -.-> ctrl
+    cors -.-> chatCtrl
 ```
 
 | Módulo | Rol arquitectónico | Evidencia |
 | --- | --- | --- |
-| `controller/` | Adaptador de entrada: traduce HTTP ↔ DTO. No decide nada | `backend/.../controller/MeasurementController.java` |
+| `controller/` | Adaptador de entrada: traduce HTTP ↔ DTO. No decide nada | `backend/.../controller/MeasurementController.java`, `ChatController.java`, `ClinicalEventIndexController.java` |
 | `service/` | Casos de uso: ordenar, decidir crear vs. reemplazar, previsualizar y cargar | `backend/.../service/MeasurementService.java`, `MeasurementImportService.java`, `MeasurementCsvParser.java` |
+| `service/` (clínico) | Chat y registro: interpretar, normalizar fechas, validar, deduplicar y publicar de forma atómica Markdown + índice derivado | `backend/.../service/ChatOrchestrator.java`, `ClinicalEvent*.java`, `OpenAiClinicalIntentInterpreter.java` |
 | `repository/` | Puerto (`MeasurementRepository`) + adaptadores JPA. Aísla el motor de persistencia | `backend/.../repository/` |
-| `entity/` | Tres tipos con tres trabajos: `MeasurementEntity` (mapeo), `Measurement` (dominio sin anotaciones), `MeasurementDraft` (sin identidad) | `backend/.../entity/` |
+| `entity/` | Separación dominio/mapeo: `MeasurementEntity` (mapeo), `Measurement` y `MeasurementDraft` (dominio sin anotaciones), `ClinicalEvent` (dominio del asistente) | `backend/.../entity/` |
 | `dto/` | Contrato HTTP, independiente del esquema | `backend/.../dto/` |
 | `config/` | CORS explícito y acotado por origen | `backend/.../config/CorsConfig.java` |
 | `exception/` | Manejador global: 400/500 uniformes | `backend/.../exception/ApiExceptionHandler.java` |
@@ -178,7 +218,8 @@ flowchart TB
 
 ```mermaid
 flowchart TB
-    page["app/page.tsx<br/>Server Component"]
+    page["app/page.tsx<br/>entrada — chat"]
+    mpage["app/measurements/page.tsx<br/>Server Component"]
     subgraph feat["features/measurements"]
         dash["MeasurementsDashboard<br/>async server"]
         chart["MetricTrendChart<br/>client island Recharts"]
@@ -188,11 +229,23 @@ flowchart TB
         action["actions.ts<br/>Server Action"]
         lib["lib/ metrics · schema · strings · importMessages"]
     end
-    svc["services/measurementService.ts<br/>único punto que conoce el origen de datos"]
+    subgraph chat["features/chat"]
+        workspace["ChatWorkspace<br/>client island"]
+        caction["actions.ts<br/>Server Action"]
+        ctypes["types · lib/schema"]
+    end
+    svc["services/measurementService.ts<br/>origen de datos de mediciones"]
+    csvc["services/chatService.ts<br/>cliente del chat"]
     cfg["services/apiConfig.ts<br/>API_BASE_URL"]
     ui["components/ui<br/>primitivas shadcn/ui"]
     be["Backend :8080"]
-    page --> dash
+    page --> workspace
+    workspace --> caction
+    workspace --> ctypes
+    caction --> csvc
+    csvc --> cfg
+    csvc --> be
+    mpage --> dash
     dash --> chart
     dash --> table
     dash --> form
@@ -211,13 +264,14 @@ flowchart TB
 
 | Módulo | Rol arquitectónico | Evidencia |
 | --- | --- | --- |
-| `app/` | Punto de entrada, layout, frontera de error y estilos globales | `frontend/src/app/page.tsx`, `error.tsx`, `layout.tsx` |
-| `features/measurements/` | Módulo de funcionalidad autocontenido (feature-sliced) | `frontend/src/features/measurements/` |
+| `app/` | Puntos de entrada: chat en `/`, dashboard en `/measurements`; layout, frontera de error y estilos | `frontend/src/app/page.tsx`, `measurements/page.tsx`, `error.tsx`, `layout.tsx` |
+| `features/chat/` | Módulo del asistente: workspace, Server Action, esquema y tipos | `frontend/src/features/chat/` |
+| `features/measurements/` | Módulo de seguimiento corporal autocontenido (feature-sliced) | `frontend/src/features/measurements/` |
 | `features/.../lib/metrics.ts` | Registro de métricas + helpers puros (series, dominio de ejes, etiquetas) | `frontend/src/features/measurements/lib/metrics.ts` |
 | `features/.../lib/schema.ts` | Esquemas Zod de la API y del formulario | `frontend/src/features/measurements/lib/schema.ts` |
 | `features/.../lib/strings.ts` | Único lugar con textos de usuario (español) | `frontend/src/features/measurements/lib/strings.ts` |
 | `features/.../actions.ts` | Server Action de registro + `revalidatePath("/")` | `frontend/src/features/measurements/actions.ts` |
-| `services/` | Frontera de datos: `fetch` + envoltura + Zod | `frontend/src/services/measurementService.ts`, `apiConfig.ts` |
+| `services/` | Frontera de datos: `fetch` + envoltura + Zod (mediciones y chat) | `frontend/src/services/measurementService.ts`, `chatService.ts`, `apiConfig.ts` |
 | `components/ui/` | Primitivas shadcn/ui reutilizables | `frontend/src/components/ui/` |
 | `test/` | Setup de Vitest | `frontend/src/test/setup.ts` |
 
@@ -230,21 +284,22 @@ careme/
 ├── backend/                        # Servicio REST (fuente de verdad del contrato)
 │   ├── src/main/java/com/careme/backend/
 │   │   ├── controller/             # Adaptador de entrada HTTP
-│   │   ├── service/                # Casos de uso y parseo CSV
+│   │   ├── service/                # Casos de uso, parseo CSV, chat y registro clínico
 │   │   ├── repository/             # Puerto de datos + adaptadores JPA
 │   │   ├── entity/                 # Dominio (records) + mapeo JPA
 │   │   ├── dto/                    # Contrato HTTP
 │   │   ├── config/                 # CORS
 │   │   ├── exception/              # Manejador global de errores
 │   │   └── CaremeBackendApplication.java
-│   ├── src/main/resources/         # application.yml + perfiles + migraciones Flyway
+│   ├── src/main/resources/         # application.yml + perfiles + migraciones + prompts
 │   ├── src/test/java/              # Espeja la estructura de paquetes
 │   ├── Dockerfile                  # Imagen multi-stage no-root
 │   └── pom.xml
 ├── frontend/                       # SPA/SSR Next.js
-│   ├── src/app/                    # Entrada, layout, error, estilos
+│   ├── src/app/                    # Chat (/), dashboard (/measurements), layout, error, estilos
 │   ├── src/components/ui/          # Primitivas shadcn/ui
-│   ├── src/features/measurements/  # Módulo de la funcionalidad
+│   ├── src/features/chat/          # Módulo del asistente
+│   ├── src/features/measurements/  # Módulo de seguimiento corporal
 │   ├── src/services/               # Frontera de datos (fetch + Zod)
 │   ├── src/test/                   # Setup de tests
 │   └── e2e/playwright/             # Reservado; sin tests todavía
@@ -254,7 +309,8 @@ careme/
 │   ├── roadmap/                    # Roadmap y alcance del MVP del asistente clínico
 │   ├── data-model.md               # Modelo de datos
 │   └── architecture.md             # Este documento
-├── .github/                        # prompts/, hooks/ y context-mode/ (sin workflows)
+├── openspec/                       # Specs vigentes y cambios archivados (OpenSpec)
+├── .github/                        # prompts/, skills/, hooks/ y context-mode/ (sin workflows)
 ├── graphify-out/                   # Grafo de conocimiento del repo para agentes IA
 └── docker-compose.yml              # postgres + backend + frontend
 ```
@@ -310,12 +366,11 @@ Rol arquitectónico de las carpetas de primer nivel:
 
 | Hallazgo | Evidencia | Impacto |
 | --- | --- | --- |
-| Documentación desactualizada en el backend: afirma «Read-only by design. There are no write endpoints», pero existen `POST` y endpoints de importación | `backend/README.md` (*Additional notes*) vs. `backend/.../controller/MeasurementController.java` | Medio: confunde a agentes y a nuevos desarrolladores |
-| CORS permite solo `GET`, pero la API expone `POST` y `POST` multipart | `backend/.../config/CorsConfig.java` (`.allowedMethods("GET")`) vs. `MeasurementController.java` | Bajo hoy (el fetch es server-side); bloquea un cliente de navegador |
 | Sin autenticación ni autorización en toda la API | `backend/README.md`; `frontend/README.md` | Alto si los datos salen del entorno local |
 | Sin integración continua | `.github/` sin `workflows/` | Medio: los gates de cobertura solo corren localmente |
 | `e2e/playwright/` reservado y vacío; Storybook, Playwright, TanStack Query, Zustand, i18n en runtime y modo oscuro pendientes | `frontend/README.md`, *Deferred from the frontend standard* | Bajo: adopción aditiva prevista |
-| Persistencia de datos clínicos futura sin modelo implementado (solo documentado) | `docs/roadmap/mvp_alcance_asistente_historia_clinica.md` | Informativo |
+| Eventos clínicos sin consulta, edición ni borrado: solo registro e índice (UC-005…UC-008 pendientes) | `openspec/specs/clinical-event-registration/spec.md`, `backend/.../service/ClinicalEventIndexRebuilder.java` | Informativo: alcance del MVP |
+| Deduplicación de hechos limitada a la conversación en curso, con estado en memoria | `backend/.../service/ClinicalEventConversationRegistry.java`, `ConversationStateStore.java` | Bajo: una repetición en otra conversación crea un evento nuevo |
 
 ---
 
@@ -339,7 +394,8 @@ código y de los README.
 | ADR-010 | Gate de cobertura (90 % ramas/líneas) atado a `verify`, no a `test` | Vigente | No bloquear ciclos rápidos de test | `mvn test` puede pasar con cobertura insuficiente |
 | ADR-011 | Java 21 fijado por `maven-enforcer-plugin` y wrapper de Maven commiteado | Vigente | Build reproducible | Builds con otro JDK fallan explícitamente |
 | ADR-012 | Textos de usuario en español aislados en `strings.ts`; código en inglés | Vigente | i18n futura sin refactor | Disciplina manual; sin verificación automática |
-| ADR-013 | `Patient` implícito y eventos clínicos en Markdown + índice PostgreSQL | Propuesto | MVP del asistente de historia clínica | No implementado; si se adopta, cambia el modelo de persistencia |
+| ADR-013 | `Patient` implícito y eventos clínicos en Markdown como fuente de verdad + índice PostgreSQL derivado | Vigente | MVP del asistente de historia clínica (UC-004) | El Markdown manda; PostgreSQL solo indexa y se reconstruye; sin consulta/edición/borrado todavía |
+| ADR-014 | Interpretación del lenguaje natural tras un adaptador (`ClinicalIntentInterpreter`) con modo `fake`/`openai` | Vigente | Separar el proveedor LLM del dominio y permitir desarrollo sin red | El default `fake` es determinista; `openai` exige `CAREME_LLM_API_KEY` y usa DeepSeek |
 
 ---
 
@@ -357,10 +413,16 @@ en desarrollo.
 | `CAREME_DB_URL` | URL JDBC | `jdbc:postgresql://localhost:5432/careme` |
 | `CAREME_DB_USER` / `CAREME_DB_PASSWORD` | Credenciales de base de datos | `careme` / `careme` |
 | `CAREME_CORS_ALLOWED_ORIGINS` | Orígenes permitidos en `pre`/`prd` | Sin default: la app no arranca sin ella |
+| `CAREME_EVENTS_DIRECTORY` | Directorio de la fuente de verdad Markdown | `data/events` |
+| `CAREME_LLM_MODE` | `fake` (sin red) u `openai` | `fake` |
+| `CAREME_LLM_API_KEY` | Credencial del proveedor LLM (solo backend) | Sin default; obligatoria con `openai` |
+| `CAREME_LLM_BASE_URL` / `CAREME_LLM_MODEL` | Endpoint y modelo compatibles con OpenAI | `https://api.deepseek.com` / `deepseek-flash` |
+| `CAREME_LLM_CONNECT_TIMEOUT` / `CAREME_LLM_READ_TIMEOUT` | Timeouts del cliente LLM | `PT5S` / `PT30S` |
 | `API_BASE_URL` (frontend) | URL del backend para el fetch en servidor | `http://localhost:8080` |
 
 Evidencia: `backend/src/main/resources/application.yml`,
-`backend/src/main/resources/application-{dev,pre,prd}.yml`, `frontend/.env.example`.
+`backend/src/main/resources/application-{dev,pre,prd}.yml`, `.env.example`,
+`frontend/.env.example`.
 Las credenciales de `docker-compose.yml` (`careme`/`careme`) son de desarrollo
 local y no deben reutilizarse fuera de él.
 
@@ -373,9 +435,11 @@ local y no deben reutilizarse fuera de él.
 | Base de datos | `UNIQUE(date)` + `CHECK (weight_kg > 0)` + `CHECK (waist_cm > 0)` | `db/migration/V1__create_measurements_table.sql` |
 | Carga de archivo | Multipart limitado a 10 MB (11 MB de request), máximo 10000 filas, cabeceras exactas, validación fila a fila antes de persistir | `application.yml`, `MeasurementCsvParser.java` |
 | Errores | Manejador global: 400 `VALIDATION_ERROR` / `INVALID_REQUEST`, 500 `INTERNAL_ERROR`; sin detalles internos al cliente | `backend/.../exception/ApiExceptionHandler.java` |
+| `POST /api/v1/chat/messages` | Bean Validation: mensaje no vacío y ≤ 4000 caracteres, `messageId` obligatorio; validación determinista de la intención antes de registrar | `backend/.../dto/ChatMessageRequest.java`, `ClinicalEventIntentValidator.java` |
+| `POST /api/v1/clinical-events/reindex` | Sin cuerpo; reconstruye el índice derivado desde `data/events/` | `backend/.../controller/ClinicalEventIndexController.java` |
 
-**CORS:** mapeo `/api/**` restringido a orígenes configurados y solo método
-`GET` (`CorsConfig.java`). No es una defensa de seguridad por sí mismo: no
+**CORS:** mapeo `/api/**` restringido a orígenes configurados y métodos `GET` y
+`POST` (`CorsConfig.java`). No es una defensa de seguridad por sí mismo: no
 sustituye a la autenticación.
 
 **Cumplimiento:** no hay requisitos implementados. El producto trata datos de
@@ -389,7 +453,7 @@ reposo, y política de retención.
 
 ---
 
-Generado: 2026-09-12
-Commit analizado: 84223a1f7d8bd67c262251536b02294a4699171a
+Generado: 2026-09-13
+Commit analizado: fcff0b252e21e01234f944bc1be8578e19b79c3e
 Autor del análisis: GitHub Copilot
-Próxima revisión sugerida: 2026-12-12
+Próxima revisión sugerida: 2026-12-13

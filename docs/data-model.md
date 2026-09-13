@@ -7,21 +7,25 @@ relaciones y un diagrama entidad-relación.
 El documento distingue dos estados:
 
 - **Implementado**: lo que hoy existe en el código y en la base de datos.
-- **Propuesto (MVP del asistente de historia clínica)**: el modelo definido en
-  `docs/roadmap/mvp_alcance_asistente_historia_clinica.md`, todavía no
-  implementado.
+- **Propuesto**: el modelo definido en la documentación
+  (`docs/roadmap/mvp_alcance_asistente_historia_clinica.md`) que todavía no
+  existe en el código.
+
+Hoy están implementados el seguimiento corporal (`Measurement`) y el registro de
+hechos clínicos (`ClinicalEvent`, UC-004); `Patient` sigue siendo implícito.
 
 ---
 
 ## 1. Modelo implementado
 
-El modelo implementado corresponde a la funcionalidad de seguimiento corporal
-(UC-001, UC-002 y UC-003).
+El modelo implementado cubre el seguimiento corporal (UC-001, UC-002 y UC-003) y
+el registro de hechos clínicos (UC-004).
 
 ### 1.1 Measurement
 
 Representa una medición corporal registrada en un día concreto. Es la entidad
-persistida y la única tabla del sistema.
+persistida del seguimiento corporal; convive con la tabla derivada
+`clinical_event_index` del asistente (ver §2).
 
 **Campos:**
 
@@ -83,6 +87,14 @@ No se persisten; describen el contrato HTTP.
   `totalRows`. Resultado de la carga.
 - **ApiResponse**: `success`, `data`, `messageCode`, `message`. Envoltura común
   de toda respuesta.
+- **ChatMessageRequest**: `message` (máx. 4000 caracteres), `conversationId`
+  (opcional), `messageId`. Mensaje enviado al chat.
+- **ChatMessageResponse**: `conversationId`, `messageId`, `status`
+  (`registered`, `clarification_required`, `general_conversation`, `duplicate`,
+  `failed`), `message` y `events`. Turno devuelto por el asistente.
+- **ClinicalEventIntent**: contrato estructurado entre el chat y el registro;
+  `kind` (`events`, `clarification`, `conversation`), `events` y `clarification`.
+  Es lo que produce el adaptador del LLM y valida el dominio.
 
 **Formato de archivo de importación:** columnas requeridas `date`, `weight_kg`
 y `abdominal_circumference_cm`, con cabecera. Límite por defecto de 10000 filas.
@@ -97,10 +109,11 @@ y `abdominal_circumference_cm`, con cabecera. Límite por defecto de 10000 filas
 
 ---
 
-## 2. Modelo propuesto — asistente de historia clínica
+## 2. Modelo del asistente de historia clínica (implementado)
 
-Modelo definido para el MVP del asistente de historia clínica personal. Todavía
-no está implementado en el código.
+Modelo definido para el MVP del asistente de historia clínica personal. El
+registro de hechos clínicos (`ClinicalEvent`) está implementado por UC-004; las
+capacidades de consulta, edición y borrado siguen propuestas.
 
 ### 2.1 Patient
 
@@ -115,6 +128,8 @@ entidad ni tabla para él.
 ### 2.2 ClinicalEvent
 
 Representa un hecho médico registrado por el usuario con sus propias palabras.
+Implementado por UC-004
+(`backend/src/main/java/com/careme/backend/entity/ClinicalEvent.java`).
 
 **Campos:**
 
@@ -147,9 +162,12 @@ Representa un hecho médico registrado por el usuario con sus propias palabras.
 **Notas de persistencia:**
 
 - La fuente de verdad son documentos Markdown en `data/events/`, en el
-  filesystem del backend.
-- PostgreSQL mantiene un índice derivado y reconstruible (full-text con
-  `tsvector` e índice GIN) que nunca es la verdad.
+  filesystem del backend (`ClinicalEventMarkdownStore.java`), con front matter
+  versionado y nombre de archivo `evt_NNN.md`.
+- PostgreSQL mantiene un índice derivado y reconstruible (tabla
+  `clinical_event_index`, full-text con `tsvector` e índice GIN) que nunca es la
+  verdad. Se define en `V2__create_clinical_event_index.sql` y se regenera con
+  `POST /api/v1/clinical-events/reindex`.
 
 **Relaciones:**
 
@@ -183,9 +201,11 @@ erDiagram
     Patient ||--o{ ClinicalEvent : "owns"
 ```
 
-> El bloque de `Measurement` corresponde al modelo implementado (una sola tabla,
-> sin relaciones). El bloque `Patient` / `ClinicalEvent` corresponde al modelo
-> propuesto para el MVP del asistente de historia clínica.
+> El bloque de `Measurement` corresponde al seguimiento corporal implementado.
+> El bloque `Patient` / `ClinicalEvent` corresponde al asistente de historia
+> clínica, implementado para el registro de hechos (UC-004); `Patient` permanece
+> implícito y en PostgreSQL sólo existe el índice derivado
+> `clinical_event_index`.
 
 ---
 
@@ -213,12 +233,14 @@ erDiagram
 
 ## 5. Notas
 
-- `Measurement` y `ClinicalEvent` pertenecen a dos etapas distintas del
-  producto: el seguimiento corporal (implementado) y el asistente de historia
-  clínica (propuesto).
+- `Measurement` y `ClinicalEvent` pertenecen a dos etapas del producto: el
+  seguimiento corporal y el asistente de historia clínica. Ambos están
+  implementados; el asistente aún no expone consulta, edición ni borrado.
 - En el modelo implementado no hay usuarios: no se identifica a la persona ni se
   distinguen mediciones de distintas personas.
 - Los campos obligatorios garantizan la información núcleo, y los opcionales
   permiten entrada flexible sin perder ese núcleo.
-- El esquema de `measurements` lo define la migración Flyway
-  `V1__create_measurements_table.sql`; el mapeo JPA se valida contra él.
+- Los esquemas los definen las migraciones Flyway:
+  `V1__create_measurements_table.sql` (tabla `measurements`) y
+  `V2__create_clinical_event_index.sql` (índice derivado
+  `clinical_event_index`); el mapeo JPA se valida contra ellos.

@@ -2,23 +2,32 @@
 
 ## Project description
 
-Careme is a full-stack body-tracking application. It records two daily metrics —
-weight and abdominal circumference — and presents them as trend charts and a
-daily table.
+Careme is a full-stack personal clinical assistant and body-tracking
+application. Its chat entry point records the clinical facts a person tells it
+in Spanish —diagnoses, medications, measurements and notes— into a personal
+clinical history, preserving the temporal precision they expressed. It also
+records two daily body metrics —weight and abdominal circumference— and presents
+them as trend charts and a daily table.
 
 The project exists to replace a manual spreadsheet: a single place to log body
 measurements day by day and see the trend without doing the math by hand. It is
-an early MVP with no authentication; today the product is limited to viewing and
-registering body measurements.
+an early MVP with no authentication; the assistant registers patient-stated
+facts only and never diagnoses or recommends treatment.
 
-> **Product direction.** The project is expanding into an AI assistant for a
-> personal clinical history. The assistant becomes the entry point of the
-> application and body tracking moves to a secondary view. None of this is
-> implemented yet; [`docs/roadmap/`](./docs/roadmap) holds the roadmap and the
-> scope of the MVP of the assistant.
+> **Product direction.** The assistant is now the entry point of the application
+> and body tracking moved to a secondary view at `/measurements`. The chat flow,
+> the clinical-event registration and the LLM adapter are implemented;
+> [`docs/roadmap/`](./docs/roadmap) holds the remaining roadmap and the scope of
+> the MVP of the assistant.
 
 ## General functionality
 
+- A Spanish-language chat entry point that turns natural-language messages into
+  clinical events (diagnosis, medication, measurement or note), preserving the
+  original wording and the temporal precision (exact, approximate or unknown).
+- Clinical events are stored as Markdown documents (`data/events/`) as the source
+  of truth, with a rebuildable PostgreSQL full-text index; there is no query,
+  edit or delete endpoint yet.
 - Daily records of weight (kg) and abdominal circumference (cm).
 - A registration form that records the measurement of a day; re-registering a day
   replaces its values instead of creating a second record.
@@ -43,22 +52,29 @@ browser ──▶ frontend (Next.js, port 3000)
                 │  server-side fetch at request time
                 ▼
             backend (Spring Boot, port 8080)
-                │  Spring Data JPA
-                ▼
-            PostgreSQL (measurements table, Flyway-managed)
+                │  Spring Data JPA                 │  filesystem
+                ▼                                  ▼
+      PostgreSQL (measurements +          data/events/ (Markdown source
+      clinical_event_index,                of truth for clinical events)
+      Flyway-managed)
 ```
 
-- The **frontend** is a Next.js App Router application. The dashboard is an async
-  Server Component: it fetches the measurements on the server, validates the
-  payload and derives every chart series, axis domain and date label there. The
-  registration form is a client island that submits through a Server Action,
-  which revalidates the path so the charts and the table refresh on their own.
-  Recharts is the only other client-side island.
-- The **backend** is a Spring Boot REST service with read, write and import
-  endpoints. It follows a layered structure (controller → service → repository)
-  and is the source of truth for the API contract.
-- **Storage** is PostgreSQL, behind a repository interface. Flyway owns the
-  schema, so the table exists from the first start without manual DDL.
+- The **frontend** is a Next.js App Router application. The chat workspace is the
+  entry point at `/`; the body-tracking dashboard lives at `/measurements`. The
+  dashboard is an async Server Component: it fetches the measurements on the
+  server, validates the payload and derives every chart series, axis domain and
+  date label there. The registration form is a client island that submits through
+  a Server Action, which revalidates the path so the charts and the table refresh
+  on their own. Recharts, the registration/import forms and the chat workspace
+  are the client-side islands.
+- The **backend** is a Spring Boot REST service with measurement read, write and
+  import endpoints, a chat endpoint and a clinical-event reindex endpoint. It
+  follows a layered structure (controller → service → repository) and is the
+  source of truth for the API contract.
+- **Storage** is PostgreSQL, behind a repository interface, plus the Markdown
+  files in `data/events/` as the source of truth for clinical events. Flyway owns
+  the schema, so the tables exist from the first start without manual DDL; the
+  PostgreSQL index of clinical events is derived and rebuildable.
 
 Each service is documented in its own README:
 
@@ -74,21 +90,25 @@ Each service is documented in its own README:
 | Frontend data   | Native `fetch` behind a service layer, Zod validation, Vitest + RTL         |
 | Backend         | Java 21, Spring Boot 3.5 (Web MVC, Bean Validation, Data JPA)               |
 | Backend data    | PostgreSQL 17, Hibernate ORM 6, Flyway migrations                           |
+| Backend LLM     | Spring `RestClient` → OpenAI-compatible API (DeepSeek, opt-in via `CAREME_LLM_MODE=openai`) |
 | Backend build   | Maven (wrapper committed), JaCoCo coverage gate                             |
 | Backend testing | JUnit 5, Mockito, MockMvc, Spring Boot Test, AssertJ, Testcontainers        |
 | Runtime         | Podman (preferred) or Docker with Compose; pnpm 10 for the frontend        |
 
 ## Use of APIs or external services
 
-- The application consumes **no external or third-party APIs** today. There are no
-  cloud services, SDKs or analytics integrations. The planned assistant will call
-  an OpenAI-compatible LLM provider from the backend, with its key read from an
-  environment variable; see [`docs/roadmap/`](./docs/roadmap).
+- The backend can consume **DeepSeek's OpenAI-compatible LLM API** when the chat
+  assistant is explicitly enabled (`CAREME_LLM_MODE=openai`); the default
+  `CAREME_LLM_MODE=fake` runs with no network call. The key is read from the
+  environment (`CAREME_LLM_API_KEY`) and never reaches the browser; see
+  [`backend/README.md`](./backend/README.md).
 - The frontend consumes the backend's own HTTP API
-  (`GET` and `POST /api/v1/measurements`, plus the CSV import endpoints). The
-  contract is documented in [`backend/README.md`](./backend/README.md).
+  (`GET` and `POST /api/v1/measurements`, the CSV import endpoints and
+  `POST /api/v1/chat/messages`). The contract is documented in
+  [`backend/README.md`](./backend/README.md).
 - Measurements live in a **PostgreSQL** table owned by the backend, created and
-  versioned by Flyway migrations.
+  versioned by Flyway migrations. Clinical events live as Markdown documents in
+  `data/events/` (source of truth) with a derived, rebuildable PostgreSQL index.
 - There is **no authentication or authorization** in this MVP.
 - Images and fonts: no image CDN. The only third-party asset source is
   `next/font/google` (Geist and Geist Mono), which Next.js downloads at build
@@ -100,11 +120,13 @@ Each service is documented in its own README:
 ```text
 careme/
 ├── backend/                  # Spring Boot REST service (own README)
-├── frontend/                 # Next.js dashboard (own README)
+├── frontend/                 # Next.js chat + dashboard (own README)
 ├── docs/roadmap/             # roadmap and MVP scope of the AI assistant
 ├── docs/standards/           # coding standards used by both services
 ├── docs/use-cases/           # formal use cases (UC-001 …)
+├── openspec/                 # OpenSpec specs and archived changes
 ├── .github/prompts/          # planning prompts kept with the project
+├── .github/skills/           # agent skills used by the assistant
 ├── .vscode/settings.json     # editor JDK configuration (Java 21)
 ├── docker-compose.yml        # postgres + backend + frontend stack
 └── README.md
@@ -251,16 +273,20 @@ lsof -iTCP:3000 -iTCP:8080 -iTCP:5432 -sTCP:LISTEN
 ## Basic usage
 
 1. Start the backend and the frontend (either mode above).
-2. Open http://localhost:3000.
-3. The dashboard shows the date range, the record count, one trend chart per
-   metric and the daily table. Hover or focus a chart to read individual values:
-   with the chart focused, the left and right arrow keys move across data points.
+2. Open http://localhost:3000. The chat workspace is the entry point: tell it a
+   clinical fact ("me diagnosticaron hipertensión el mes pasado") and it records
+   it, asks for clarification or answers as general conversation. If the LLM is
+   not configured it runs the `fake` interpreter, safe for local development.
+3. Open http://localhost:3000/measurements for the body-tracking dashboard. It
+   shows the date range, the record count, one trend chart per metric and the
+   daily table. Hover or focus a chart to read individual values: with the chart
+   focused, the left and right arrow keys move across data points.
 4. The table starts empty, so the dashboard first shows its empty state. Register
    the measurement of a day with the registration form, or load a CSV file with
    the import action. Re-registering a day replaces its values, because there is
    at most one measurement per day.
-5. If the backend is not running, the frontend shows a "measurements could not be
-   loaded" screen with a retry button instead of crashing.
+5. If the backend is not running, the dashboard shows a "measurements could not
+   be loaded" screen with a retry button instead of crashing.
 
 ## Additional notes
 
@@ -268,6 +294,9 @@ lsof -iTCP:3000 -iTCP:8080 -iTCP:5432 -sTCP:LISTEN
   The registration form replaces the values of a day that already has one, and
   the CSV import does the same in bulk. There is no delete endpoint, no
   pagination, no filtering and no runtime i18n.
+- **Clinical events can be registered but not queried, edited or deleted.** The
+  chat registers them and the PostgreSQL index can be rebuilt from the Markdown
+  documents; the query, edit and delete use cases are still on the roadmap.
 - **One measurement per day.** The table has a unique constraint on `date`.
 - **CORS is not required today** because the frontend fetches on the server. It is
   configured explicitly so a future client-side call cannot open the API to every

@@ -211,6 +211,23 @@ created. There is never more than one measurement per day.
 Notes on the payload: `id` is the row's UUID rendered as a string, `date` is an ISO
 `yyyy-MM-dd` calendar date and both metrics are decimals with one decimal place.
 
+### `POST /api/v1/chat/messages`
+
+Receives a Spanish natural-language message and returns a non-streaming
+structured outcome. See *Use of APIs or external services* above for the request
+shape, the statuses and the LLM configuration.
+
+### `POST /api/v1/clinical-events/reindex`
+
+Rebuilds the derived clinical-event index from the Markdown documents in
+`data/events/` and returns the number of indexed events.
+
+**Success — `200 OK`**
+
+```json
+{ "indexedEvents": 12 }
+```
+
 ## General repository structure
 
 ```text
@@ -221,9 +238,10 @@ backend/
 │   ├── exception/                      # global handler
 │   └── CaremeBackendApplication.java   # entry point
 ├── src/main/resources/
-│   ├── application.yml                 # port, datasource, JPA, CORS origins
+│   ├── application.yml                 # port, datasource, JPA, CORS, LLM, events dir
 │   ├── application-{dev,pre,prd}.yml   # per-environment overrides
-│   └── db/migration/                   # Flyway migrations
+│   ├── prompts/clinical-intent-v1.txt  # system prompt for the LLM interpreter
+│   └── db/migration/                   # Flyway migrations (V1 measurements, V2 event index)
 ├── src/test/java/com/careme/backend/   # mirrors the package structure
 ├── .mvn/wrapper/                       # Maven wrapper configuration
 ├── Dockerfile
@@ -322,15 +340,27 @@ running.
 ./mvnw verify      # tests + JaCoCo report + coverage gate
 ```
 
-The suite is 19 tests across 5 classes, organized by layer:
+The suite is 21 test classes (113 test methods), organized by layer:
 
-| Class                           | Covers                                                     |
-| ------------------------------- | ---------------------------------------------------------- |
-| `CaremeBackendApplicationTests` | Full stack: real database, envelope, ordering, CORS preflight |
-| `MeasurementControllerTest`     | `@WebMvcTest`: envelope shape, success and error mappings   |
-| `MeasurementServiceTest`        | Ordering, mapping, empty dataset, error pass-through        |
-| `MeasurementJpaRepositoryTest`  | Mapping, empty table, unique `date`, `CHECK` constraints     |
-| `MeasurementTest`               | Domain invariants                                           |
+| Class                                      | Covers                                                     |
+| ------------------------------------------ | ---------------------------------------------------------- |
+| `CaremeBackendApplicationTests`            | Full stack: real database, envelope, ordering, CORS preflight |
+| `MeasurementControllerTest`                | `@WebMvcTest`: envelope shape, success and error mappings   |
+| `MeasurementImportControllerTest`          | `@WebMvcTest`: preview and import endpoints                 |
+| `MeasurementServiceTest`                   | Ordering, mapping, empty dataset, error pass-through        |
+| `MeasurementImportServiceTest`             | All-or-nothing import, preview counts                       |
+| `MeasurementCsvParserTest`                 | CSV parsing, headers, per-row validation                    |
+| `MeasurementJpaRepositoryTest`             | Mapping, empty table, unique `date`, `CHECK` constraints     |
+| `MeasurementTest` / `MeasurementDraftTest` | Domain invariants                                           |
+| `ChatControllerTest`                       | `@WebMvcTest`: chat endpoint contract                        |
+| `ChatOrchestratorTest`                     | Intent → status mapping, idempotency by message id          |
+| `ClinicalEventTest`                        | Clinical-event domain invariants                            |
+| `ClinicalEventDateNormalizerTest`          | Exact, relative, approximate and unknown dates              |
+| `ClinicalEventIntentValidatorTest`         | Rejection of non-registrable or invalid intents             |
+| `ClinicalEventMarkdownStoreTest`           | Markdown round-trip, code reservation, atomic publish       |
+| `ClinicalEventRegistrationServiceTest`     | Registration, dedup within conversation, rollback on failure |
+| `FakeClinicalIntentInterpreterTest`        | Deterministic fake interpreter                              |
+| `OpenAiClinicalIntentInterpreterTest`      | LLM adapter parsing and failure mapping                     |
 
 Integration tests extend `PostgresIntegrationTest`, which starts one
 `postgres:17-alpine` container per JVM and reuses it. They run the real Flyway
@@ -343,9 +373,12 @@ blocked by coverage while a full build is.
 
 ## Additional notes
 
-- **Read-only by design.** There are no write endpoints. Adding them means adding
-  a method to `MeasurementRepository` and a `save` on `MeasurementJpaDao`; the
-  controller, the service and the JSON contract stay as they are.
+- **Writes are explicit and few.** The write surface is `POST /api/v1/measurements`,
+  the CSV import endpoints, `POST /api/v1/chat/messages` and
+  `POST /api/v1/clinical-events/reindex`; there is no update or delete endpoint.
+  Adding a measurement write means adding a method to `MeasurementRepository` and
+  a `save` on `MeasurementJpaDao`; the controller, the service and the JSON
+  contract stay as they are.
 - **`date` is unique.** The table assumes one measurement per day. Recording
   several weigh-ins a day means dropping `uq_measurements_date`, since the
   application cannot decide which of the day's rows to return.

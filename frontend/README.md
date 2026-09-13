@@ -1,13 +1,15 @@
 # Careme — Frontend
 
-Body tracking dashboard. It shows daily weight and abdominal circumference as
-trend charts and as a table, and registers the measurement of a day, all through
-the Careme backend API.
+Next.js application for the Careme personal clinical assistant and body-tracking
+dashboard. `/` is the assistant chat and `/measurements` shows daily weight and
+abdominal circumference as trend charts and as a table, and registers the
+measurement of a day, all through the Careme backend API.
 
 There is no authentication yet. Measurements come from
 `GET /api/v1/measurements`, and the registration form sends
 `POST /api/v1/measurements`, through a service layer that validates the payload
-before it reaches the backend.
+before it reaches the backend. The chat posts to `POST /api/v1/chat/messages`
+through `chatService`.
 
 ## Tech stack
 
@@ -70,12 +72,13 @@ test an old build by mistake.
 frontend/
 ├── e2e/playwright/               # Reserved for end-to-end tests
 ├── src/
-│   ├── app/                      # layout, page, error boundary, global styles
+│   ├── app/                      # layout, chat entry (/), measurements (/measurements), error
 │   ├── components/ui/            # shadcn/ui primitives
-│   ├── features/measurements/    # feature module
+│   ├── features/chat/            # chat feature (workspace, actions, schema, types)
+│   ├── features/measurements/    # body-tracking feature module
 │   │   ├── components/           # dashboard, chart and table
 │   │   └── lib/                  # pure logic, schema, copy
-│   ├── services/                 # API client and base URL configuration
+│   ├── services/                 # API clients (measurements, chat) and base URL
 │   └── test/                     # test setup
 ├── components.json               # shadcn/ui configuration
 ├── next.config.ts                # standalone output for containers
@@ -85,12 +88,17 @@ frontend/
 
 ## Architecture notes
 
-**Server Components first.** `src/app/page.tsx` renders `MeasurementsDashboard`, an
-async Server Component that loads the measurements and derives every chart
-series, axis domain and date label on the server. `MetricTrendChart` is the only
-client island, because Recharts needs the browser; it receives ready-to-render
-primitives, never `Date` objects or formatting logic. This is why date labels do
-not shift with the visitor's time zone.
+**Chat entry point.** `src/app/page.tsx` renders `ChatWorkspace`, a client island
+that submits a turn through the `sendChatMessage` Server Action; the action calls
+`chatService` and revalidates the path so the conversation refreshes. The
+body-tracking view lives at `src/app/measurements/page.tsx`.
+
+**Server Components first.** That measurements page renders
+`MeasurementsDashboard`, an async Server Component that loads the measurements and
+derives every chart series, axis domain and date label on the server.
+`MetricTrendChart` is a client island, because Recharts needs the browser; it
+receives ready-to-render primitives, never `Date` objects or formatting logic.
+This is why date labels do not shift with the visitor's time zone.
 
 **One chart component, two usages.** `MetricTrendChart` is parameterized by
 metric instead of being duplicated per metric.
@@ -100,11 +108,13 @@ metric instead of being duplicated per metric.
 helpers. Adding a metric means adding a field to `Measurement`, a value to
 `MetricKey` and an entry to `METRICS`.
 
-**Service boundary.** `src/services/measurementService.ts` is the only place that
-knows where data comes from. It calls `GET /api/v1/measurements` with
+**Service boundary.** `src/services/measurementService.ts` and
+`src/services/chatService.ts` are the only places that know where data comes
+from. The measurement service calls `GET /api/v1/measurements` with
 `cache: "no-store"`, unwraps the response envelope, validates `data` with Zod and
-returns chronologically sorted measurements. The base URL is read once in
-`src/services/apiConfig.ts`.
+returns chronologically sorted measurements; the chat service posts to
+`/api/v1/chat/messages` and validates the turn with Zod. The base URL is read
+once in `src/services/apiConfig.ts`.
 
 **Failure handling.** When that call fails, the Server Component throws and
 `src/app/error.tsx` renders a localized message with a retry button instead of the
@@ -118,13 +128,15 @@ server-side, calls `measurementService.createMeasurement` and then
 `revalidatePath("/")`, so the charts and the daily detail refresh without a
 manual reload. A failed save keeps every typed value so the user can retry.
 
-**Copy.** Code is written in English; only user-facing strings are Spanish, and
-they all live in `src/features/measurements/lib/strings.ts`.
+**Copy.** Code is written in English; only user-facing strings are Spanish. The
+measurement copy lives in `src/features/measurements/lib/strings.ts` and the chat
+copy in the chat feature.
 
 ## Data source and environment
 
-The dashboard reads from the backend API. Copy `.env.example` to `.env.local` and
-set the base URL when the backend does not run on `http://localhost:8080`:
+Both the dashboard and the chat read from the backend API. Copy `.env.example` to
+`.env.local` and set the base URL when the backend does not run on
+`http://localhost:8080`:
 
 ```bash
 API_BASE_URL=http://localhost:8080
@@ -146,13 +158,14 @@ pnpm test:watch  # Vitest in watch mode
 
 Tests run in jsdom and need neither the backend nor the database.
 
-30 tests across 4 files. Unit tests cover the pure helpers in `lib/metrics.ts`
-(sorting, series building, axis domain, localization, local-day helpers), the
-Zod schemas (API payloads and the registration form) and the measurement
-service. Integration tests render `MeasurementsTable` with React Testing Library
-and assert row order, number formatting and the accessible table caption, and
-render `MeasurementForm` to cover validation, a successful save, a failed save
-that keeps the typed values and the disabled state while saving.
+93 test cases across 10 files, split between the measurements and chat features.
+Unit tests cover the pure helpers in `measurements/lib/metrics.ts` (sorting,
+series building, axis domain, localization, local-day helpers), the Zod schemas
+(measurement API payloads, the registration form and the chat turn) and both
+services. Integration tests render `MeasurementsTable` (row order, number
+formatting, accessible caption), `MeasurementForm` (validation, a successful
+save, a failed save that keeps the typed values, the disabled state while saving)
+and `ChatWorkspace` with its actions.
 
 ## Accessibility
 
