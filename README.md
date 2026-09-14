@@ -274,9 +274,11 @@ lsof -iTCP:3000 -iTCP:8080 -iTCP:5432 -sTCP:LISTEN
 
 1. Start the backend and the frontend (either mode above).
 2. Open http://localhost:3000. The chat workspace is the entry point: tell it a
-   clinical fact ("me diagnosticaron hipertensión el mes pasado") and it records
-   it, asks for clarification or answers as general conversation. If the LLM is
-   not configured it runs the `fake` interpreter, safe for local development.
+  clinical fact ("me diagnosticaron hipertensión el mes pasado") to record it,
+  or ask about your clinical history to receive an answer with supporting
+  records. It may ask for clarification or answer as general conversation. If
+  the LLM is not configured it runs the `fake` interpreter, safe for local
+  development.
 3. Open http://localhost:3000/measurements for the body-tracking dashboard. It
    shows the date range, the record count, one trend chart per metric and the
    daily table. Hover or focus a chart to read individual values: with the chart
@@ -294,9 +296,10 @@ lsof -iTCP:3000 -iTCP:8080 -iTCP:5432 -sTCP:LISTEN
   The registration form replaces the values of a day that already has one, and
   the CSV import does the same in bulk. There is no delete endpoint, no
   pagination, no filtering and no runtime i18n.
-- **Clinical events can be registered but not queried, edited or deleted.** The
-  chat registers them and the PostgreSQL index can be rebuilt from the Markdown
-  documents; the query, edit and delete use cases are still on the roadmap.
+- **Clinical events can be registered and queried, but not edited or deleted.**
+  The chat answers history questions from the PostgreSQL index and the index can
+  be rebuilt from the Markdown documents; edit and delete use cases remain on the
+  roadmap.
 - **One measurement per day.** The table has a unique constraint on `date`.
 - **CORS is not required today** because the frontend fetches on the server. It is
   configured explicitly so a future client-side call cannot open the API to every

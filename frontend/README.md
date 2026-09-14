@@ -90,7 +90,9 @@ frontend/
 
 **Chat entry point.** `src/app/page.tsx` renders `ChatWorkspace`, a client island
 that submits a turn through the `sendChatMessage` Server Action; the action calls
-`chatService` and revalidates the path so the conversation refreshes. The
+`chatService` and revalidates the path so the conversation refreshes. The chat
+renders registration, clarification, general conversation, failure, answered
+history queries with supporting events, and no-records outcomes distinctly. The
 body-tracking view lives at `src/app/measurements/page.tsx`.
 
 **Server Components first.** That measurements page renders
@@ -158,7 +160,9 @@ pnpm test:watch  # Vitest in watch mode
 
 Tests run in jsdom and need neither the backend nor the database.
 
-93 test cases across 10 files, split between the measurements and chat features.
+110 test cases across the measurements and chat features, including validation
+and rendering of the answered and no-records chat outcomes with supporting
+events.
 Unit tests cover the pure helpers in `measurements/lib/metrics.ts` (sorting,
 series building, axis domain, localization, local-day helpers), the Zod schemas
 (measurement API payloads, the registration form and the chat turn) and both

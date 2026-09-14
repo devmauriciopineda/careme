@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { sendChatMessage } from "@/features/chat/actions";
@@ -54,6 +54,8 @@ describe("ChatWorkspace", () => {
   });
 
   it.each([
+    ["answered", "Respuesta"],
+    ["no_records", "Sin registros"],
     ["clarification_required", "Necesita aclaración"],
     ["general_conversation", "Conversación"],
     ["duplicate", "Ya estaba registrado"],
@@ -67,6 +69,52 @@ describe("ChatWorkspace", () => {
 
     expect(await screen.findByText("Respuesta del asistente")).toBeInTheDocument();
     expect(screen.getByText(label)).toBeInTheDocument();
+  });
+
+  it("shows an answer together with the events that support it and their precision", async () => {
+    const user = userEvent.setup();
+    sendChatMessageMock.mockResolvedValue({
+      ok: true,
+      response: {
+        conversationId: "conversation-1",
+        messageId: "message-1",
+        status: "answered",
+        message: "Te la diagnosticaron en enero.",
+        events: [
+          {
+            code: "evt_001",
+            type: "diagnosis",
+            date: "2026-01-10",
+            datePrecision: "approximate",
+            content: "Hipertensión diagnosticada",
+          },
+        ],
+      },
+    });
+
+    render(<ChatWorkspace />);
+    await send(user, "¿Cuándo me diagnosticaron hipertensión?");
+
+    expect(await screen.findByText("Te la diagnosticaron en enero.")).toBeInTheDocument();
+    const supporting = screen.getByRole("list", { name: "Hechos que sustentan la respuesta" });
+    expect(within(supporting).getByText("evt_001")).toBeInTheDocument();
+    expect(within(supporting).getByText(/fecha aproximada/)).toBeInTheDocument();
+    expect(within(supporting).getByText("Hipertensión diagnosticada")).toBeInTheDocument();
+  });
+
+  it("announces a no-records turn without leaking technical detail", async () => {
+    const user = userEvent.setup();
+    sendChatMessageMock.mockResolvedValue(
+      succeeds("no_records", "No encontré registros en tu historia clínica.")
+    );
+
+    render(<ChatWorkspace />);
+    await send(user, "¿He tenido migrañas?");
+
+    expect(await screen.findByText("No encontré registros en tu historia clínica.")).toBeInTheDocument();
+    expect(screen.getByText("Sin registros")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Hechos que sustentan la respuesta")).not.toBeInTheDocument();
+    expect(screen.queryByText(/prompt|stack trace|credential/i)).not.toBeInTheDocument();
   });
 
   it("preserves failed input and retries only after explicit action", async () => {

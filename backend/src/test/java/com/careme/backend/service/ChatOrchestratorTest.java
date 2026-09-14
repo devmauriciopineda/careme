@@ -20,8 +20,9 @@ class ChatOrchestratorTest {
 
     private final ClinicalIntentInterpreter interpreter = mock(ClinicalIntentInterpreter.class);
     private final ClinicalEventRegistrationService registration = mock(ClinicalEventRegistrationService.class);
+    private final ClinicalHistoryQueryService historyQuery = mock(ClinicalHistoryQueryService.class);
     private final ConversationStateStore stateStore = new ConversationStateStore(10, java.time.Duration.ofHours(1));
-    private final ChatOrchestrator orchestrator = new ChatOrchestrator(interpreter, registration, stateStore);
+    private final ChatOrchestrator orchestrator = new ChatOrchestrator(interpreter, registration, historyQuery, stateStore);
 
     @Test
     void registersEventAndReturnsOriginalOutcomeOnRetry() {
@@ -80,5 +81,115 @@ class ChatOrchestratorTest {
                 assertThat(response.status()).isEqualTo(com.careme.backend.dto.ChatMessageResponse.Status.FAILED);
                 assertThat(response.message()).isEqualTo("No pude procesar tu mensaje. Puedes reintentarlo.");
                 verifyNoMoreInteractions(registration);
+        }
+
+        @Test
+        void routesAHistoryQueryToTheQueryServiceWithoutRegistering() {
+                var intent = queryIntent(ClinicalEventIntent.Query.Scope.HISTORY);
+                var event = event("evt_100", "Hipertensión");
+                when(interpreter.interpret(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any()))
+                                .thenReturn(intent);
+                when(historyQuery.answer(intent)).thenReturn(new ClinicalAnswerResult(
+                                ClinicalAnswerResult.Kind.ANSWERED, List.of(event), "Te la diagnosticaron en enero."));
+
+                var response = orchestrator.process(new ChatMessageRequest("¿Cuándo me diagnosticaron hipertensión?", null, "msg-query"));
+
+                assertThat(response.status())
+                                .isEqualTo(com.careme.backend.dto.ChatMessageResponse.Status.ANSWERED);
+                assertThat(response.message()).isEqualTo("Te la diagnosticaron en enero.");
+                assertThat(response.events()).singleElement()
+                                .satisfies(summary -> assertThat(summary.code()).isEqualTo("evt_100"));
+                verifyNoMoreInteractions(registration);
+        }
+
+        @Test
+        void refersMeasurementsWithoutSearchingTheHistoryOrRegistering() {
+                var intent = queryIntent(ClinicalEventIntent.Query.Scope.MEASUREMENTS);
+                when(interpreter.interpret(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any()))
+                                .thenReturn(intent);
+
+                var response = orchestrator.process(new ChatMessageRequest("¿Cuánto peso?", null, "msg-measurements"));
+
+                assertThat(response.status())
+                                .isEqualTo(com.careme.backend.dto.ChatMessageResponse.Status.GENERAL_CONVERSATION);
+                assertThat(response.message()).contains("peso");
+                verifyNoMoreInteractions(registration);
+                verifyNoMoreInteractions(historyQuery);
+        }
+
+        @Test
+        void returnsNoRecordsWithoutSupportingEvents() {
+                var intent = queryIntent(ClinicalEventIntent.Query.Scope.HISTORY);
+                when(interpreter.interpret(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any()))
+                                .thenReturn(intent);
+                when(historyQuery.answer(intent)).thenReturn(new ClinicalAnswerResult(
+                                ClinicalAnswerResult.Kind.NO_RECORDS, List.of(), "No encontré registros."));
+
+                var response = orchestrator.process(new ChatMessageRequest("¿He tenido migrañas?", null, "msg-none"));
+
+                assertThat(response.status())
+                                .isEqualTo(com.careme.backend.dto.ChatMessageResponse.Status.NO_RECORDS);
+                assertThat(response.events()).isEmpty();
+        }
+
+        @Test
+        void turnsAQueryFailureIntoRetryableFailedWithoutEvents() {
+                var intent = queryIntent(ClinicalEventIntent.Query.Scope.HISTORY);
+                when(interpreter.interpret(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any()))
+                                .thenReturn(intent);
+                when(historyQuery.answer(intent)).thenReturn(new ClinicalAnswerResult(
+                                ClinicalAnswerResult.Kind.FAILURE, List.of(), "No pude completar la búsqueda. Puedes volver a intentarlo."));
+
+                var response = orchestrator.process(new ChatMessageRequest("¿Cuándo?", null, "msg-fail"));
+
+                assertThat(response.status()).isEqualTo(com.careme.backend.dto.ChatMessageResponse.Status.FAILED);
+                assertThat(response.events()).isEmpty();
+                verifyNoMoreInteractions(registration);
+        }
+
+        @Test
+        void repeatsAQueryWithoutCallingTheProviderAgain() {
+                var intent = queryIntent(ClinicalEventIntent.Query.Scope.HISTORY);
+                when(interpreter.interpret(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any()))
+                                .thenReturn(intent);
+                when(historyQuery.answer(intent)).thenReturn(new ClinicalAnswerResult(
+                                ClinicalAnswerResult.Kind.ANSWERED, List.of(event("evt_100", "Hipertensión")), "Respuesta"));
+
+                var first = orchestrator.process(new ChatMessageRequest("¿Cuándo?", null, "msg-1"));
+                var retry = orchestrator.process(new ChatMessageRequest("¿Cuándo?", first.conversationId(), "msg-1"));
+
+                assertThat(retry).isEqualTo(first);
+                verify(interpreter, org.mockito.Mockito.times(1))
+                                .interpret(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any());
+                verify(historyQuery, org.mockito.Mockito.times(1)).answer(intent);
+        }
+
+        @Test
+        void feedsRecentTurnsIntoFollowingInterpretations() {
+                when(interpreter.interpret(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any()))
+                                .thenReturn(ClinicalEventIntent.conversation());
+
+                var first = orchestrator.process(new ChatMessageRequest("Hola", null, "msg-a"));
+                orchestrator.process(new ChatMessageRequest("¿Y eso?", first.conversationId(), "msg-b"));
+
+                var captor = org.mockito.ArgumentCaptor.forClass(ClinicalIntentInterpreter.InterpretationContext.class);
+                verify(interpreter, org.mockito.Mockito.times(2))
+                                .interpret(org.mockito.ArgumentMatchers.anyString(), captor.capture());
+
+                assertThat(captor.getAllValues().get(0).recentTurns()).isEmpty();
+                assertThat(captor.getAllValues().get(1).recentTurns()).singleElement()
+                                .asString().contains("Hola");
+        }
+
+        private static ClinicalEventIntent queryIntent(ClinicalEventIntent.Query.Scope scope) {
+                return ClinicalEventIntent.query(new ClinicalEventIntent.Query(
+                                "¿Cuándo me diagnosticaron hipertensión?", scope, List.of("hipertension"), null, null, null));
+        }
+
+        private static ClinicalEvent event(String code, String content) {
+                return new ClinicalEvent(
+                                UUID.randomUUID(), code, ClinicalEvent.ClinicalEventType.DIAGNOSIS,
+                                LocalDate.of(2026, 1, 10), ClinicalEvent.DatePrecision.EXACT, "el 10 de enero",
+                                content, ClinicalEvent.EventSource.PATIENT, OffsetDateTime.now(ZoneOffset.UTC));
         }
 }

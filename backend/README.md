@@ -29,6 +29,10 @@ contract.
   a non-streaming structured outcome. The default `CAREME_LLM_MODE=fake` is safe for
   local development; `CAREME_LLM_MODE=openai` uses DeepSeek's OpenAI-compatible API
   with the backend-only `CAREME_LLM_API_KEY` credential.
+- The chat can answer questions about the clinical history from the derived
+  `clinical_event_index`, returning `answered` with supporting events or
+  `no_records` when no registered event supports the question. Queries never
+  modify the Markdown history or its index.
 - Clinical events are Markdown files under `data/events/`, configurable with
   `careme.events.directory`; PostgreSQL stores only the derived index. The index is
   rebuilt at startup and with `POST /api/v1/clinical-events/reindex`.
@@ -97,7 +101,10 @@ Domain       Measurement (record)       identity + invariants
   `CAREME_LLM_MODEL=deepseek-flash`. The client calls `/chat/completions` and uses
   configurable connect/read timeouts.
 - Chat messages are limited to 4,000 characters. In-memory conversation state is
-  limited to 1,000 conversations and expires after 2 hours by default. The MVP has
+  limited to 1,000 conversations and expires after 2 hours by default; recent
+  turns used for follow-up questions remain bounded and are not persisted. The
+  maximum number of history-query results is configured by
+  `careme.chat.query.max-results`. The MVP has
   no application-level rate limiter; provider account limits still apply.
 - The application does not select or guarantee a provider processing region or
   retention policy. Treat those as deployment approval requirements before sending
@@ -117,8 +124,10 @@ Domain       Measurement (record)       identity + invariants
 
 Accepts `{ "message": "...", "messageId": "...", "conversationId": "..." }`.
 `conversationId` is optional on the first turn. The response contains a generated
-conversation id, the message id, a status (`registered`, `clarification_required`,
-`general_conversation`, `duplicate` or `failed`) and a Spanish user-facing message.
+conversation id, the message id, a status (`registered`, `answered`, `no_records`,
+`clarification_required`, `general_conversation`, `duplicate` or `failed`) and a
+Spanish user-facing message. An `answered` response includes supporting clinical
+events in `events`; `no_records` includes none.
 Conversation state is in memory and is not persisted; successfully registered events
 survive because their Markdown documents are the source of truth.
 
@@ -240,7 +249,9 @@ backend/
 ├── src/main/resources/
 │   ├── application.yml                 # port, datasource, JPA, CORS, LLM, events dir
 │   ├── application-{dev,pre,prd}.yml   # per-environment overrides
-│   ├── prompts/clinical-intent-v1.txt  # system prompt for the LLM interpreter
+│   ├── prompts/clinical-intent-v1.txt  # reversible registration prompt
+│   ├── prompts/clinical-intent-v2.txt  # classification prompt with history queries
+│   ├── prompts/clinical-answer-v1.txt  # grounded answer composition prompt
 │   └── db/migration/                   # Flyway migrations (V1 measurements, V2 event index)
 ├── src/test/java/com/careme/backend/   # mirrors the package structure
 ├── .mvn/wrapper/                       # Maven wrapper configuration

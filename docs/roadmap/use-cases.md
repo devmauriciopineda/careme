@@ -1,8 +1,10 @@
 # Use Cases — MVP
 
-> **Control de avance:** 4 de 11 implementados · 1 cubierto por UC-004 · 6 pendientes.
+> **Control de avance:** 5 de 11 implementados · 3 cubiertos · 3 pendientes.
 >
-> Implementación actual: **UC-001 → UC-004**.
+> Implementación actual: **UC-001 → UC-004 y UC-007**.
+>
+> Documentado y pendiente de implementación: **UC-007**.
 
 Leyenda de estados:
 
@@ -38,21 +40,23 @@ Permite al usuario registrar un hecho médico expresado en lenguaje natural.
 
 ## UC-005 — Consultar un evento clínico
 
-**Estado:** ⬜ Pendiente
+**Estado:** 🟡 Cubierto por UC-006 / UC-007
 
-Permite al usuario recuperar un evento clínico previamente registrado.
+Cubierto como capacidad interna de recuperación: devolver un evento concreto identificado por su referencia no es observable por el usuario por sí mismo y sirve de base a la consulta de la historia (UC-007).
 
 ## UC-006 — Buscar información en la historia clínica
 
-**Estado:** ⬜ Pendiente
+**Estado:** 🟡 Cubierto por UC-007
 
-Permite al usuario buscar eventos de su historia clínica utilizando lenguaje natural y criterios de búsqueda.
+Cubierto como capacidad interna de recuperación: la búsqueda por texto, tipo y fecha no se ofrece de forma independiente y alimenta las respuestas de UC-007.
 
 ## UC-007 — Consultar la historia clínica mediante lenguaje natural
 
-**Estado:** ⬜ Pendiente
+**Estado:** ✅ Implementado
 
 Permite al usuario realizar preguntas sobre su historia clínica y obtener respuestas basadas en la información registrada.
+
+Documento: [`UC-007.md`](../use-cases/UC-007.md) · [criterios de aceptación](../use-cases/UC-007-acceptance-criteria.md).
 
 ## UC-008 — Gestionar información clínica ausente
 

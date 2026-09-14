@@ -37,6 +37,12 @@ careme:
   chat:
     max-conversations: ${CAREME_CHAT_MAX_CONVERSATIONS:1000}
     ttl: ${CAREME_CHAT_TTL:PT2H}
+    # Bounded buffer of the most recent turns, used only to interpret follow-up
+    # questions while the conversation is active.
+    max-recent-turns: ${CAREME_CHAT_MAX_RECENT_TURNS:6}
+    query:
+      # Maximum number of clinical events retrieved to answer one question.
+      max-results: ${CAREME_CHAT_QUERY_MAX_RESULTS:10}
   import:
     # A file above this many data rows is rejected before anything is stored.
     max-rows: 10000

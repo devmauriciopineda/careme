@@ -1,5 +1,7 @@
 export type ChatStatus =
   | "registered"
+  | "answered"
+  | "no_records"
   | "clarification_required"
   | "general_conversation"
   | "duplicate"

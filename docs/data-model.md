@@ -11,15 +11,17 @@ El documento distingue dos estados:
   (`docs/roadmap/mvp_alcance_asistente_historia_clinica.md`) que todavía no
   existe en el código.
 
-Hoy están implementados el seguimiento corporal (`Measurement`) y el registro de
-hechos clínicos (`ClinicalEvent`, UC-004); `Patient` sigue siendo implícito.
+Hoy están implementados el seguimiento corporal (`Measurement`), el registro de
+hechos clínicos (`ClinicalEvent`, UC-004) y la consulta de la historia mediante
+el índice derivado (UC-007); `Patient` sigue siendo implícito.
 
 ---
 
 ## 1. Modelo implementado
 
-El modelo implementado cubre el seguimiento corporal (UC-001, UC-002 y UC-003) y
-el registro de hechos clínicos (UC-004).
+El modelo implementado cubre el seguimiento corporal (UC-001, UC-002 y UC-003),
+el registro de hechos clínicos (UC-004) y la consulta de la historia mediante
+recuperación léxica del índice derivado (UC-007).
 
 ### 1.1 Measurement
 
@@ -90,11 +92,14 @@ No se persisten; describen el contrato HTTP.
 - **ChatMessageRequest**: `message` (máx. 4000 caracteres), `conversationId`
   (opcional), `messageId`. Mensaje enviado al chat.
 - **ChatMessageResponse**: `conversationId`, `messageId`, `status`
-  (`registered`, `clarification_required`, `general_conversation`, `duplicate`,
-  `failed`), `message` y `events`. Turno devuelto por el asistente.
-- **ClinicalEventIntent**: contrato estructurado entre el chat y el registro;
-  `kind` (`events`, `clarification`, `conversation`), `events` y `clarification`.
-  Es lo que produce el adaptador del LLM y valida el dominio.
+  (`registered`, `answered`, `no_records`, `clarification_required`,
+  `general_conversation`, `duplicate`, `failed`), `message` y `events`. En una
+  respuesta `answered`, `events` contiene los hechos que la sustentan; en
+  `no_records` no contiene hechos.
+- **ClinicalEventIntent**: contrato estructurado entre el chat y el registro o
+  la consulta; `kind` (`events`, `query`, `clarification`, `conversation`), con
+  criterios de búsqueda en la consulta, `events` y `clarification`. Es lo que
+  produce el adaptador del LLM y valida el dominio.
 
 **Formato de archivo de importación:** columnas requeridas `date`, `weight_kg`
 y `abdominal_circumference_cm`, con cabecera. Límite por defecto de 10000 filas.
@@ -112,8 +117,8 @@ y `abdominal_circumference_cm`, con cabecera. Límite por defecto de 10000 filas
 ## 2. Modelo del asistente de historia clínica (implementado)
 
 Modelo definido para el MVP del asistente de historia clínica personal. El
-registro de hechos clínicos (`ClinicalEvent`) está implementado por UC-004; las
-capacidades de consulta, edición y borrado siguen propuestas.
+registro de hechos clínicos (`ClinicalEvent`) está implementado por UC-004 y la
+consulta de la historia por UC-007; edición y borrado siguen propuestas.
 
 ### 2.1 Patient
 
@@ -203,9 +208,9 @@ erDiagram
 
 > El bloque de `Measurement` corresponde al seguimiento corporal implementado.
 > El bloque `Patient` / `ClinicalEvent` corresponde al asistente de historia
-> clínica, implementado para el registro de hechos (UC-004); `Patient` permanece
-> implícito y en PostgreSQL sólo existe el índice derivado
-> `clinical_event_index`.
+> clínica, implementado para el registro de hechos (UC-004) y su consulta
+> (UC-007); `Patient` permanece implícito y en PostgreSQL sólo existe el índice
+> derivado `clinical_event_index`.
 
 ---
 
@@ -234,8 +239,8 @@ erDiagram
 ## 5. Notas
 
 - `Measurement` y `ClinicalEvent` pertenecen a dos etapas del producto: el
-  seguimiento corporal y el asistente de historia clínica. Ambos están
-  implementados; el asistente aún no expone consulta, edición ni borrado.
+  seguimiento corporal y el asistente de historia clínica. El asistente expone
+  registro y consulta; todavía no expone edición ni borrado.
 - En el modelo implementado no hay usuarios: no se identifica a la persona ni se
   distinguen mediciones de distintas personas.
 - Los campos obligatorios garantizan la información núcleo, y los opcionales

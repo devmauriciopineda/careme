@@ -33,7 +33,7 @@ public class OpenAiClinicalIntentInterpreter implements ClinicalIntentInterprete
             @Value("${careme.llm.model:deepseek-flash}") String model,
             @Value("${careme.llm.connect-timeout:PT5S}") Duration connectTimeout,
             @Value("${careme.llm.read-timeout:PT30S}") Duration readTimeout,
-            @Value("classpath:prompts/clinical-intent-v1.txt") org.springframework.core.io.Resource promptResource)
+            @Value("classpath:prompts/clinical-intent-v2.txt") org.springframework.core.io.Resource promptResource)
             throws java.io.IOException {
         if (apiKey.isBlank()) {
             throw new IllegalStateException("CAREME_LLM_API_KEY is required when CAREME_LLM_MODE=openai");
@@ -66,10 +66,7 @@ public class OpenAiClinicalIntentInterpreter implements ClinicalIntentInterprete
                     "response_format", java.util.Map.of("type", "json_object"),
                     "messages", List.of(
                         java.util.Map.of("role", "system", "content", prompt),
-                        java.util.Map.of("role", "user", "content",
-                            "Fecha de referencia: " + context.referenceDate()
-                                + ". Zona horaria: " + context.zoneId()
-                                + ". Mensaje: " + message))))
+                        java.util.Map.of("role", "user", "content", userContent(message, context)))))
                 .retrieve()
                     .body(String.class);
         } catch (RestClientException exception) {
@@ -85,6 +82,17 @@ public class OpenAiClinicalIntentInterpreter implements ClinicalIntentInterprete
         }
     }
 
+    /** Adds the active conversation's recent turns so a follow-up question keeps its referents. */
+    private static String userContent(String message, InterpretationContext context) {
+        StringBuilder content = new StringBuilder()
+                .append("Fecha de referencia: ").append(context.referenceDate())
+                .append(". Zona horaria: ").append(context.zoneId());
+        if (!context.recentTurns().isEmpty()) {
+            content.append(". Turnos recientes: ").append(String.join(" || ", context.recentTurns()));
+        }
+        return content.append(". Mensaje: ").append(message).toString();
+    }
+
     private ClinicalEventIntent parseIntent(JsonNode node) {
         String kind = node.path("kind").asText("").toLowerCase();
         return switch (kind) {
@@ -92,10 +100,56 @@ public class OpenAiClinicalIntentInterpreter implements ClinicalIntentInterprete
                     ClinicalEventIntent.Kind.EVENTS,
                     parseCandidates(node.path("events")),
                     null);
+            case "query" -> ClinicalEventIntent.query(parseQuery(node));
             case "clarification" -> ClinicalEventIntent.clarification(node.path("clarification").asText());
             case "conversation" -> ClinicalEventIntent.conversation();
             default -> throw new IllegalArgumentException("Unknown clinical intent kind");
         };
+    }
+
+    private ClinicalEventIntent.Query parseQuery(JsonNode node) {
+        String question = node.path("question").isTextual() ? node.path("question").asText() : null;
+        if (question == null || question.isBlank()) {
+            throw new IllegalArgumentException("Query intent must contain a question");
+        }
+        return new ClinicalEventIntent.Query(
+                question,
+                parseScope(node.path("scope").asText(null)),
+                parseSearchTerms(node.path("search_terms")),
+                parseType(node.path("type")),
+                parseDate(node.path("date_from")),
+                parseDate(node.path("date_to")));
+    }
+
+    private static ClinicalEventIntent.Query.Scope parseScope(String value) {
+        if (value == null || value.isBlank()) {
+            return ClinicalEventIntent.Query.Scope.HISTORY;
+        }
+        return ClinicalEventIntent.Query.Scope.valueOf(value.toUpperCase());
+    }
+
+    private static List<String> parseSearchTerms(JsonNode terms) {
+        List<String> searchTerms = new ArrayList<>();
+        if (terms.isArray()) {
+            terms.forEach(term -> {
+                if (term.isTextual() && !term.asText().isBlank()) {
+                    searchTerms.add(term.asText().trim());
+                }
+            });
+        }
+        return searchTerms;
+    }
+
+    private static ClinicalEvent.ClinicalEventType parseType(JsonNode type) {
+        String value = type.isTextual() ? type.asText() : null;
+        return value == null || value.isBlank()
+                ? null
+                : ClinicalEvent.ClinicalEventType.valueOf(value.toUpperCase());
+    }
+
+    private static LocalDate parseDate(JsonNode date) {
+        String value = date.isTextual() ? date.asText() : null;
+        return value == null || value.isBlank() ? null : LocalDate.parse(value);
     }
 
     private List<ClinicalEventIntent.Candidate> parseCandidates(JsonNode events) {

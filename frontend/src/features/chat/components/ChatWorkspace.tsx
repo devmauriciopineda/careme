@@ -12,16 +12,34 @@ type Message = {
   role: "user" | "assistant";
   text: string;
   status?: ChatResponse["status"];
+  events?: ChatResponse["events"];
   retryText?: string;
 };
 
 const statusLabels: Record<NonNullable<Message["status"]>, string> = {
   registered: "Registrado",
+  answered: "Respuesta",
+  no_records: "Sin registros",
   clarification_required: "Necesita aclaración",
   general_conversation: "Conversación",
   duplicate: "Ya estaba registrado",
   failed: "No se pudo completar",
 };
+
+/**
+ * Names the precision the backend reported instead of presenting every date as
+ * exact, so an approximate or unknown date stays approximate or unknown.
+ */
+const precisionLabels: Record<string, string> = {
+  exact: "fecha exacta",
+  approximate: "fecha aproximada",
+  unknown: "fecha no registrada",
+};
+
+function eventSummary(event: ChatResponse["events"][number]): string {
+  const precision = precisionLabels[event.datePrecision] ?? event.datePrecision;
+  return event.date ? `${event.date} (${precision})` : precision;
+}
 
 /**
  * Shown when a turn is not sent. It says what happened without naming a cause,
@@ -83,6 +101,7 @@ export function ChatWorkspace() {
           role: "assistant",
           text: outcome.response.message,
           status: outcome.response.status,
+          events: outcome.response.events,
         },
       ]);
     });
@@ -126,6 +145,17 @@ export function ChatWorkspace() {
                 </div>
                 {message.role === "assistant" && message.status && (
                   <p className="mt-1 text-xs text-muted-foreground">{statusLabels[message.status]}</p>
+                )}
+                {message.role === "assistant" && message.events && message.events.length > 0 && (
+                  <ul aria-label="Hechos que sustentan la respuesta" className="mt-2 space-y-1">
+                    {message.events.map((event) => (
+                      <li className="rounded-lg border border-border/70 bg-card px-3 py-2 text-xs text-muted-foreground" key={event.code}>
+                        <span className="font-semibold text-foreground">{event.code}</span>
+                        <span> · {eventSummary(event)}</span>
+                        <p className="mt-1 text-foreground">{event.content}</p>
+                      </li>
+                    ))}
+                  </ul>
                 )}
                 {message.status === "failed" && message.retryText && (
                   <button className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-destructive hover:underline" onClick={(event) => submit(event, message.retryText)} type="button">

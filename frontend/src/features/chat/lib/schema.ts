@@ -35,6 +35,8 @@ export const chatResponseSchema = z.object({
   messageId: z.string(),
   status: z.enum([
     "registered",
+    "answered",
+    "no_records",
     "clarification_required",
     "general_conversation",
     "duplicate",

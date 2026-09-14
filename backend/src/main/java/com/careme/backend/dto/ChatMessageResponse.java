@@ -30,6 +30,8 @@ public record ChatMessageResponse(
 
     public enum Status {
         REGISTERED("registered"),
+        ANSWERED("answered"),
+        NO_RECORDS("no_records"),
         CLARIFICATION_REQUIRED("clarification_required"),
         GENERAL_CONVERSATION("general_conversation"),
         DUPLICATE("duplicate"),

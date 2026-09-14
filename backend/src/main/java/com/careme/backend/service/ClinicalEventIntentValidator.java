@@ -16,8 +16,30 @@ public class ClinicalEventIntentValidator {
                 throw new IllegalArgumentException("Events intent must contain at least one event");
             }
             intent.events().forEach(this::validateCandidate);
+        } else if (intent.kind() == ClinicalEventIntent.Kind.QUERY) {
+            if (!intent.events().isEmpty()) {
+                throw new IllegalArgumentException("Query intent must not contain events");
+            }
+            validateQuery(intent.query());
         } else if (!intent.events().isEmpty()) {
             throw new IllegalArgumentException("Non-event intent must not contain events");
+        }
+    }
+
+    private void validateQuery(ClinicalEventIntent.Query query) {
+        if (query == null) {
+            throw new IllegalArgumentException("Query intent must contain a query");
+        }
+        if (query.question() == null || query.question().isBlank()) {
+            throw new IllegalArgumentException("Query question must not be blank");
+        }
+        if (query.scope() == null) {
+            throw new IllegalArgumentException("Query scope must not be null");
+        }
+        boolean hasSearchTerm = query.searchTerms().stream().anyMatch(term -> term != null && !term.isBlank());
+        boolean hasFilter = query.type() != null || query.fromDate() != null || query.toDate() != null;
+        if (!hasSearchTerm && !hasFilter) {
+            throw new IllegalArgumentException("Query must contain at least one search term or filter");
         }
     }
 
