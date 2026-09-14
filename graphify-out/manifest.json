@@ -462,9 +462,9 @@
     "semantic_hash": "19cd6973a4c374652f747a3368fdf845"
   },
   ".github/copilot-instructions.md": {
-    "mtime": 1789272200.1562083,
-    "seen": 1789274566.4469898,
-    "ast_hash": "21c3b5ecad3bba89f3001bd779ca400b",
+    "mtime": 1789361199.777249,
+    "seen": 1789361748.7522902,
+    "ast_hash": "2812c756c1bf025cef1b9391812e4802",
     "semantic_hash": ""
   },
   ".github/prompts/plan-backendSpringbootMeasurements.prompt.md": {
@@ -846,9 +846,9 @@
     "semantic_hash": ""
   },
   "openspec/config.yaml": {
-    "mtime": 1789276248.7501297,
-    "seen": 1789278329.2927425,
-    "ast_hash": "4cfc970f2481e0f48a506901c5616100",
+    "mtime": 1789361275.4511006,
+    "seen": 1789361748.7596374,
+    "ast_hash": "f85736da1d01c89ba39edb877d94c3a3",
     "semantic_hash": ""
   },
   "openspec/specs/clinical-event-registration/spec.md": {
@@ -1038,21 +1038,21 @@
     "semantic_hash": ""
   },
   "openspec/specs/assistant-chat-interface/spec.md": {
-    "mtime": 1789328133.2046192,
-    "seen": 1789328196.3501225,
-    "ast_hash": "4b46c0dccb42e1b61ba2c0aa6d0f01ea",
+    "mtime": 1789358587.059512,
+    "seen": 1789361748.75964,
+    "ast_hash": "f957ba2fe25a0eaa8fe2381b98df4b7a",
     "semantic_hash": ""
   },
   "openspec/specs/assistant-conversation/spec.md": {
-    "mtime": 1789328133.2079823,
-    "seen": 1789328196.3501258,
-    "ast_hash": "7bb82172f587a7e07524ce64dfbc72db",
+    "mtime": 1789358587.059512,
+    "seen": 1789361748.7596421,
+    "ast_hash": "62995698c5c6ed513b7163b8c14e5de4",
     "semantic_hash": ""
   },
   "openspec/specs/llm-clinical-intent-adapter/spec.md": {
-    "mtime": 1789283184.896512,
-    "seen": 1789283778.773378,
-    "ast_hash": "eab01dfbb06e0e14e732439cef205b44",
+    "mtime": 1789358587.0666084,
+    "seen": 1789361748.7597508,
+    "ast_hash": "44020d78829dcd8693922d4dab5d5c3c",
     "semantic_hash": ""
   },
   "backend/src/test/java/com/careme/backend/config/CorsConfigTest.java": {
@@ -1259,52 +1259,142 @@
     "ast_hash": "af8e594109d37a7e8fadf4c7be9f3d29",
     "semantic_hash": ""
   },
-  "openspec/changes/uc-007/.openspec.yaml": {
+  ".github/instructions/backend-java.instructions.md": {
+    "mtime": 1789361458.7537544,
+    "seen": 1789361748.7522933,
+    "ast_hash": "3e22426092a78b2f8150baec5b4da9ce",
+    "semantic_hash": ""
+  },
+  ".github/instructions/backend-tests.instructions.md": {
+    "mtime": 1789361528.8345056,
+    "seen": 1789361748.7522953,
+    "ast_hash": "c96480f4d235a2839c53a63e6e89257a",
+    "semantic_hash": ""
+  },
+  ".github/instructions/docs.instructions.md": {
+    "mtime": 1789361513.9411986,
+    "seen": 1789361748.7522962,
+    "ast_hash": "aacdc913128910378501880ffff2be50",
+    "semantic_hash": ""
+  },
+  ".github/instructions/frontend-next.instructions.md": {
+    "mtime": 1789361458.7597556,
+    "seen": 1789361748.7522974,
+    "ast_hash": "54fb5ba7464e66081c9c3223dba31a17",
+    "semantic_hash": ""
+  },
+  ".github/instructions/frontend-tests.instructions.md": {
+    "mtime": 1789361458.7597556,
+    "seen": 1789361748.7522986,
+    "ast_hash": "06d14a58af6c97db964b0dec51dd165c",
+    "semantic_hash": ""
+  },
+  ".github/instructions/openspec-sdd.instructions.md": {
+    "mtime": 1789361270.8419287,
+    "seen": 1789361748.7522995,
+    "ast_hash": "e6cb0d679b6a0f02a331d4f7fee6b68b",
+    "semantic_hash": ""
+  },
+  "docs/concepts/01-estructura-y-arquitectura-del-repositorio.md": {
+    "mtime": 1789359101.4547427,
+    "seen": 1789361748.754545,
+    "ast_hash": "903b6cfc72c8d1417dcd71b407ea4cf8",
+    "semantic_hash": ""
+  },
+  "docs/concepts/02-frontend-renderizado-y-comunicacion.md": {
+    "mtime": 1789359241.1528537,
+    "seen": 1789361748.754546,
+    "ast_hash": "ad204dc8dcce25bebff8aa2a1708e482",
+    "semantic_hash": ""
+  },
+  "docs/concepts/03-backend-api-concurrencia-y-persistencia.md": {
+    "mtime": 1789359355.9924788,
+    "seen": 1789361748.7545469,
+    "ast_hash": "262cb2edc6d680d7ac4898e3f155d7f6",
+    "semantic_hash": ""
+  },
+  "docs/concepts/04-datos-relacionales-y-fuentes-derivadas.md": {
+    "mtime": 1789359553.6255314,
+    "seen": 1789361748.754548,
+    "ast_hash": "951d8e8adbfa4767f00e0ef52edd1a76",
+    "semantic_hash": ""
+  },
+  "docs/concepts/05-ia-llm-prompts-y-rag.md": {
+    "mtime": 1789359741.9173439,
+    "seen": 1789361748.754549,
+    "ast_hash": "8e028f4eb39b04c241a0eb2532a1b582",
+    "semantic_hash": ""
+  },
+  "docs/concepts/06-sdd-y-openspec.md": {
+    "mtime": 1789359927.9935143,
+    "seen": 1789361748.75455,
+    "ast_hash": "e907a9a0502ead9fa9e2ae6160b82d83",
+    "semantic_hash": ""
+  },
+  "docs/concepts/07-calidad-y-despliegue.md": {
+    "mtime": 1789360032.3870468,
+    "seen": 1789361748.7545516,
+    "ast_hash": "016af1f09d14292c8cb6b936382fb23e",
+    "semantic_hash": ""
+  },
+  "docs/concepts/README.md": {
+    "mtime": 1789358364.9307568,
+    "seen": 1789361748.7545526,
+    "ast_hash": "a138d0964f99eaf3e405dfc720876d0f",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-09-13-uc-007/.openspec.yaml": {
     "mtime": 1789336851.3195574,
-    "seen": 1789337063.355342,
+    "seen": 1789361748.759622,
     "ast_hash": "023bd6a30a4a37ec1d0180ed76f93c32",
     "semantic_hash": ""
   },
-  "openspec/changes/uc-007/design.md": {
+  "openspec/changes/archive/2026-09-13-uc-007/design.md": {
     "mtime": 1789336851.3205562,
-    "seen": 1789337063.3553436,
+    "seen": 1789361748.7596247,
     "ast_hash": "0c08dcc88996956a351cb6662bca577a",
     "semantic_hash": ""
   },
-  "openspec/changes/uc-007/proposal.md": {
+  "openspec/changes/archive/2026-09-13-uc-007/proposal.md": {
     "mtime": 1789336851.3205562,
-    "seen": 1789337063.355345,
+    "seen": 1789361748.759626,
     "ast_hash": "450b509e3a9545b2b6c3105a3393c7bc",
     "semantic_hash": ""
   },
-  "openspec/changes/uc-007/specs/assistant-chat-interface/spec.md": {
+  "openspec/changes/archive/2026-09-13-uc-007/specs/assistant-chat-interface/spec.md": {
     "mtime": 1789336851.3215568,
-    "seen": 1789337063.3553464,
+    "seen": 1789361748.7596276,
     "ast_hash": "1353b9282e28942d8120075677d6384c",
     "semantic_hash": ""
   },
-  "openspec/changes/uc-007/specs/assistant-conversation/spec.md": {
+  "openspec/changes/archive/2026-09-13-uc-007/specs/assistant-conversation/spec.md": {
     "mtime": 1789336851.3225558,
-    "seen": 1789337063.3553476,
+    "seen": 1789361748.759629,
     "ast_hash": "f26e8d473064cd3b0cad34b606b75a9d",
     "semantic_hash": ""
   },
-  "openspec/changes/uc-007/specs/clinical-history-query/spec.md": {
+  "openspec/changes/archive/2026-09-13-uc-007/specs/clinical-history-query/spec.md": {
     "mtime": 1789336851.3225558,
-    "seen": 1789337063.3553488,
+    "seen": 1789361748.7596319,
     "ast_hash": "80282e2d286a91a0dac420d713391d09",
     "semantic_hash": ""
   },
-  "openspec/changes/uc-007/specs/llm-clinical-intent-adapter/spec.md": {
+  "openspec/changes/archive/2026-09-13-uc-007/specs/llm-clinical-intent-adapter/spec.md": {
     "mtime": 1789336851.3235557,
-    "seen": 1789337063.3553507,
+    "seen": 1789361748.7596333,
     "ast_hash": "29b9b710df5c6192cde953aee9e95c6d",
     "semantic_hash": ""
   },
-  "openspec/changes/uc-007/tasks.md": {
+  "openspec/changes/archive/2026-09-13-uc-007/tasks.md": {
     "mtime": 1789337008.8567348,
-    "seen": 1789337063.3553522,
+    "seen": 1789361748.759635,
     "ast_hash": "75a3247c8cd06f030a74200a8b58dde5",
+    "semantic_hash": ""
+  },
+  "openspec/specs/clinical-history-query/spec.md": {
+    "mtime": 1789358587.059512,
+    "seen": 1789361748.7597487,
+    "ast_hash": "5d1d5f5f1df446301990c8929124e652",
     "semantic_hash": ""
   }
 }

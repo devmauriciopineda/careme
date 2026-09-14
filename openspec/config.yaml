@@ -4,12 +4,40 @@ githubCopilot:
 
 # Project context (optional)
 # This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
-# Example:
-#   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
+context: |
+  Careme is a personal clinical assistant and body-tracking application. A
+  Spanish-language chat records patient-stated clinical facts (diagnosis,
+  medication, measurement, note), preserving the original wording and temporal
+  precision; two daily body metrics (weight in kg, abdominal circumference in cm)
+  are tracked on a secondary view at /measurements.
+
+  Constraints:
+  - The assistant records facts only. It never diagnoses and never recommends
+    treatment.
+  - There is no authentication or authorization in this MVP. Do not introduce it
+    unless the change explicitly asks for it.
+  - User-facing UI strings and the clinical domain vocabulary are in Spanish.
+    Code, identifiers and documentation are in English.
+
+  Tech stack:
+  - Frontend: Next.js 16 App Router (React 19, TypeScript strict), Server
+    Components + Server Actions, Tailwind CSS v4, shadcn/ui, Recharts, Zod,
+    Vitest + React Testing Library, Playwright. Package manager: pnpm 10.
+  - Backend: Java 21, Spring Boot 3.5 (Web MVC, Bean Validation, Data JPA),
+    layered controller -> service -> repository, JUnit 5 + Mockito + MockMvc +
+    Testcontainers, Maven wrapper, JaCoCo coverage gate.
+  - Data: PostgreSQL 17 with Flyway migrations. Clinical events are Markdown
+    documents as the source of truth, with a derived and rebuildable PostgreSQL
+    full-text index.
+  - Runtime: Podman (preferred) or Docker with Compose.
+
+  Conventions:
+  - backend/README.md is the source of truth for the API contract.
+  - Coding standards: docs/standards/java-springboot-standards.md and
+    docs/standards/next-standards.md.
+  - Architecture and data model: docs/architecture.md, docs/data-model.md.
+  - Non-trivial features go through an OpenSpec change (proposal, design, specs,
+    tasks) before implementation.
 
 # Per-artifact rules (optional)
 # Add custom rules for specific artifacts.

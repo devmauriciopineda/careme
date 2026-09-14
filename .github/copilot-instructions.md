@@ -97,3 +97,60 @@ If search returns 0 results, proceed as a fresh session.
 | `ctx purge` | Call `ctx_purge` MCP tool with confirm: true. Warns before wiping knowledge base. |
 
 After /clear or /compact: knowledge base and session stats preserved. Use `ctx purge` to start fresh.
+
+
+---
+
+# Project Guidelines — Careme
+
+Careme is a full-stack personal clinical assistant and body-tracking application: a
+Spanish-language chat that records patient-stated clinical facts, plus day-to-day tracking of
+weight (kg) and abdominal circumference (cm). It is an early MVP with **no authentication**.
+The assistant records facts only — it **never diagnoses or recommends treatment**. Do not add
+behavior that crosses that line.
+
+## Architecture
+
+- `frontend/` — Next.js 16 App Router (React 19, TypeScript strict). The chat workspace is the
+  entry point at `/`; body tracking lives at `/measurements`. Server Components fetch at request
+  time; forms are client islands that submit through Server Actions.
+- `backend/` — Spring Boot 3.5 REST service (Java 21), layered `controller → service → repository`.
+  It is the source of truth for the API contract. LLM access is opt-in via `CAREME_LLM_MODE`;
+  the default `fake` mode makes no network call.
+- **Storage** — PostgreSQL 17 with Flyway-owned migrations, plus Markdown clinical-event documents
+  as the source of truth for clinical events, with a derived, rebuildable PostgreSQL full-text index.
+- `openspec/` — spec-driven development (SDD): main specs and archived changes.
+
+## Sources of truth — link, do not duplicate
+
+- API contract and backend layers: `backend/README.md`
+- UI architecture, scripts and testing: `frontend/README.md`
+- System architecture and data model: `docs/architecture.md`, `docs/data-model.md`
+- Coding standards: `docs/standards/java-springboot-standards.md`, `docs/standards/next-standards.md`
+- Domain concepts and use cases: `docs/concepts/`, `docs/use-cases/`
+- Roadmap and MVP scope: `docs/roadmap/`
+
+## Build and test
+
+- Backend, from `backend/`: `.\mvnw.cmd spring-boot:run` (dev), `.\mvnw.cmd test`,
+  `.\mvnw.cmd verify` (tests + JaCoCo coverage gate). Needs Java 21; tests need a reachable container runtime.
+- Frontend, from `frontend/` (pnpm only): `pnpm dev`, `pnpm build`, `pnpm test`, `pnpm lint`, `pnpm typecheck`.
+- Whole stack: `podman compose up --build -d` (preferred); use `docker compose` when Podman is not installed.
+
+## Conventions
+
+- **Language**: code, identifiers and documentation in English; user-facing UI strings and the
+  clinical domain vocabulary stay in Spanish.
+- Backend: keep controllers thin, delegate to services, keep persistence behind repository interfaces.
+- Frontend: Server Components and Server Actions by default; validate external payloads with Zod;
+  use client components only where interactivity requires it.
+- Behavior changes need tests; the backend enforces the coverage gate through `.\mvnw.cmd verify`.
+- No authentication or authorization — explicitly out of scope for this MVP.
+
+## Spec-driven development (mandatory for non-trivial features)
+
+- For any non-trivial feature or behavior change, create an OpenSpec change under `openspec/` first
+  and work through proposal → apply → archive, using the `openspec-*` skills in `.github/skills/`.
+- Capture behavior in specs under `openspec/specs/` through the change workflow; do not edit main
+  specs directly except for explicit sync operations.
+- Trivial fixes (typos, small clearly-scoped bug fixes) do not require a change.
