@@ -95,7 +95,11 @@ No se persisten; describen el contrato HTTP.
   (`registered`, `answered`, `no_records`, `clarification_required`,
   `general_conversation`, `duplicate`, `failed`), `message` y `events`. En una
   respuesta `answered`, `events` contiene los hechos que la sustentan; en
-  `no_records` no contiene hechos.
+  `no_records` no contiene hechos y, en su lugar, la respuesta informa del motivo
+  de la ausencia (`absenceReason`: `empty_history`, `no_events_of_type`,
+  `no_events_in_period` o `no_term_match`) y de las acciones ofrecidas
+  (`suggestedActions`: `reformulate`, `register`). Ambos campos son opcionales y
+  aditivos.
 - **ClinicalEventIntent**: contrato estructurado entre el chat y el registro o
   la consulta; `kind` (`events`, `query`, `clarification`, `conversation`), con
   criterios de búsqueda en la consulta, `events` y `clarification`. Es lo que

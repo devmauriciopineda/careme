@@ -37,17 +37,40 @@ class OpenAiClinicalAnswerComposerTest {
 
     @Test
     void composesAnAnswerThatCitesRetrievedEvents() throws Exception {
-        respondWithContent("{\\\"answer\\\":\\\"Te la diagnosticaron el 10 de enero\\\",\\\"references\\\":[\\\"evt_001\\\"]}");
+        respondWithContent("{\\\"coverage\\\":\\\"full\\\",\\\"answer\\\":\\\"Te la diagnosticaron el 10 de enero\\\",\\\"references\\\":[\\\"evt_001\\\"]}");
 
         var composed = composer().compose("¿Cuándo?", List.of(event("evt_001", "Hipertensión")));
 
         assertThat(composed.text()).isEqualTo("Te la diagnosticaron el 10 de enero");
         assertThat(composed.references()).containsExactly("evt_001");
+        assertThat(composed.unsupported()).as("la pregunta quedó cubierta por completo").isNull();
+    }
+
+    @Test
+    void reportsThePartOfTheQuestionTheRetrievedEventsDoNotSupport() throws Exception {
+        respondWithContent("{\\\"coverage\\\":\\\"partial\\\",\\\"answer\\\":\\\"Te la diagnosticaron el 10 de enero\\\","
+                + "\\\"references\\\":[\\\"evt_001\\\"],\\\"unsupported\\\":\\\"lo que pasó el año pasado\\\"}");
+
+        var composed = composer().compose("¿Cuándo me la diagnosticaron y qué pasó el año pasado?",
+                List.of(event("evt_001", "Hipertensión")));
+
+        assertThat(composed.text()).isEqualTo("Te la diagnosticaron el 10 de enero");
+        assertThat(composed.unsupported()).isEqualTo("lo que pasó el año pasado");
+    }
+
+    @Test
+    void treatsABlankUnsupportedPartAsAFullAnswer() throws Exception {
+        respondWithContent("{\\\"coverage\\\":\\\"full\\\",\\\"answer\\\":\\\"Te la diagnosticaron el 10 de enero\\\","
+                + "\\\"references\\\":[\\\"evt_001\\\"],\\\"unsupported\\\":\\\"   \\\"}");
+
+        var composed = composer().compose("¿Cuándo?", List.of(event("evt_001", "Hipertensión")));
+
+        assertThat(composed.unsupported()).isNull();
     }
 
     @Test
     void acceptsAnAnswerWithoutReferences() throws Exception {
-        respondWithContent("{\\\"answer\\\":\\\"No lo sé\\\",\\\"references\\\":[]}");
+        respondWithContent("{\\\"coverage\\\":\\\"full\\\",\\\"answer\\\":\\\"No lo sé\\\",\\\"references\\\":[]}");
 
         var composed = composer().compose("¿Cuándo?", List.of(event("evt_001", "Hipertensión")));
 
@@ -56,7 +79,7 @@ class OpenAiClinicalAnswerComposerTest {
 
     @Test
     void rejectsAnInventedReference() {
-        respondWithContent("{\\\"answer\\\":\\\"Algo\\\",\\\"references\\\":[\\\"evt_999\\\"]}");
+        respondWithContent("{\\\"coverage\\\":\\\"full\\\",\\\"answer\\\":\\\"Algo\\\",\\\"references\\\":[\\\"evt_999\\\"]}");
 
         var events = List.of(event("evt_001", "Hipertensión"));
 
@@ -83,6 +106,51 @@ class OpenAiClinicalAnswerComposerTest {
                 .hasMessage("There is nothing to answer with");
     }
 
+    @Test
+    void reportsNoSupportWhenTheRetrievedEventsDoNotAnswerTheQuestion() throws Exception {
+        respondWithContent("{\\\"coverage\\\":\\\"none\\\",\\\"answer\\\":\\\"Los hechos no responden\\\","
+                + "\\\"references\\\":[]}");
+
+        var composed = composer().compose("¿He tenido migrañas?", List.of(event("evt_001", "Hipertensión")));
+
+        assertThat(composed.coverage()).isEqualTo(ClinicalAnswerComposer.Coverage.NONE);
+        assertThat(composed.references()).as("ningún hecho sostiene una respuesta").isEmpty();
+    }
+
+    @Test
+    void dropsCitedReferencesWhenTheEventsDoNotAnswer() throws Exception {
+        respondWithContent("{\\\"coverage\\\":\\\"none\\\",\\\"answer\\\":\\\"Los hechos no responden\\\","
+                + "\\\"references\\\":[\\\"evt_001\\\"]}");
+
+        var composed = composer().compose("¿He tenido migrañas?", List.of(event("evt_001", "Hipertensión")));
+
+        assertThat(composed.coverage()).isEqualTo(ClinicalAnswerComposer.Coverage.NONE);
+        assertThat(composed.references()).isEmpty();
+    }
+
+    @Test
+    void rejectsAResponseWithoutCoverage() {
+        respondWithContent("{\\\"answer\\\":\\\"Algo\\\",\\\"references\\\":[\\\"evt_001\\\"]}");
+
+        var events = List.of(event("evt_001", "Hipertensión"));
+
+        assertThatThrownBy(() -> composer().compose("¿Cuándo?", events))
+                .isInstanceOf(LlmIntegrationException.class)
+                .hasMessage("LLM response does not report the answer coverage");
+    }
+
+    @Test
+    void rejectsAnUnknownCoverage() {
+        respondWithContent("{\\\"coverage\\\":\\\"quizá\\\",\\\"answer\\\":\\\"Algo\\\","
+                + "\\\"references\\\":[\\\"evt_001\\\"]}");
+
+        var events = List.of(event("evt_001", "Hipertensión"));
+
+        assertThatThrownBy(() -> composer().compose("¿Cuándo?", events))
+                .isInstanceOf(LlmIntegrationException.class)
+                .hasMessage("LLM response does not report the answer coverage");
+    }
+
     private OpenAiClinicalAnswerComposer composer() {
         try {
             return new OpenAiClinicalAnswerComposer(
@@ -93,7 +161,7 @@ class OpenAiClinicalAnswerComposerTest {
                     "deepseek-flash",
                     Duration.ofSeconds(1),
                     Duration.ofSeconds(1),
-                    new ClassPathResource("prompts/clinical-answer-v1.txt"));
+                    new ClassPathResource("prompts/clinical-answer-v3.txt"));
         } catch (Exception exception) {
             throw new IllegalStateException(exception);
         }

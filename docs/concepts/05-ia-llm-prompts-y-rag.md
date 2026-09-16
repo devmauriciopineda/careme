@@ -152,6 +152,11 @@ La segunda llamada entrega al modelo la pregunta y los hechos recuperados con su
 
 Y el código **verifica** ese resultado: si una referencia no pertenece al conjunto recuperado, la respuesta se **rechaza** y no se presenta como fundamentada. Si el modelo no cita nada, se adjunta como apoyo el conjunto recuperado completo, para que la respuesta siga siendo verificable. Si el conjunto estaba vacío, no se llama al modelo: el sistema declara que **no encuentra registros**.
 
+Verificar las citas no basta, porque una respuesta puede apoyarse en hechos reales y aun así **no responder a la pregunta**: basta con que la recuperación devuelva algo que se parece. Por eso la composición declara también su **cobertura**: si los hechos entregados responden a **toda** la pregunta, a **parte** de ella o a **ninguna**. Recuperar no es responder.
+
+- Con cobertura **parcial**, se responde solo la parte respaldada y se declara explícitamente la que no tiene registros.
+- Con cobertura **ninguna**, el texto compuesto se descarta —podría describir hechos que no vienen al caso— y el sistema declara la ausencia: ningún hecho recuperado se presenta como apoyo de algo que no responde.
+
 ### 3.8 RAG, y qué no hace este sistema
 
 RAG significa, literalmente, **recuperar y luego generar condicionado por lo recuperado**. Aquí: recuperar hechos y redactar una respuesta apoyada solo en ellos.
@@ -168,6 +173,7 @@ Para delimitar el concepto, conviene decir qué **no** ocurre:
 - **Idempotencia.** Repetir un turno con los mismos identificadores devuelve el resultado original sin repetir efectos.
 - **Límite de tamaño del mensaje**, además de los tiempos de espera de conexión y lectura.
 - **Los fallos no inventan.** Si la interpretación o la búsqueda fallan, el resultado es un fallo recuperable, sin respuesta fabricada.
+- **Ausencia no es fallo.** Que la historia no respalde una pregunta es un **resultado**, no un error: se declara con su motivo —historia vacía, sin hechos de ese tipo, sin hechos en ese periodo, o ninguno que responda—, con su alcance acotado y con una salida para continuar. Además **no niega que el hecho ocurriera**: solo dice que no consta. Un fallo de búsqueda, en cambio, se informa como recuperable y nunca se disfraza de ausencia.
 
 ### 3.10 Controles para datos clínicos
 
@@ -188,6 +194,7 @@ Para delimitar el concepto, conviene decir qué **no** ocurre:
 - El adaptador es una **frontera**: el dominio no depende del proveedor, y hay un modo sin red por defecto.
 - La **recuperación la hace el código**, no el modelo; es léxica, filtrada y acotada.
 - La **respuesta se fundamenta y se cita**; una cita fuera del conjunto recuperado se rechaza.
-- Sin hechos recuperados, el sistema **declara que no encuentra registros** en lugar de improvisar.
+- Recuperar **no es responder**: la respuesta declara qué parte de la pregunta cubren los hechos recuperados.
+- El sistema **declara que no encuentra registros** en lugar de improvisar, y esa ausencia es un resultado con motivo, alcance y salida para continuar, no un error.
 - La **memoria conversacional es efímera y acotada**; la verdad está en la historia, no en la conversación.
 - Los **fallos no producen respuestas inventadas**, y los datos clínicos no se registran en los logs.

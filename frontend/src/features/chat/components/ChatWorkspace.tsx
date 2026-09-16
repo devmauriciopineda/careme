@@ -13,6 +13,8 @@ type Message = {
   text: string;
   status?: ChatResponse["status"];
   events?: ChatResponse["events"];
+  absenceReason?: ChatResponse["absenceReason"];
+  suggestedActions?: ChatResponse["suggestedActions"];
   retryText?: string;
 };
 
@@ -24,6 +26,26 @@ const statusLabels: Record<NonNullable<Message["status"]>, string> = {
   general_conversation: "Conversación",
   duplicate: "Ya estaba registrado",
   failed: "No se pudo completar",
+};
+
+/**
+ * Names the reason the backend reported for an absence, so the turn says what the
+ * absence covers instead of reading like a generic negative.
+ */
+const absenceReasonLabels: Record<NonNullable<ChatResponse["absenceReason"]>, string> = {
+  empty_history: "Todavía no hay hechos registrados en tu historia",
+  no_events_of_type: "Sin registros de ese tipo de hecho",
+  no_events_in_period: "Sin registros en ese periodo",
+  no_term_match: "Sin registros escritos con esas palabras",
+};
+
+/** Names the continuation the backend offered, so the turn stays actionable. */
+const suggestedActionLabels: Record<
+  NonNullable<ChatResponse["suggestedActions"]>[number],
+  string
+> = {
+  reformulate: "Reformular la pregunta con otras palabras",
+  register: "Contar el hecho para registrarlo",
 };
 
 /**
@@ -102,6 +124,8 @@ export function ChatWorkspace() {
           text: outcome.response.message,
           status: outcome.response.status,
           events: outcome.response.events,
+          absenceReason: outcome.response.absenceReason,
+          suggestedActions: outcome.response.suggestedActions,
         },
       ]);
     });
@@ -156,6 +180,18 @@ export function ChatWorkspace() {
                       </li>
                     ))}
                   </ul>
+                )}
+                {message.role === "assistant" && message.status === "no_records" && message.absenceReason && (
+                  <div className="mt-2 rounded-lg border border-border/70 bg-card px-3 py-2 text-xs">
+                    <p className="font-semibold text-foreground">{absenceReasonLabels[message.absenceReason]}</p>
+                    {message.suggestedActions && message.suggestedActions.length > 0 && (
+                      <ul aria-label="Qué puedes hacer ahora" className="mt-1 list-disc space-y-0.5 pl-4 text-muted-foreground">
+                        {message.suggestedActions.map((action) => (
+                          <li key={action}>{suggestedActionLabels[action]}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                 )}
                 {message.status === "failed" && message.retryText && (
                   <button className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-destructive hover:underline" onClick={(event) => submit(event, message.retryText)} type="button">

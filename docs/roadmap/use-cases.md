@@ -1,10 +1,10 @@
 # Use Cases — MVP
 
-> **Control de avance:** 5 de 11 implementados · 3 cubiertos · 3 pendientes.
+> **Control de avance:** 6 de 11 implementados · 3 cubiertos · 2 pendientes.
 >
-> Implementación actual: **UC-001 → UC-004 y UC-007**.
+> Implementación actual: **UC-001 → UC-004, UC-007 y UC-008**.
 >
-> Documentado y pendiente de implementación: **UC-007**.
+> Documentado y pendiente de implementación: **UC-010**. Sin documentar: **UC-011**.
 
 Leyenda de estados:
 
@@ -12,7 +12,13 @@ Leyenda de estados:
 | --- | --- |
 | ✅ Implementado | Funcionalidad completa en backend y frontend |
 | 🟡 Cubierto | Cubierto por otro use case como flujo alterno |
-| ⬜ Pendiente | No implementado |
+| 📝 Documentado | Caso de uso y criterios de aceptación redactados, sin implementar |
+| ⬜ Pendiente | No implementado ni documentado |
+
+Frontera de las respuestas del asistente: **UC-007** responde sobre la historia
+clínica, **UC-008** declara la ausencia de registros clínicos y **UC-010** responde
+como conversación general sin consultar la historia. Cada uno documenta la
+frontera con los otros dos en su sección 11.
 
 ## UC-001 — Ver el seguimiento corporal
 
@@ -60,9 +66,11 @@ Documento: [`UC-007.md`](../use-cases/UC-007.md) · [criterios de aceptación](.
 
 ## UC-008 — Gestionar información clínica ausente
 
-**Estado:** ⬜ Pendiente
+**Estado:** ✅ Implementado
 
 Permite al sistema responder adecuadamente cuando no existen registros que respalden la información solicitada.
+
+Documento: [`UC-008.md`](../use-cases/UC-008.md) · [criterios de aceptación](../use-cases/UC-008-acceptance-criteria.md).
 
 ## UC-009 — Registrar información temporalmente imprecisa
 
@@ -72,9 +80,11 @@ Cubierto por UC-004 como flujo alterno: el hecho se registra conservando la prec
 
 ## UC-010 — Consultar información que no pertenece a la historia clínica
 
-**Estado:** ⬜ Pendiente
+**Estado:** 📝 Documentado (pendiente de implementación)
 
 Permite al usuario realizar preguntas de carácter general que no requieren consultar los registros de su historia clínica.
+
+Documento: [`UC-010.md`](../use-cases/UC-010.md) · [criterios de aceptación](../use-cases/UC-010-acceptance-criteria.md).
 
 ## UC-011 — Inspeccionar los eventos clínicos registrados
 

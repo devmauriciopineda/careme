@@ -104,7 +104,7 @@ public class ChatOrchestrator {
         }
         ClinicalAnswerResult result = historyQueryService.answer(intent);
         return ChatMessageResponse.of(conversationId, messageId, mapStatus(result.kind()),
-                result.message(), result.events());
+                result.message(), result.events(), result.absenceReason(), result.suggestedActions());
     }
 
     private ChatMessageResponse.Status mapStatus(ClinicalEventRegistrationResult.Kind kind) {

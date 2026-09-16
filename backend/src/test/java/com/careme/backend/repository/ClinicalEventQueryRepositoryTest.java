@@ -69,6 +69,52 @@ class ClinicalEventQueryRepositoryTest extends PostgresIntegrationTest {
         assertThat(repository.search(List.of("control"), null, null, null)).hasSize(10);
     }
 
+    @Test
+    void countsNothingWhenTheHistoryHasNoEvents() {
+        assertThat(repository.countAll()).isZero();
+        assertThat(repository.countByType(ClinicalEvent.ClinicalEventType.DIAGNOSIS)).isZero();
+        assertThat(repository.countByPeriod(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 12, 31))).isZero();
+    }
+
+    @Test
+    void countsAPublishedEventByTotalTypeAndPeriod() {
+        insert("evt_001", "diagnosis", "2026-01-10", "exact", "Hipertensión diagnosticada");
+
+        assertThat(repository.countAll()).isEqualTo(1L);
+        assertThat(repository.countByType(ClinicalEvent.ClinicalEventType.DIAGNOSIS)).isEqualTo(1L);
+        assertThat(repository.countByPeriod(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31)))
+                .isEqualTo(1L);
+    }
+
+    @Test
+    void countsBeyondTheResultLimitThatSearchApplies() {
+        for (int index = 1; index <= 12; index++) {
+            insert(String.format("evt_%03d", index), "note", "2026-01-%02d".formatted(index), "exact",
+                    "Control de rutina número " + index);
+        }
+
+        assertThat(repository.countAll()).isEqualTo(12L);
+        assertThat(repository.countByType(ClinicalEvent.ClinicalEventType.NOTE)).isEqualTo(12L);
+        assertThat(repository.countByPeriod(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31)))
+                .isEqualTo(12L);
+    }
+
+    @Test
+    void reportsNoEventsOfATypeThatWasNeverRegistered() {
+        insert("evt_001", "note", "2026-01-10", "exact", "Dolor de cabeza");
+
+        assertThat(repository.countAll()).isEqualTo(1L);
+        assertThat(repository.countByType(ClinicalEvent.ClinicalEventType.MEDICATION)).isZero();
+    }
+
+    @Test
+    void reportsNoEventsInAPeriodWithoutRegistrations() {
+        insert("evt_001", "note", "2026-01-10", "exact", "Dolor de cabeza");
+
+        assertThat(repository.countByPeriod(LocalDate.of(2025, 1, 1), LocalDate.of(2025, 12, 31)))
+                .isZero();
+    }
+
     private void insert(String code, String type, String date, String precision, String content) {
         jdbcTemplate.update(
                 "INSERT INTO clinical_event_index "

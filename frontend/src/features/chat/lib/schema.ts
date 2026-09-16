@@ -29,6 +29,20 @@ const chatEventSchema = z.object({
   content: z.string(),
 });
 
+/**
+ * Why the history could not answer. Only these values are accepted: an unknown
+ * reason would leave the interface unable to say what the absence means.
+ */
+const absenceReasonSchema = z.enum([
+  "empty_history",
+  "no_events_of_type",
+  "no_events_in_period",
+  "no_term_match",
+]);
+
+/** What the user is offered after an absence. */
+const suggestedActionSchema = z.enum(["reformulate", "register"]);
+
 /** One turn as the backend returns it. */
 export const chatResponseSchema = z.object({
   conversationId: z.string(),
@@ -44,4 +58,6 @@ export const chatResponseSchema = z.object({
   ]),
   message: z.string(),
   events: z.array(chatEventSchema),
+  absenceReason: absenceReasonSchema.nullish(),
+  suggestedActions: z.array(suggestedActionSchema).optional(),
 });

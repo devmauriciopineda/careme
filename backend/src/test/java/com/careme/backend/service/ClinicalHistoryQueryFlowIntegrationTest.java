@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.careme.backend.PostgresIntegrationTest;
 import com.careme.backend.dto.ChatMessageRequest;
 import com.careme.backend.dto.ChatMessageResponse;
+import com.careme.backend.dto.ClinicalEventIntent;
 import com.careme.backend.entity.ClinicalEvent;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -15,6 +16,7 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Comparator;
+import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.BeforeEach;
@@ -43,6 +45,9 @@ class ClinicalHistoryQueryFlowIntegrationTest extends PostgresIntegrationTest {
 
     @Autowired
     private ClinicalEventIndexWriter indexWriter;
+
+    @Autowired
+    private ClinicalHistoryQueryService historyQueryService;
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -106,6 +111,63 @@ class ClinicalHistoryQueryFlowIntegrationTest extends PostgresIntegrationTest {
 
         assertThat(indexSnapshot()).isEqualTo(indexAfterRegistration);
         assertThat(documentsSnapshot()).isEqualTo(documentsAfterRegistration);
+    }
+
+    @Test
+    void declaresEveryAbsenceReasonAndLeavesTheHistoryUntouched() throws IOException {
+        // The history is still empty, so the absence is the whole history.
+        var emptyHistory = askThroughChat("¿He tenido migrañas?");
+        assertThat(emptyHistory.status()).isEqualTo(ChatMessageResponse.Status.NO_RECORDS);
+        assertThat(emptyHistory.absenceReason())
+                .isEqualTo(ChatMessageResponse.AbsenceReason.EMPTY_HISTORY);
+
+        var registered = new ClinicalEvent(
+                UUID.randomUUID(), "evt_001", ClinicalEvent.ClinicalEventType.DIAGNOSIS,
+                LocalDate.of(2026, 1, 10), ClinicalEvent.DatePrecision.EXACT, "el 10 de enero",
+                "Hipertensión diagnosticada", ClinicalEvent.EventSource.PATIENT,
+                OffsetDateTime.now(ZoneOffset.UTC));
+        markdownStore.write(registered);
+        indexWriter.write(registered);
+        String indexBefore = indexSnapshot();
+        String documentsBefore = documentsSnapshot();
+
+        // The history holds events, but none of the type the question asks about.
+        var noEventsOfType = askThroughChat("¿Qué medicación tomo?");
+        assertThat(noEventsOfType.status()).isEqualTo(ChatMessageResponse.Status.NO_RECORDS);
+        assertThat(noEventsOfType.absenceReason())
+                .isEqualTo(ChatMessageResponse.AbsenceReason.NO_EVENTS_OF_TYPE);
+        assertThat(noEventsOfType.suggestedActions()).containsExactly(
+                ChatMessageResponse.SuggestedAction.REFORMULATE,
+                ChatMessageResponse.SuggestedAction.REGISTER);
+
+        // The history holds events, but none matched the terms the question used.
+        var noTermMatch = askThroughChat("¿He tenido migrañas?");
+        assertThat(noTermMatch.status()).isEqualTo(ChatMessageResponse.Status.NO_RECORDS);
+        assertThat(noTermMatch.absenceReason())
+                .isEqualTo(ChatMessageResponse.AbsenceReason.NO_TERM_MATCH);
+
+        // The history holds events, but none inside the questioned period. The
+        // offline interpreter never derives a period, so this question reaches the
+        // query service directly with the period the user stated.
+        var noEventsInPeriod = historyQueryService.answer(ClinicalEventIntent.query(
+                new ClinicalEventIntent.Query(
+                        "¿Qué me pasó en 2025?",
+                        ClinicalEventIntent.Query.Scope.HISTORY,
+                        List.of("paso"),
+                        null,
+                        LocalDate.of(2025, 1, 1),
+                        LocalDate.of(2025, 12, 31))));
+        assertThat(noEventsInPeriod.kind()).isEqualTo(ClinicalAnswerResult.Kind.NO_RECORDS);
+        assertThat(noEventsInPeriod.absenceReason())
+                .isEqualTo(ChatMessageResponse.AbsenceReason.NO_EVENTS_IN_PERIOD);
+
+        assertThat(indexSnapshot()).as("el índice no cambia al declarar una ausencia").isEqualTo(indexBefore);
+        assertThat(documentsSnapshot()).as("los documentos no cambian al declarar una ausencia")
+                .isEqualTo(documentsBefore);
+    }
+
+    private ChatMessageResponse askThroughChat(String message) {
+        return orchestrator.process(new ChatMessageRequest(message, null, UUID.randomUUID().toString()));
     }
 
     private String indexSnapshot() {

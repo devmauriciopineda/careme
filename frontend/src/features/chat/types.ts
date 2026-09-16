@@ -7,6 +7,21 @@ export type ChatStatus =
   | "duplicate"
   | "failed";
 
+/**
+ * Why the history could not answer a question, as the backend reports it.
+ *
+ * It is a value and not prose, so the interface picks the wording and never has
+ * to read the Spanish message to tell one absence from another.
+ */
+export type AbsenceReason =
+  | "empty_history"
+  | "no_events_of_type"
+  | "no_events_in_period"
+  | "no_term_match";
+
+/** What the user is offered after an absence, so the turn stays actionable. */
+export type SuggestedAction = "reformulate" | "register";
+
 export type ChatResponse = {
   conversationId: string;
   messageId: string;
@@ -19,4 +34,8 @@ export type ChatResponse = {
     datePrecision: string;
     content: string;
   }>;
+  /** Present on a `no_records` turn; absent or null otherwise. */
+  absenceReason?: AbsenceReason | null;
+  /** Present on a `no_records` turn; absent or empty otherwise. */
+  suggestedActions?: SuggestedAction[];
 };

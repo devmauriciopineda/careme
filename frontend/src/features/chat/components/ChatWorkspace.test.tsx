@@ -117,6 +117,57 @@ describe("ChatWorkspace", () => {
     expect(screen.queryByText(/prompt|stack trace|credential/i)).not.toBeInTheDocument();
   });
 
+  it("shows why no records were found and what the user can do next", async () => {
+    const user = userEvent.setup();
+    sendChatMessageMock.mockResolvedValue({
+      ok: true,
+      response: {
+        conversationId: "conversation-1",
+        messageId: "message-1",
+        status: "no_records",
+        message: "No encuentro registros en ese periodo de tu historia clínica.",
+        events: [],
+        absenceReason: "no_events_in_period",
+        suggestedActions: ["reformulate", "register"],
+      },
+    });
+
+    render(<ChatWorkspace />);
+    await send(user, "¿Qué me pasó el año pasado?");
+
+    expect(await screen.findByText("Sin registros")).toBeInTheDocument();
+    expect(screen.getByText("Sin registros en ese periodo")).toBeInTheDocument();
+    const actions = screen.getByRole("list", { name: "Qué puedes hacer ahora" });
+    expect(within(actions).getByText("Reformular la pregunta con otras palabras")).toBeInTheDocument();
+    expect(within(actions).getByText("Contar el hecho para registrarlo")).toBeInTheDocument();
+  });
+
+  it("keeps a no-records turn apart from an answer, an error and any technical detail", async () => {
+    const user = userEvent.setup();
+    sendChatMessageMock.mockResolvedValue({
+      ok: true,
+      response: {
+        conversationId: "conversation-1",
+        messageId: "message-1",
+        status: "no_records",
+        message: "Todavía no hay hechos registrados en tu historia clínica. Que no encuentre registros no significa que no haya ocurrido: solo que no consta en tu historia clínica.",
+        events: [],
+        absenceReason: "empty_history",
+        suggestedActions: ["reformulate", "register"],
+      },
+    });
+
+    render(<ChatWorkspace />);
+    await send(user, "¿He tenido migrañas?");
+
+    expect(await screen.findByText("Sin registros")).toBeInTheDocument();
+    expect(screen.getByText("Todavía no hay hechos registrados en tu historia")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Hechos que sustentan la respuesta")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Reintentar" })).not.toBeInTheDocument();
+    expect(screen.queryByText("No se pudo completar")).not.toBeInTheDocument();
+    expect(screen.queryByText(/prompt|stack trace|credential|deepseek/i)).not.toBeInTheDocument();
+  });
+
   it("preserves failed input and retries only after explicit action", async () => {
     const user = userEvent.setup();
     sendChatMessageMock

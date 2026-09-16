@@ -43,7 +43,7 @@ de la interfaz.
 | **Precisión temporal** (date_precision) | `exact`, `approximate` o `unknown`; nunca mayor que la aportada | `backend/src/main/java/com/careme/backend/entity/ClinicalEvent.java` |
 | **Fuente de verdad Markdown** | Documentos `evt_NNN.md` en `data/events/` donde viven los hechos | `backend/src/main/java/com/careme/backend/service/ClinicalEventMarkdownStore.java` |
 | **Índice derivado** | Tabla PostgreSQL `clinical_event_index`, reconstruible desde el Markdown | `backend/src/main/resources/db/migration/V2__create_clinical_event_index.sql` |
-| **Turno del chat** (ChatMessageResponse) | Respuesta del asistente: estado, mensaje y eventos de apoyo cuando aplica | `backend/src/main/java/com/careme/backend/dto/ChatMessageResponse.java` |
+| **Turno del chat** (ChatMessageResponse) | Respuesta del asistente: estado, mensaje, eventos de apoyo cuando aplica y, cuando no hay registros, el motivo de la ausencia y las acciones ofrecidas | `backend/src/main/java/com/careme/backend/dto/ChatMessageResponse.java` |
 
 ---
 
@@ -371,7 +371,7 @@ Rol arquitectónico de las carpetas de primer nivel:
 | Sin autenticación ni autorización en toda la API | `backend/README.md`; `frontend/README.md` | Alto si los datos salen del entorno local |
 | Sin integración continua | `.github/` sin `workflows/` | Medio: los gates de cobertura solo corren localmente |
 | `e2e/playwright/` reservado y vacío; Storybook, Playwright, TanStack Query, Zustand, i18n en runtime y modo oscuro pendientes | `frontend/README.md`, *Deferred from the frontend standard* | Bajo: adopción aditiva prevista |
-| Eventos clínicos sin edición ni borrado; la consulta de historia se resuelve desde el índice derivado y UC-008 sigue pendiente | `openspec/changes/uc-007/specs/clinical-history-query/spec.md`, `backend/.../service/ClinicalEventIndexRebuilder.java` | Informativo: alcance del MVP |
+| Eventos clínicos sin edición ni borrado; la consulta de historia se resuelve desde el índice derivado y la ausencia de registros se declara con su motivo y sus acciones | `openspec/changes/uc-008/specs/clinical-history-query/spec.md`, `backend/.../service/ClinicalEventIndexRebuilder.java` | Informativo: alcance del MVP |
 | Deduplicación de hechos limitada a la conversación en curso, con estado en memoria | `backend/.../service/ClinicalEventConversationRegistry.java`, `ConversationStateStore.java` | Bajo: una repetición en otra conversación crea un evento nuevo |
 
 ---

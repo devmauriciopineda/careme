@@ -43,4 +43,59 @@ describe("chatResponseSchema", () => {
 
     expect(parsed.success).toBe(true);
   });
+
+  it("accepts a no-records turn that reports its reason and the offered actions", () => {
+    const parsed = chatResponseSchema.safeParse({
+      ...base,
+      status: "no_records",
+      message: "No encuentro registros en ese periodo de tu historia clínica.",
+      absenceReason: "no_events_in_period",
+      suggestedActions: ["reformulate", "register"],
+    });
+
+    expect(parsed.success).toBe(true);
+  });
+
+  it("accepts a turn that omits the optional absence detail", () => {
+    expect(chatResponseSchema.safeParse({ ...base, status: "answered" }).success).toBe(true);
+  });
+
+  it("accepts a null absence reason", () => {
+    const parsed = chatResponseSchema.safeParse({
+      ...base,
+      status: "answered",
+      absenceReason: null,
+    });
+
+    expect(parsed.success).toBe(true);
+  });
+
+  it.each([
+    "empty_history",
+    "no_events_of_type",
+    "no_events_in_period",
+    "no_term_match",
+  ])("accepts the %s absence reason", (absenceReason) => {
+    expect(chatResponseSchema.safeParse({ ...base, status: "no_records", absenceReason }).success).toBe(true);
+  });
+
+  it("rejects an absence reason the interface cannot present", () => {
+    const parsed = chatResponseSchema.safeParse({
+      ...base,
+      status: "no_records",
+      absenceReason: "otro",
+    });
+
+    expect(parsed.success).toBe(false);
+  });
+
+  it("rejects a suggested action the interface cannot offer", () => {
+    const parsed = chatResponseSchema.safeParse({
+      ...base,
+      status: "no_records",
+      suggestedActions: ["otro"],
+    });
+
+    expect(parsed.success).toBe(false);
+  });
 });

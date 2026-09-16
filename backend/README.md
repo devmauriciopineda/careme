@@ -31,8 +31,10 @@ contract.
   with the backend-only `CAREME_LLM_API_KEY` credential.
 - The chat can answer questions about the clinical history from the derived
   `clinical_event_index`, returning `answered` with supporting events or
-  `no_records` when no registered event supports the question. Queries never
-  modify the Markdown history or its index.
+  `no_records` when no registered event supports the question. A `no_records`
+  response names the scope of the absence (`empty_history`, `no_events_of_type`,
+  `no_events_in_period` or `no_term_match`) and the actions offered to the user.
+  Queries never modify the Markdown history or its index.
 - Clinical events are Markdown files under `data/events/`, configurable with
   `careme.events.directory`; PostgreSQL stores only the derived index. The index is
   rebuilt at startup and with `POST /api/v1/clinical-events/reindex`.
@@ -106,6 +108,9 @@ Domain       Measurement (record)       identity + invariants
   maximum number of history-query results is configured by
   `careme.chat.query.max-results`. The MVP has
   no application-level rate limiter; provider account limits still apply.
+- In the fake mode, `careme.llm.fake.coverage` (`full`, `partial` or `none`) and
+  `careme.llm.fake.unsupported-part` let a local run exercise a partial or an
+  unanswered composition without a provider.
 - The application does not select or guarantee a provider processing region or
   retention policy. Treat those as deployment approval requirements before sending
   real clinical data. Conversation turns are not persisted by Careme, but provider
@@ -127,7 +132,19 @@ Accepts `{ "message": "...", "messageId": "...", "conversationId": "..." }`.
 conversation id, the message id, a status (`registered`, `answered`, `no_records`,
 `clarification_required`, `general_conversation`, `duplicate` or `failed`) and a
 Spanish user-facing message. An `answered` response includes supporting clinical
-events in `events`; `no_records` includes none.
+events in `events`; `no_records` includes none, and instead reports:
+
+| Field              | Present when  | Value                                                                                  |
+| ------------------ | ------------- | -------------------------------------------------------------------------------------- |
+| `absenceReason`    | `no_records`  | `empty_history`, `no_events_of_type`, `no_events_in_period` or `no_term_match`, or `null` |
+| `suggestedActions` | `no_records`  | `reformulate` and/or `register`; empty otherwise                                        |
+
+Both fields are additive and optional, so a client that does not know them keeps
+working. A search that cannot be completed is reported as `failed`, never as
+`no_records`, so an absence is only ever declared after it was verified. When the
+retrieved events support only part of a question, the answer is `answered`: it
+answers the supported part and its Spanish message declares the part that has no
+records.
 Conversation state is in memory and is not persisted; successfully registered events
 survive because their Markdown documents are the source of truth.
 
@@ -252,6 +269,8 @@ backend/
 │   ├── prompts/clinical-intent-v1.txt  # reversible registration prompt
 │   ├── prompts/clinical-intent-v2.txt  # classification prompt with history queries
 │   ├── prompts/clinical-answer-v1.txt  # grounded answer composition prompt
+│   ├── prompts/clinical-answer-v2.txt  # adds the unsupported part of the question
+│   ├── prompts/clinical-answer-v3.txt  # in use: adds the reported answer coverage
 │   └── db/migration/                   # Flyway migrations (V1 measurements, V2 event index)
 ├── src/test/java/com/careme/backend/   # mirrors the package structure
 ├── .mvn/wrapper/                       # Maven wrapper configuration
@@ -363,7 +382,7 @@ The suite is 21 test classes (113 test methods), organized by layer:
 | `MeasurementCsvParserTest`                 | CSV parsing, headers, per-row validation                    |
 | `MeasurementJpaRepositoryTest`             | Mapping, empty table, unique `date`, `CHECK` constraints     |
 | `MeasurementTest` / `MeasurementDraftTest` | Domain invariants                                           |
-| `ChatControllerTest`                       | `@WebMvcTest`: chat endpoint contract                        |
+| `ChatControllerTest`                       | `@WebMvcTest`: chat endpoint contract, absence reason and offered actions |
 | `ChatOrchestratorTest`                     | Intent → status mapping, idempotency by message id          |
 | `ClinicalEventTest`                        | Clinical-event domain invariants                            |
 | `ClinicalEventDateNormalizerTest`          | Exact, relative, approximate and unknown dates              |
@@ -372,6 +391,12 @@ The suite is 21 test classes (113 test methods), organized by layer:
 | `ClinicalEventRegistrationServiceTest`     | Registration, dedup within conversation, rollback on failure |
 | `FakeClinicalIntentInterpreterTest`        | Deterministic fake interpreter                              |
 | `OpenAiClinicalIntentInterpreterTest`      | LLM adapter parsing and failure mapping                     |
+| `ClinicalEventQueryRepositoryTest`         | Lexical and metadata retrieval, absence counts on a real index |
+| `ClinicalHistoryQueryServiceTest`          | Absence reason ladder, partial answers, failure vs absence  |
+| `ClinicalHistoryQueryFlowIntegrationTest`  | Register → ask cycle, every absence reason leaves the history untouched |
+| `ClinicalHistoryUnsupportedRetrievalIntegrationTest` | A retrieved event that does not answer the question declares the absence |
+| `OpenAiClinicalAnswerComposerTest`         | Grounded composition, citations, reported coverage          |
+| `FakeClinicalAnswerComposerTest`           | Deterministic offline composition and reported coverage     |
 
 Integration tests extend `PostgresIntegrationTest`, which starts one
 `postgres:17-alpine` container per JVM and reuses it. They run the real Flyway

@@ -114,6 +114,8 @@ flowchart TB
 - **Hay un plan B.** Si la búsqueda de texto no encuentra nada pero existe un filtro, se busca **solo por metadatos**: una pregunta "¿qué medicaciones tengo?" puede responderse aunque no coincida ninguna palabra.
 - **La configuración es `simple`.** No aplica raíces léxicas ni listas de palabras vacías de un idioma concreto; conserva los términos tal como se escriben. Es predecible cuando el contenido mezcla idiomas, y respeta las palabras originales de la persona.
 
+**Un índice prueba presencia, no ausencia.** La búsqueda lleva un **límite** y puede filtrar por metadatos, así que un resultado vacío solo dice que *esa* consulta no encontró nada: no distingue "no hay ningún hecho" de "ninguno coincide". Afirmar una ausencia con fundamento exige **contar** sobre todo el índice, y hacerlo de alcance más amplio a más estrecho —todos los hechos, los de ese tipo, los de ese periodo—, porque un `LIMIT` mide lo que se devuelve, no lo que existe.
+
 ### 3.5 Fuente de verdad frente a dato derivado
 
 ```mermaid
@@ -163,6 +165,7 @@ Mantener el índice no es gratis, y conviene tenerlo presente al añadir datos:
 - **`NUMERIC` guarda decimales exactos**; la precisión es parte del esquema.
 - Un **índice** cambia coste de escritura y espacio por velocidad de lectura; un **B-tree** resuelve igualdad, rango y orden.
 - La **búsqueda de texto** usa una columna `tsvector` generada, un **índice invertido GIN**, una **`tsquery`** construida desde las palabras del usuario y un orden por **`ts_rank`**, con filtros de metadatos y un límite.
+- Un índice acelera la búsqueda de lo que **existe**; no prueba lo que **no existe**: afirmar una ausencia exige contar, no buscar.
 - El rigor depende de la **fuente de verdad**; el índice derivado se **reconstruye**, y por eso puede borrarse sin pérdida.
 - **ACID** describe las garantías de la transacción; el **aislamiento** es lo que hace que la restricción resuelva las carreras.
 - El **sistema de archivos no es transaccional con la base de datos**, así que la coherencia entre ambos se logra con **compensación**.

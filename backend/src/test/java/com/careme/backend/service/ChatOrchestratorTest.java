@@ -89,8 +89,8 @@ class ChatOrchestratorTest {
                 var event = event("evt_100", "Hipertensión");
                 when(interpreter.interpret(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any()))
                                 .thenReturn(intent);
-                when(historyQuery.answer(intent)).thenReturn(new ClinicalAnswerResult(
-                                ClinicalAnswerResult.Kind.ANSWERED, List.of(event), "Te la diagnosticaron en enero."));
+                when(historyQuery.answer(intent)).thenReturn(ClinicalAnswerResult.answered(
+                                List.of(event), "Te la diagnosticaron en enero."));
 
                 var response = orchestrator.process(new ChatMessageRequest("¿Cuándo me diagnosticaron hipertensión?", null, "msg-query"));
 
@@ -122,14 +122,22 @@ class ChatOrchestratorTest {
                 var intent = queryIntent(ClinicalEventIntent.Query.Scope.HISTORY);
                 when(interpreter.interpret(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any()))
                                 .thenReturn(intent);
-                when(historyQuery.answer(intent)).thenReturn(new ClinicalAnswerResult(
-                                ClinicalAnswerResult.Kind.NO_RECORDS, List.of(), "No encontré registros."));
+                when(historyQuery.answer(intent)).thenReturn(ClinicalAnswerResult.noRecords(
+                                com.careme.backend.dto.ChatMessageResponse.AbsenceReason.NO_TERM_MATCH,
+                                List.of(com.careme.backend.dto.ChatMessageResponse.SuggestedAction.REFORMULATE,
+                                                com.careme.backend.dto.ChatMessageResponse.SuggestedAction.REGISTER),
+                                "No encuentro registros."));
 
                 var response = orchestrator.process(new ChatMessageRequest("¿He tenido migrañas?", null, "msg-none"));
 
                 assertThat(response.status())
                                 .isEqualTo(com.careme.backend.dto.ChatMessageResponse.Status.NO_RECORDS);
                 assertThat(response.events()).isEmpty();
+                assertThat(response.absenceReason())
+                                .isEqualTo(com.careme.backend.dto.ChatMessageResponse.AbsenceReason.NO_TERM_MATCH);
+                assertThat(response.suggestedActions()).containsExactly(
+                                com.careme.backend.dto.ChatMessageResponse.SuggestedAction.REFORMULATE,
+                                com.careme.backend.dto.ChatMessageResponse.SuggestedAction.REGISTER);
         }
 
         @Test
@@ -137,13 +145,15 @@ class ChatOrchestratorTest {
                 var intent = queryIntent(ClinicalEventIntent.Query.Scope.HISTORY);
                 when(interpreter.interpret(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any()))
                                 .thenReturn(intent);
-                when(historyQuery.answer(intent)).thenReturn(new ClinicalAnswerResult(
-                                ClinicalAnswerResult.Kind.FAILURE, List.of(), "No pude completar la búsqueda. Puedes volver a intentarlo."));
+                when(historyQuery.answer(intent)).thenReturn(ClinicalAnswerResult.failure(
+                                "No pude completar la búsqueda. Puedes volver a intentarlo."));
 
                 var response = orchestrator.process(new ChatMessageRequest("¿Cuándo?", null, "msg-fail"));
 
                 assertThat(response.status()).isEqualTo(com.careme.backend.dto.ChatMessageResponse.Status.FAILED);
                 assertThat(response.events()).isEmpty();
+                assertThat(response.absenceReason()).isNull();
+                assertThat(response.suggestedActions()).isEmpty();
                 verifyNoMoreInteractions(registration);
         }
 
@@ -152,8 +162,8 @@ class ChatOrchestratorTest {
                 var intent = queryIntent(ClinicalEventIntent.Query.Scope.HISTORY);
                 when(interpreter.interpret(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any()))
                                 .thenReturn(intent);
-                when(historyQuery.answer(intent)).thenReturn(new ClinicalAnswerResult(
-                                ClinicalAnswerResult.Kind.ANSWERED, List.of(event("evt_100", "Hipertensión")), "Respuesta"));
+                when(historyQuery.answer(intent)).thenReturn(ClinicalAnswerResult.answered(
+                                List.of(event("evt_100", "Hipertensión")), "Respuesta"));
 
                 var first = orchestrator.process(new ChatMessageRequest("¿Cuándo?", null, "msg-1"));
                 var retry = orchestrator.process(new ChatMessageRequest("¿Cuándo?", first.conversationId(), "msg-1"));

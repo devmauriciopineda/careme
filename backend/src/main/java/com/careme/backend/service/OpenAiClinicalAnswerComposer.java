@@ -31,7 +31,7 @@ public class OpenAiClinicalAnswerComposer implements ClinicalAnswerComposer {
             @Value("${careme.llm.model:deepseek-flash}") String model,
             @Value("${careme.llm.connect-timeout:PT5S}") Duration connectTimeout,
             @Value("${careme.llm.read-timeout:PT30S}") Duration readTimeout,
-            @Value("classpath:prompts/clinical-answer-v1.txt") org.springframework.core.io.Resource promptResource)
+            @Value("classpath:prompts/clinical-answer-v3.txt") org.springframework.core.io.Resource promptResource)
             throws java.io.IOException {
         if (apiKey.isBlank()) {
             throw new IllegalStateException("CAREME_LLM_API_KEY is required when CAREME_LLM_MODE=openai");
@@ -88,12 +88,40 @@ public class OpenAiClinicalAnswerComposer implements ClinicalAnswerComposer {
                 });
             }
             validateReferences(references, events);
-            return new ComposedAnswer(parsed.path("answer").asText(""), references);
+            JsonNode unsupportedNode = parsed.path("unsupported");
+            String unsupported = unsupportedNode.isTextual() && !unsupportedNode.asText().isBlank()
+                    ? unsupportedNode.asText().trim()
+                    : null;
+            ClinicalAnswerComposer.Coverage coverage = coverageOf(parsed);
+            // Events that answer nothing support nothing: the answer reports no
+            // reference, so a retrieved fact can never appear as its support.
+            return new ComposedAnswer(
+                    parsed.path("answer").asText(""),
+                    coverage == ClinicalAnswerComposer.Coverage.NONE ? List.of() : references,
+                    coverage,
+                    unsupported);
         } catch (LlmIntegrationException exception) {
             throw exception;
         } catch (Exception exception) {
             throw new LlmIntegrationException("LLM response does not match the clinical answer schema", exception);
         }
+    }
+
+    /**
+     * Reads how much of the question the provider says the retrieved events
+     * support. The field is part of the response contract, so an unrecognized or
+     * missing value is a controlled failure rather than a guess: guessing "full"
+     * would present an unsupported answer and guessing "none" would deny an answer
+     * the user did have.
+     */
+    private static ClinicalAnswerComposer.Coverage coverageOf(JsonNode parsed) {
+        String reported = parsed.path("coverage").asText("");
+        return switch (reported.trim().toLowerCase(java.util.Locale.ROOT)) {
+            case "full" -> ClinicalAnswerComposer.Coverage.FULL;
+            case "partial" -> ClinicalAnswerComposer.Coverage.PARTIAL;
+            case "none" -> ClinicalAnswerComposer.Coverage.NONE;
+            default -> throw new LlmIntegrationException("LLM response does not report the answer coverage");
+        };
     }
 
     /** Every cited event must belong to the retrieved set or the answer is not grounded. */

@@ -60,6 +60,47 @@ public class ClinicalEventQueryRepository {
         return searchByMetadata(type, fromDate, toDate);
     }
 
+    /**
+     * Counts every event in the history index. It is not limited, so unlike
+     * {@link #search} it can prove that the history holds nothing at all: zero
+     * means the absence is the whole history and not a missing match.
+     */
+    public long countAll() {
+        return count("SELECT COUNT(*) FROM clinical_event_index WHERE 1 = 1", List.of());
+    }
+
+    /**
+     * Counts the events of one type. Zero, on a history that is not empty, means
+     * the absence is scoped to that type.
+     */
+    public long countByType(ClinicalEvent.ClinicalEventType type) {
+        if (type == null) {
+            return countAll();
+        }
+        return count("SELECT COUNT(*) FROM clinical_event_index WHERE type = ?",
+                List.of(type.name().toLowerCase()));
+    }
+
+    /**
+     * Counts the events inside a date range. A null bound is open on that side, so
+     * a question that states only one end still gets a bounded count. An event
+     * whose date is unknown is not inside any period.
+     */
+    public long countByPeriod(LocalDate fromDate, LocalDate toDate) {
+        if (fromDate == null && toDate == null) {
+            return countAll();
+        }
+        StringBuilder sql = new StringBuilder("SELECT COUNT(*) FROM clinical_event_index WHERE 1 = 1");
+        List<Object> parameters = new ArrayList<>();
+        appendFilters(sql, parameters, null, fromDate, toDate);
+        return count(sql.toString(), parameters);
+    }
+
+    private long count(String sql, List<Object> parameters) {
+        Long total = jdbcTemplate.queryForObject(sql, Long.class, parameters.toArray());
+        return total == null ? 0L : total;
+    }
+
     List<ClinicalEvent> searchByText(
             List<String> searchTerms,
             ClinicalEvent.ClinicalEventType type,
