@@ -161,9 +161,10 @@ pnpm test:watch  # Vitest in watch mode
 
 Tests run in jsdom and need neither the backend nor the database.
 
-121 test cases across the measurements and chat features, including validation
-and rendering of the answered and no-records chat outcomes with supporting
-events, the absence reason and the offered continuation.
+128 test cases across the measurements and chat features, including validation
+and rendering of the answered, no-records and general-conversation chat outcomes
+with supporting events, the absence reason, the offered continuation and the
+conversational part of a mixed turn.
 Unit tests cover the pure helpers in `measurements/lib/metrics.ts` (sorting,
 series building, axis domain, localization, local-day helpers), the Zod schemas
 (measurement API payloads, the registration form and the chat turn) and both

@@ -130,6 +130,66 @@ class OpenAiClinicalIntentInterpreterTest {
                 .hasMessage("LLM response does not match the clinical intent schema");
     }
 
+    @Test
+    void mapsTheGeneralPartOfAMixedMessageWithoutUsingItAsCriteria() throws Exception {
+        respond(200, "{\"choices\":[{\"message\":{\"content\":\"{\\\"kind\\\":\\\"query\\\",\\\"question\\\":\\\"¿Cuándo me la diagnosticaron?\\\",\\\"scope\\\":\\\"history\\\",\\\"search_terms\\\":[\\\"diagnosticaron\\\"],\\\"general_part\\\":\\\"¿Qué es la hipertensión?\\\"}\"}}]}");
+
+        var interpreter = interpreter(Duration.ofSeconds(1), Duration.ofSeconds(1));
+        var intent = interpreter.interpret("¿Qué es la hipertensión? ¿Cuándo me la diagnosticaron?", context());
+
+        assertThat(intent.kind()).isEqualTo(com.careme.backend.dto.ClinicalEventIntent.Kind.QUERY);
+        assertThat(intent.query().generalPart()).isEqualTo("¿Qué es la hipertensión?");
+        assertThat(intent.query().question()).isEqualTo("¿Cuándo me la diagnosticaron?");
+        assertThat(intent.query().searchTerms())
+                .as("la parte general no se usa para recuperar hechos")
+                .containsExactly("diagnosticaron");
+    }
+
+    @Test
+    void leavesTheGeneralPartAbsentOnAPlainQuestion() throws Exception {
+        respond(200, "{\"choices\":[{\"message\":{\"content\":\"{\\\"kind\\\":\\\"query\\\",\\\"question\\\":\\\"¿Cuándo me la diagnosticaron?\\\",\\\"scope\\\":\\\"history\\\",\\\"search_terms\\\":[\\\"diagnosticaron\\\"],\\\"general_part\\\":null}\"}}]}");
+
+        var interpreter = interpreter(Duration.ofSeconds(1), Duration.ofSeconds(1));
+        var intent = interpreter.interpret("¿Cuándo me la diagnosticaron?", context());
+
+        assertThat(intent.query().generalPart()).isNull();
+    }
+
+    @Test
+    void mapsAnUndeterminedChannelToClarification() throws Exception {
+        respond(200, "{\"choices\":[{\"message\":{\"content\":\"{\\\"kind\\\":\\\"clarification\\\",\\\"clarification\\\":\\\"¿Tu pregunta se refiere a tu historia clínica o es una duda general?\\\"}\"}}]}");
+
+        var interpreter = interpreter(Duration.ofSeconds(1), Duration.ofSeconds(1));
+        var intent = interpreter.interpret("¿Eso es bueno?", context());
+
+        assertThat(intent.kind()).isEqualTo(com.careme.backend.dto.ClinicalEventIntent.Kind.CLARIFICATION);
+        assertThat(intent.query())
+                .as("una duda de cauce no elige consulta ni conversación")
+                .isNull();
+    }
+
+    @Test
+    void keepsAColloquialQuestionInTheClinicalHistoryChannel() throws Exception {
+        respond(200, "{\"choices\":[{\"message\":{\"content\":\"{\\\"kind\\\":\\\"query\\\",\\\"question\\\":\\\"¿Qué me dijeron del azúcar?\\\",\\\"scope\\\":\\\"history\\\",\\\"search_terms\\\":[\\\"azucar\\\"]}\"}}]}");
+
+        var interpreter = interpreter(Duration.ofSeconds(1), Duration.ofSeconds(1));
+        var intent = interpreter.interpret("¿Qué me dijeron del azúcar?", context());
+
+        assertThat(intent.kind()).isEqualTo(com.careme.backend.dto.ClinicalEventIntent.Kind.QUERY);
+    }
+
+    @Test
+    void declaresTheChannelRulesInThePrompt() throws Exception {
+        String prompt = new String(
+                new ClassPathResource("prompts/clinical-intent-v3.txt").getInputStream().readAllBytes(),
+                java.nio.charset.StandardCharsets.UTF_8);
+
+        assertThat(prompt).contains("even when the rest of the message does not");
+        assertThat(prompt).contains("general_part");
+        assertThat(prompt).contains("colloquial");
+        assertThat(prompt).contains("never guess one");
+    }
+
     private OpenAiClinicalIntentInterpreter interpreter(Duration connectTimeout, Duration readTimeout)
             throws Exception {
         return new OpenAiClinicalIntentInterpreter(
@@ -140,7 +200,7 @@ class OpenAiClinicalIntentInterpreterTest {
                 "deepseek-flash",
                 connectTimeout,
                 readTimeout,
-                new ClassPathResource("prompts/clinical-intent-v2.txt"));
+                new ClassPathResource("prompts/clinical-intent-v3.txt"));
     }
 
     private void respond(int status, String body) {
@@ -156,6 +216,6 @@ class OpenAiClinicalIntentInterpreterTest {
 
     private ClinicalIntentInterpreter.InterpretationContext context() {
         return new ClinicalIntentInterpreter.InterpretationContext(
-                java.time.LocalDate.of(2026, 9, 13), java.time.ZoneId.of("UTC"), "clinical-intent-v2");
+                java.time.LocalDate.of(2026, 9, 13), java.time.ZoneId.of("UTC"), "clinical-intent-v3");
     }
 }

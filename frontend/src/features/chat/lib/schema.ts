@@ -60,4 +60,5 @@ export const chatResponseSchema = z.object({
   events: z.array(chatEventSchema),
   absenceReason: absenceReasonSchema.nullish(),
   suggestedActions: z.array(suggestedActionSchema).optional(),
+  generalReply: z.string().nullish(),
 });

@@ -1,41 +1,4 @@
-# assistant-conversation Specification
-
-## Purpose
-
-Define the provider-independent conversation contract that lets the application receive chat messages, coordinate clinical registration, and return deterministic outcomes without persisting conversation history.
-
-## Requirements
-
-### Requirement: Process chat messages through a bounded conversation
-
-The system MUST expose a non-streaming JSON chat operation that accepts a user message, an idempotent message identifier, and an optional conversation identifier. When no conversation identifier is supplied, the system MUST create one and return it. The system MUST keep pending clarification state, duplicate detection, and a bounded buffer of the most recent turns only for the active in-memory conversation, and MUST NOT persist conversation history.
-
-#### Scenario: Start a conversation and register an event
-- **WHEN** the client sends a valid message with a new message identifier and no conversation identifier
-- **THEN** the system creates a conversation identifier, processes the message, and returns the identifier with the registration result
-- **AND** the clinical event is persisted as Markdown and made available through the derived index
-
-#### Scenario: Continue a conversation after clarification
-- **WHEN** the system has requested clarification and the client sends the next message with the same conversation identifier
-- **THEN** the system correlates the answer with the pending clarification and processes the combined clinical intent
-- **AND** the system does not require persisted conversation history
-
-#### Scenario: Answer a follow-up question from recent turns
-- **WHEN** the client sends, in the same conversation, a follow-up question that depends on the recent turns
-- **THEN** the system interprets the turn together with the bounded buffer of recent turns
-- **AND** it answers from the clinical history, not from the buffer
-- **AND** it does not require persisted conversation history
-
-#### Scenario: Conversation state is lost after restart
-- **WHEN** the backend restarts while a conversation has a pending clarification
-- **THEN** the pending clarification is discarded
-- **AND** the next message is processed as a new turn without corrupting persisted clinical events
-
-#### Scenario: Discard the ephemeral buffer after an interruption
-- **WHEN** the conversation is interrupted before the answer completes
-- **THEN** the ephemeral conversation state is discarded
-- **AND** the clinical history remains unchanged
-- **AND** the next turn is processed as a new turn
+## MODIFIED Requirements
 
 ### Requirement: Return explicit chat outcomes
 
@@ -95,32 +58,7 @@ The system MUST return exactly one observable outcome for each accepted message:
 - **THEN** the response carries the general part in its own field and the outcome of the history part in its own state
 - **AND** a client can present the general part as conversation and the history outcome as a grounded result without reinterpreting either text
 
-### Requirement: Make message retries idempotent
-
-The system MUST process a given `(conversationId, messageId)` at most once for side effects. Repeating the same request MUST return the original outcome without creating another clinical event or invoking a second persistence operation.
-
-#### Scenario: Retry a completed message
-- **WHEN** the client repeats the same message with the same conversation and message identifiers
-- **THEN** the system returns the original outcome
-- **AND** the number and contents of persisted events remain unchanged
-
-#### Scenario: Reject an invalid chat request
-- **WHEN** the message is blank, exceeds the configured size limit, or has an invalid identifier
-- **THEN** the system returns a client error with a Spanish validation message
-- **AND** it does not call the LLM or modify clinical persistence
-
-### Requirement: Allow the declared origin to reach the operations a browser client uses
-
-The API MUST accept a cross-origin preflight from every configured browser origin for the HTTP verbs those clients use, so a browser client is not rejected before its request is read. The API MUST keep every other verb closed for the same mapping.
-
-#### Scenario: Accept a preflight for a browser write
-- **WHEN** a browser client at a configured origin sends a preflight for a write operation it uses
-- **THEN** the API answers it successfully
-- **AND** the answer names that origin and that verb
-
-#### Scenario: Keep unused verbs closed
-- **WHEN** a browser client asks for a verb outside the exposed set
-- **THEN** the API does not allow it
+## ADDED Requirements
 
 ### Requirement: Answer general conversation without consulting the clinical history
 

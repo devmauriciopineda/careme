@@ -25,6 +25,9 @@ facts only and never diagnoses or recommends treatment.
 - A Spanish-language chat entry point that turns natural-language messages into
   clinical events (diagnosis, medication, measurement or note), preserving the
   original wording and the temporal precision (exact, approximate or unknown).
+- The same chat answers general conversation that does not depend on the clinical
+  history, without reading it, and declines requests for a diagnosis, a
+  recommendation or an interpretation of the case.
 - Clinical events are stored as Markdown documents (`data/events/`) as the source
   of truth, with a rebuildable PostgreSQL full-text index; there is no query,
   edit or delete endpoint yet.

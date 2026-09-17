@@ -24,75 +24,80 @@ Antes de redactar, inspecciona el repositorio y recopila evidencia real (no inve
 9. **Convenciones de código**: linters, formatters, `tsconfig.json`, `.editorconfig`, husky, etc.
 10. **Documentación previa**: `README.md`, `CONTRIBUTING.md`, ADRs existentes.
 
-Si algo no es deducible, márcalo explícitamente como `⚠️ NO DETECTADO — requiere confirmación humana` en lugar de inventarlo.
+Si algo no es deducible, márcalo explícitamente como `⚠️ NOT DETECTED — requires human confirmation` en lugar de inventarlo.
 
 # Estructura obligatoria del `architecture.md`
 
-Genera el archivo con EXACTAMENTE estas secciones (usa encabezados H2). Si una sección no aplica, déjala con `N/A` y una justificación breve de una línea.
+El documento se redacta **en inglés**: los títulos de sección, las columnas de tabla, los
+comentarios del árbol y el pie son cadenas literales en inglés, tal como se listan aquí. Si una
+sección no aplica, déjala con `N/A` y una justificación breve de una línea.
 
-## 1. Resumen ejecutivo
+Genera el archivo con EXACTAMENTE estas secciones, con estos títulos literales (usa encabezados H2).
+
+## 1. Executive summary
 - 3–6 líneas: qué hace el sistema, para quién, y su propuesta de valor.
 - Lenguaje ubicuo (glosario de 5–10 términos del dominio).
 
-## 2. Contexto y alcance
+## 2. Context and scope
 - Diagrama C4 nivel 1 (Context) en Mermaid (`flowchart` o `C4Context`).
 - Sistemas externos con los que interactúa (APIs, DBs, colas, auth providers).
 - Qué está **fuera** del alcance del repositorio.
 
-## 3. Stack tecnológico
-Tabla con: capa | tecnología | versión | justificación (si es deducible) | archivo fuente de la verdad (ej. `package.json:42`).
+## 3. Technology stack
+Tabla con estas columnas: `Layer | Technology | Version | Rationale (deducible) | Source of truth` (ej. `package.json:42`).
 
-## 4. Vista de contenedores (C4 nivel 2)
+## 4. Container view (C4 level 2)
 - Diagrama Mermaid de contenedores (frontend, backend, workers, DB, cache, broker…).
 - Responsabilidad de cada contenedor y cómo se comunican (protocolo, sincronía/async).
 
-## 5. Vista de componentes (C4 nivel 3)
+## 5. Component view (C4 level 3)
 - Solo para los contenedores más complejos.
 - Diagrama Mermaid + descripción por módulo.
 
-## 6. Mapa del repositorio
-Árbol comentado:
+## 6. Repository map
+Árbol comentado (los comentarios, en inglés):
 ```
 src/
-├── domain/          # Reglas de negocio puras, sin dependencias externas
-├── application/     # Casos de uso, orquestación
-├── infrastructure/  # Adaptadores: DB, HTTP, colas
+├── domain/          # Pure business rules, no external dependencies
+├── application/     # Use cases, orchestration
+├── infrastructure/  # Adapters: DB, HTTP, queues
 └── ...
 ```
 Regla: cada carpeta listada debe existir realmente; explica su rol arquitectónico (no solo qué contiene).
 
-## 7. Patrones arquitectónicos
+## 7. Architectural patterns
 - Patrón principal (Hexagonal / Clean / Layered / Microservicios / Event-driven…).
 - Justificación y evidencia en el código.
 - Reglas de dependencia entre capas (qué puede importar a qué).
 - Anti-patrones conocidos o deuda técnica detectada.
 
-## 8. Decisiones arquitectónicas (ADR-light)
-Tabla: ID | Decisión | Estado | Contexto | Consecuencias.
+## 8. Architectural decisions (ADR-light)
+Tabla con estas columnas: `ID | Decision | Status | Context | Consequences`.
 Si existen ADRs formales, enlázalos en lugar de duplicar.
 
-## 9. Seguridad y cumplimiento
+## 9. Security and compliance
 - Autenticación / autorización / gestión de secretos.
 - Superficies expuestas y validaciones.
 - Cumplimiento relevante (GDPR, PCI, etc.) si aplica.
 
 # Reglas de estilo del documento
 
-- **Idioma**: español técnico claro.
+- **Idioma**: inglés técnico claro. Todo el documento va en inglés: encabezados, columnas de
+tabla, comentarios del árbol y pie, con las cadenas literales indicadas arriba.
 - **Longitud**: la necesaria para cubrir todo; prioriza densidad sobre prosa. No repitas el README.
 - **Evidencia**: cada afirmación arquitectónica debe citar el archivo que la respalda (`ruta:línea` cuando sea posible).
 - **Diagramas**: usa Mermaid. No uses imágenes externas.
 - **Tablas**: úsalas para todo lo que sea comparativo o enumerable.
-- **Versionado del documento**: incluye al final un bloque:
+- **Versionado del documento**: incluye al final un bloque con estas etiquetas literales:
   ```
   ---
-  Generado: <fecha ISO>
-  Commit analizado: <hash si está disponible>
-  Autor del análisis: <agente IA>
-  Próxima revisión sugerida: <fecha + 3 meses>
+  Generated: <fecha ISO>
+  Analysed commit: <hash si está disponible>
+  Analysis author: <agente IA>
+  Suggested next review: <fecha + 3 meses>
   ```
 
-- **No inventes**: si no puedes deducir algo, escribe `⚠️ NO DETECTADO` y describe cómo verificarlo.
+- **No inventes**: si no puedes deducir algo, escribe `⚠️ NOT DETECTED — requires human confirmation` y describe cómo verificarlo.
 
 # Entregable
 

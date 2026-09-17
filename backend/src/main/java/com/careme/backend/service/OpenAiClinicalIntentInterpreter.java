@@ -33,7 +33,7 @@ public class OpenAiClinicalIntentInterpreter implements ClinicalIntentInterprete
             @Value("${careme.llm.model:deepseek-flash}") String model,
             @Value("${careme.llm.connect-timeout:PT5S}") Duration connectTimeout,
             @Value("${careme.llm.read-timeout:PT30S}") Duration readTimeout,
-            @Value("classpath:prompts/clinical-intent-v2.txt") org.springframework.core.io.Resource promptResource)
+            @Value("classpath:prompts/clinical-intent-v3.txt") org.springframework.core.io.Resource promptResource)
             throws java.io.IOException {
         if (apiKey.isBlank()) {
             throw new IllegalStateException("CAREME_LLM_API_KEY is required when CAREME_LLM_MODE=openai");
@@ -118,7 +118,17 @@ public class OpenAiClinicalIntentInterpreter implements ClinicalIntentInterprete
                 parseSearchTerms(node.path("search_terms")),
                 parseType(node.path("type")),
                 parseDate(node.path("date_from")),
-                parseDate(node.path("date_to")));
+                parseDate(node.path("date_to")),
+                parseGeneralPart(node.path("general_part")));
+    }
+
+    /**
+     * Reads the part of the message that does not depend on the clinical history.
+     * It stays apart from the search criteria, so the general part of a mixed
+     * message is never used to retrieve events.
+     */
+    private static String parseGeneralPart(JsonNode node) {
+        return node.isTextual() && !node.asText().isBlank() ? node.asText().trim() : null;
     }
 
     private static ClinicalEventIntent.Query.Scope parseScope(String value) {

@@ -1,190 +1,194 @@
-# Modelo de datos — Careme
+# Data model — Careme
 
-Este documento describe el modelo de datos del proyecto Careme, con la
-descripción de cada entidad, sus campos, sus reglas de validación, sus
-relaciones y un diagrama entidad-relación.
+This document describes the Careme data model: every entity with its fields,
+validation rules and relationships, plus an entity-relationship diagram.
 
-El documento distingue dos estados:
+The document distinguishes two states:
 
-- **Implementado**: lo que hoy existe en el código y en la base de datos.
-- **Propuesto**: el modelo definido en la documentación
-  (`docs/roadmap/mvp_alcance_asistente_historia_clinica.md`) que todavía no
-  existe en el código.
+- **Implemented**: what exists today in the code and in the database.
+- **Proposed**: the model defined in the documentation
+  (`docs/roadmap/mvp_alcance_asistente_historia_clinica.md`) that does not exist
+  in the code yet.
 
-Hoy están implementados el seguimiento corporal (`Measurement`), el registro de
-hechos clínicos (`ClinicalEvent`, UC-004) y la consulta de la historia mediante
-el índice derivado (UC-007); `Patient` sigue siendo implícito.
+Body tracking (`Measurement`), clinical-event registration (`ClinicalEvent`,
+UC-004) and the history query through the derived index (UC-007) are implemented
+today; `Patient` remains implicit.
 
 ---
 
-## 1. Modelo implementado
+## 1. Implemented model
 
-El modelo implementado cubre el seguimiento corporal (UC-001, UC-002 y UC-003),
-el registro de hechos clínicos (UC-004) y la consulta de la historia mediante
-recuperación léxica del índice derivado (UC-007).
+The implemented model covers body tracking (UC-001, UC-002 and UC-003),
+clinical-event registration (UC-004) and the history query through lexical
+retrieval from the derived index (UC-007).
 
 ### 1.1 Measurement
 
-Representa una medición corporal registrada en un día concreto. Es la entidad
-persistida del seguimiento corporal; convive con la tabla derivada
-`clinical_event_index` del asistente (ver §2).
+Represents a body measurement recorded on a specific day. It is the persisted
+entity of body tracking; it coexists with the assistant's derived table
+`clinical_event_index` (see §2).
 
-**Campos:**
+**Fields:**
 
-- `id`: Identificador único de la medición (Primary Key, UUID)
-- `date`: Día de la medición (obligatorio, único)
-- `weightKg`: Peso en kilogramos (obligatorio, positivo)
-- `waistCm`: Cintura abdominal en centímetros (obligatorio, positiva)
+- `id`: Unique identifier of the measurement (Primary Key, UUID)
+- `date`: Day of the measurement (required, unique)
+- `weightKg`: Weight in kilograms (required, positive)
+- `waistCm`: Abdominal circumference in centimetres (required, positive)
 
-**Reglas de validación:**
+**Validation rules:**
 
-- La fecha es un día del calendario, sin hora, y no puede ser futura.
-- Se admite como máximo una medición por día; la fecha es única.
-- Ambos valores son obligatorios y deben ser estrictamente positivos.
-- Ambos valores se expresan con un solo decimal (`NUMERIC(5, 2)`).
-- El peso no puede superar 500 kg y la cintura abdominal no puede superar 400 cm.
-- Registrar de nuevo un día ya registrado reemplaza sus valores, no lo duplica.
+- The date is a calendar day, without time, and cannot be in the future.
+- At most one measurement per day is allowed; the date is unique.
+- Both values are required and must be strictly positive.
+- Both values are expressed with a single decimal (`NUMERIC(5, 2)`).
+- Weight cannot exceed 500 kg and abdominal circumference cannot exceed 400 cm.
+- Registering a day that already has a measurement replaces its values; it does
+  not duplicate it.
 
-**Restricciones en base de datos:**
+**Database constraints:**
 
-- `uq_measurements_date`: única sobre `date`.
+- `uq_measurements_date`: unique on `date`.
 - `ck_measurements_weight_kg_positive`: `weight_kg > 0`.
 - `ck_measurements_waist_cm_positive`: `waist_cm > 0`.
 
-**Relaciones:** ninguna. Es una entidad independiente; no hay usuario ni
-propietario en el modelo actual.
+**Relationships:** none. It is an independent entity; there is no user or owner
+in the current model.
 
 ### 1.2 MeasurementDraft
 
-Representa una medición que todavía no tiene identidad en base de datos. Se usa
-cuando se escriben varias mediciones a la vez, como en la importación desde
-archivo.
+Represents a measurement that has no database identity yet. It is used when
+several measurements are written at once, as in the file import.
 
-**Campos:**
+**Fields:**
 
-- `date`: Día de la medición
-- `weightKg`: Peso en kilogramos
-- `waistCm`: Cintura abdominal en centímetros
+- `date`: Day of the measurement
+- `weightKg`: Weight in kilograms
+- `waistCm`: Abdominal circumference in centimetres
 
-**Reglas de validación:** las mismas que `Measurement` (fecha presente y valores
-positivos), pero sin `id`.
+**Validation rules:** the same as `Measurement` (date present and positive
+values), but without `id`.
 
-**Relaciones:** ninguna. No se persiste por sí misma; se convierte en
-`Measurement` al guardarse.
+**Relationships:** none. It is not persisted on its own; it becomes a
+`Measurement` when it is stored.
 
-### 1.3 Modelos de la API
+### 1.3 API models
 
-No se persisten; describen el contrato HTTP.
+They are not persisted; they describe the HTTP contract.
 
-- **MeasurementRequest**: `date`, `weightKg`, `waistCm`. Aplica las reglas del
-  formulario de registro (fecha no futura, valores positivos, un decimal,
-  límites de 500 kg y 400 cm).
-- **MeasurementResponse**: `id`, `date`, `weightKg`, `waistCm`. Representación
-  devuelta al cliente.
+- **MeasurementRequest**: `date`, `weightKg`, `waistCm`. Applies the registration
+  form rules (date not in the future, positive values, one decimal, limits of
+  500 kg and 400 cm).
+- **MeasurementResponse**: `id`, `date`, `weightKg`, `waistCm`. Representation
+  returned to the client.
 - **ImportPreviewRow**: `date`, `weightKg`, `waistCm`, `replacesExisting`.
-  Una medición leída de un archivo y qué haría al cargarse.
+  A measurement read from a file and what would happen if it were loaded.
 - **ImportPreviewResponse**: `rows`, `totalRows`, `newCount`, `replacedCount`,
-  `ignoredCount`. Lo que haría la carga, sin ejecutarla.
+  `ignoredCount`. What the load would do, without running it.
 - **ImportResultResponse**: `createdCount`, `replacedCount`, `ignoredCount`,
-  `totalRows`. Resultado de la carga.
-- **ApiResponse**: `success`, `data`, `messageCode`, `message`. Envoltura común
-  de toda respuesta.
-- **ChatMessageRequest**: `message` (máx. 4000 caracteres), `conversationId`
-  (opcional), `messageId`. Mensaje enviado al chat.
+  `totalRows`. Result of the load.
+- **ApiResponse**: `success`, `data`, `messageCode`, `message`. The common
+  envelope of every response.
+- **ChatMessageRequest**: `message` (max. 4000 characters), `conversationId`
+  (optional), `messageId`. Message sent to the chat.
 - **ChatMessageResponse**: `conversationId`, `messageId`, `status`
   (`registered`, `answered`, `no_records`, `clarification_required`,
-  `general_conversation`, `duplicate`, `failed`), `message` y `events`. En una
-  respuesta `answered`, `events` contiene los hechos que la sustentan; en
-  `no_records` no contiene hechos y, en su lugar, la respuesta informa del motivo
-  de la ausencia (`absenceReason`: `empty_history`, `no_events_of_type`,
-  `no_events_in_period` o `no_term_match`) y de las acciones ofrecidas
-  (`suggestedActions`: `reformulate`, `register`). Ambos campos son opcionales y
-  aditivos.
-- **ClinicalEventIntent**: contrato estructurado entre el chat y el registro o
-  la consulta; `kind` (`events`, `query`, `clarification`, `conversation`), con
-  criterios de búsqueda en la consulta, `events` y `clarification`. Es lo que
-  produce el adaptador del LLM y valida el dominio.
+  `general_conversation`, `duplicate`, `failed`), `message` and `events`. In an
+  `answered` response, `events` holds the facts that support it; in `no_records`
+  it holds no facts and, instead, the response reports the reason for the absence
+  (`absenceReason`: `empty_history`, `no_events_of_type`,
+  `no_events_in_period` or `no_term_match`) and the actions offered
+  (`suggestedActions`: `reformulate`, `register`). When the message mixes a
+  general part with another part that depends on the history, `generalReply`
+  carries the conversational part, apart from the clinical result. The three
+  fields are optional and additive.
+- **ClinicalEventIntent**: the structured contract between the chat and
+  registration or the query; `kind` (`events`, `query`, `clarification`,
+  `conversation`), with search criteria and the general part of the message in the
+  query, `events` and `clarification`. It is what the LLM adapter produces and the
+  domain validates.
 
-**Formato de archivo de importación:** columnas requeridas `date`, `weight_kg`
-y `abdominal_circumference_cm`, con cabecera. Límite por defecto de 10000 filas.
+**Import file format:** required columns `date`, `weight_kg` and
+`abdominal_circumference_cm`, with a header. Default limit of 10000 rows.
 
-### 1.4 Reglas transversales de la importación
+### 1.4 Cross-cutting import rules
 
-- Todo archivo se valida por completo antes de escribir nada (carga todo o nada).
-- Las filas con fecha repetida se deduplican: la última reemplaza a la anterior.
-- Una fila sin fecha es un error; una fila con fecha pero sin ningún valor se
-  ignora.
-- Los errores se reportan como `línea|campo|motivo`, no como frases de usuario.
+- Every file is validated completely before anything is written (all-or-nothing
+  load).
+- Rows with a repeated date are deduplicated: the last one replaces the previous
+  one.
+- A row without a date is an error; a row with a date but no value at all is
+  ignored.
+- Errors are reported as `line|field|reason`, not as user-facing sentences.
 
 ---
 
-## 2. Modelo del asistente de historia clínica (implementado)
+## 2. Clinical history assistant model (implemented)
 
-Modelo definido para el MVP del asistente de historia clínica personal. El
-registro de hechos clínicos (`ClinicalEvent`) está implementado por UC-004 y la
-consulta de la historia por UC-007; edición y borrado siguen propuestas.
+The model defined for the MVP of the personal clinical history assistant. The
+registration of clinical facts (`ClinicalEvent`) is implemented by UC-004 and the
+history query by UC-007; editing and deletion are still proposed.
 
 ### 2.1 Patient
 
-Representa al dueño de la historia clínica. En el MVP existe una sola historia,
-la del propio usuario, por lo que `Patient` permanece **implícito**: no se crea
-entidad ni tabla para él.
+Represents the owner of the clinical history. The MVP has a single history, the
+user's own, so `Patient` remains **implicit**: no entity or table is created for
+it.
 
-**Relaciones:**
+**Relationships:**
 
-- `events`: relación de uno a muchos con el modelo ClinicalEvent
+- `events`: one-to-many relationship with the ClinicalEvent model
 
 ### 2.2 ClinicalEvent
 
-Representa un hecho médico registrado por el usuario con sus propias palabras.
-Implementado por UC-004
-(`backend/src/main/java/com/careme/backend/entity/ClinicalEvent.java`).
+Represents a medical fact registered by the user in their own words. Implemented
+by UC-004 (`backend/src/main/java/com/careme/backend/entity/ClinicalEvent.java`).
 
-**Campos:**
+**Fields:**
 
-- `id`: Identificador único del evento (Primary Key, UUID)
-- `code`: Identificador legible y estable (`evt_NNN`, Primary Key de nombre de archivo)
-- `type`: Tipo de hecho clínico
-- `date`: Fecha del hecho (puede faltar cuando se desconoce)
-- `date_precision`: Grado de precisión de la fecha
-- `date_text`: Expresión temporal original del usuario, si la hubo
-- `content`: Contenido del hecho clínico
-- `source`: Origen del hecho
-- `created_at`: Fecha y hora de creación del registro
+- `id`: Unique identifier of the event (Primary Key, UUID)
+- `code`: Readable and stable identifier (`evt_NNN`, file-name Primary Key)
+- `type`: Type of clinical fact
+- `date`: Date of the fact (may be missing when it is unknown)
+- `date_precision`: Degree of precision of the date
+- `date_text`: The user's original temporal expression, when there was one
+- `content`: Content of the clinical fact
+- `source`: Origin of the fact
+- `created_at`: Date and time the record was created
 
-**Reglas de validación:**
+**Validation rules:**
 
-- El tipo debe ser uno de los cuatro admitidos: `diagnosis`, `medication`,
+- The type must be one of the four supported ones: `diagnosis`, `medication`,
   `measurement`, `note`.
-- Todo evento tiene tipo, contenido y fecha con su grado de precisión; la fecha
-  puede faltar cuando el usuario no la indica.
-- `date_precision` debe ser `exact`, `approximate` o `unknown`.
-- La precisión temporal almacenada no puede ser mayor que la aportada por el
-  usuario: una fecha aproximada no se convierte en exacta.
-- El contenido conserva los valores tal como los expresó el usuario (por
-  ejemplo, una presión de 145/92).
-- No se registran creencias, sospechas ni inferencias como si fueran hechos.
-- Solo se registran hechos médicos; las preguntas y la conversación general no
-  generan eventos.
-- El mismo hecho no se registra dos veces.
+- Every event has a type, content and date with its degree of precision; the date
+  may be missing when the user does not state it.
+- `date_precision` must be `exact`, `approximate` or `unknown`.
+- The stored temporal precision cannot be higher than the one the user gave: an
+  approximate date never becomes exact.
+- The content preserves the values as the user expressed them (for example, a
+  blood pressure of 145/92).
+- Beliefs, suspicions and inferences are not registered as if they were facts.
+- Only medical facts are registered; questions and general conversation do not
+  create events.
+- The same fact is not registered twice.
 
-**Notas de persistencia:**
+**Persistence notes:**
 
-- La fuente de verdad son documentos Markdown en `data/events/`, en el
-  filesystem del backend (`ClinicalEventMarkdownStore.java`), con front matter
-  versionado y nombre de archivo `evt_NNN.md`.
-- PostgreSQL mantiene un índice derivado y reconstruible (tabla
-  `clinical_event_index`, full-text con `tsvector` e índice GIN) que nunca es la
-  verdad. Se define en `V2__create_clinical_event_index.sql` y se regenera con
+- The source of truth is Markdown documents in `data/events/`, on the backend
+  filesystem (`ClinicalEventMarkdownStore.java`), with versioned front matter and
+  a file name of `evt_NNN.md`.
+- PostgreSQL keeps a derived, rebuildable index (the `clinical_event_index`
+  table, full-text with `tsvector` and a GIN index) which is never the truth. It
+  is defined in `V2__create_clinical_event_index.sql` and rebuilt with
   `POST /api/v1/clinical-events/reindex`.
 
-**Relaciones:**
+**Relationships:**
 
-- `patient`: relación de muchos a uno con el modelo Patient (implícito en el MVP)
+- `patient`: many-to-one relationship with the Patient model (implicit in the
+  MVP)
 
 ---
 
-## 3. Diagrama entidad-relación
+## 3. Entity-relationship diagram
 
 ```mermaid
 erDiagram
@@ -210,46 +214,44 @@ erDiagram
     Patient ||--o{ ClinicalEvent : "owns"
 ```
 
-> El bloque de `Measurement` corresponde al seguimiento corporal implementado.
-> El bloque `Patient` / `ClinicalEvent` corresponde al asistente de historia
-> clínica, implementado para el registro de hechos (UC-004) y su consulta
-> (UC-007); `Patient` permanece implícito y en PostgreSQL sólo existe el índice
-> derivado `clinical_event_index`.
+> The `Measurement` block corresponds to the implemented body tracking. The
+> `Patient` / `ClinicalEvent` block corresponds to the clinical history
+> assistant, implemented for fact registration (UC-004) and its query (UC-007);
+> `Patient` remains implicit and in PostgreSQL only the derived index
+> `clinical_event_index` exists.
 
 ---
 
-## 4. Principios de diseño
+## 4. Design principles
 
-1. **Identidad estable**: cada registro tiene un identificador único; en las
-   mediciones es un UUID y en los eventos clínicos se añade un `code` legible
-   que además da nombre al archivo.
-2. **Una medición por día**: la fecha identifica la medición dentro del día, de
-   modo que volver a registrar un día actualiza en lugar de duplicar.
-3. **Invariantes en el dominio**: el tipo de dominio (`Measurement`) rechaza
-   cualquier valor inválido al construirse, así que un registro inválido no
-   puede existir.
-4. **Contrato separado del almacenamiento**: los DTO de la API y la entidad de
-   persistencia se mantienen separados, para que el contrato HTTP no cambie
-   cuando cambie la tabla.
-5. **Fidelidad temporal**: las fechas se tratan como días de calendario, sin
-   hora, y una fecha aproximada nunca se presenta como exacta.
-6. **Todo o nada**: una importación valida el archivo completo antes de escribir
-   nada, de forma que no deja registros a medias.
-7. **Fuente de verdad explícita**: los eventos clínicos son la fuente primaria;
-   los resúmenes derivados deben poder reconstruirse a partir de ellos.
+1. **Stable identity**: every record has a unique identifier; for measurements it
+   is a UUID and for clinical events a readable `code` is added, which also names
+   the file.
+2. **One measurement per day**: the date identifies the measurement within the
+   day, so registering a day again updates instead of duplicating.
+3. **Domain invariants**: the domain type (`Measurement`) rejects any invalid
+   value when it is constructed, so an invalid record cannot exist.
+4. **Contract separated from storage**: the API DTOs and the persistence entity
+   are kept apart, so the HTTP contract does not change when the table changes.
+5. **Temporal fidelity**: dates are treated as calendar days, without time, and
+   an approximate date is never presented as exact.
+6. **All or nothing**: an import validates the whole file before writing anything,
+   so it never leaves half-written records.
+7. **Explicit source of truth**: clinical events are the primary source; derived
+   summaries must be rebuildable from them.
 
 ---
 
-## 5. Notas
+## 5. Notes
 
-- `Measurement` y `ClinicalEvent` pertenecen a dos etapas del producto: el
-  seguimiento corporal y el asistente de historia clínica. El asistente expone
-  registro y consulta; todavía no expone edición ni borrado.
-- En el modelo implementado no hay usuarios: no se identifica a la persona ni se
-  distinguen mediciones de distintas personas.
-- Los campos obligatorios garantizan la información núcleo, y los opcionales
-  permiten entrada flexible sin perder ese núcleo.
-- Los esquemas los definen las migraciones Flyway:
-  `V1__create_measurements_table.sql` (tabla `measurements`) y
-  `V2__create_clinical_event_index.sql` (índice derivado
-  `clinical_event_index`); el mapeo JPA se valida contra ellos.
+- `Measurement` and `ClinicalEvent` belong to two stages of the product: body
+  tracking and the clinical history assistant. The assistant exposes registration
+  and query; it does not expose editing or deletion yet.
+- The implemented model has no users: the person is not identified and
+  measurements of different people are not distinguished.
+- Required fields guarantee the core information, and optional fields allow
+  flexible input without losing that core.
+- The schemas are defined by the Flyway migrations:
+  `V1__create_measurements_table.sql` (the `measurements` table) and
+  `V2__create_clinical_event_index.sql` (the derived index
+  `clinical_event_index`); the JPA mapping is validated against them.

@@ -15,6 +15,7 @@ type Message = {
   events?: ChatResponse["events"];
   absenceReason?: ChatResponse["absenceReason"];
   suggestedActions?: ChatResponse["suggestedActions"];
+  generalReply?: ChatResponse["generalReply"];
   retryText?: string;
 };
 
@@ -126,6 +127,7 @@ export function ChatWorkspace() {
           events: outcome.response.events,
           absenceReason: outcome.response.absenceReason,
           suggestedActions: outcome.response.suggestedActions,
+          generalReply: outcome.response.generalReply,
         },
       ]);
     });
@@ -169,6 +171,16 @@ export function ChatWorkspace() {
                 </div>
                 {message.role === "assistant" && message.status && (
                   <p className="mt-1 text-xs text-muted-foreground">{statusLabels[message.status]}</p>
+                )}
+                {message.role === "assistant" && message.generalReply && (
+                  <div
+                    aria-label="Conversación general"
+                    className="mt-2 rounded-xl border border-dashed border-border px-4 py-3 text-sm"
+                    role="group"
+                  >
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Conversación</p>
+                    <p className="mt-1">{message.generalReply}</p>
+                  </div>
                 )}
                 {message.role === "assistant" && message.events && message.events.length > 0 && (
                   <ul aria-label="Hechos que sustentan la respuesta" className="mt-2 space-y-1">

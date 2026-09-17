@@ -10,21 +10,35 @@ public record ChatMessageResponse(
         String message,
         List<EventSummary> events,
         AbsenceReason absenceReason,
-        List<SuggestedAction> suggestedActions) {
+        List<SuggestedAction> suggestedActions,
+        String generalReply) {
 
     public ChatMessageResponse {
         events = events == null ? List.of() : List.copyOf(events);
         suggestedActions = suggestedActions == null ? List.of() : List.copyOf(suggestedActions);
+        generalReply = generalReply == null || generalReply.isBlank() ? null : generalReply;
     }
 
-    /** Outcome that carries no absence detail, which is every outcome but `no_records`. */
+    /** Outcome that carries neither absence detail nor a general part. */
     public ChatMessageResponse(
             String conversationId,
             String messageId,
             Status status,
             String message,
             List<EventSummary> events) {
-        this(conversationId, messageId, status, message, events, null, null);
+        this(conversationId, messageId, status, message, events, null, null, null);
+    }
+
+    /** Outcome that carries an absence but no general part. */
+    public ChatMessageResponse(
+            String conversationId,
+            String messageId,
+            Status status,
+            String message,
+            List<EventSummary> events,
+            AbsenceReason absenceReason,
+            List<SuggestedAction> suggestedActions) {
+        this(conversationId, messageId, status, message, events, absenceReason, suggestedActions, null);
     }
 
     public static ChatMessageResponse of(
@@ -39,6 +53,7 @@ public record ChatMessageResponse(
                 status,
                 message,
                 events == null ? List.of() : events.stream().map(EventSummary::from).toList(),
+                null,
                 null,
                 null);
     }
@@ -55,6 +70,23 @@ public record ChatMessageResponse(
             List<ClinicalEvent> events,
             AbsenceReason absenceReason,
             List<SuggestedAction> suggestedActions) {
+        return of(conversationId, messageId, status, message, events, absenceReason, suggestedActions, null);
+    }
+
+    /**
+     * Outcome of a message that also carried a general part, which travels apart
+     * from the clinical result so a client presents the two as different kinds of
+     * answer without reading either Spanish text.
+     */
+    public static ChatMessageResponse of(
+            String conversationId,
+            String messageId,
+            Status status,
+            String message,
+            List<ClinicalEvent> events,
+            AbsenceReason absenceReason,
+            List<SuggestedAction> suggestedActions,
+            String generalReply) {
         return new ChatMessageResponse(
                 conversationId,
                 messageId,
@@ -62,7 +94,8 @@ public record ChatMessageResponse(
                 message,
                 events == null ? List.of() : events.stream().map(EventSummary::from).toList(),
                 absenceReason,
-                suggestedActions);
+                suggestedActions,
+                generalReply);
     }
 
     public enum Status {

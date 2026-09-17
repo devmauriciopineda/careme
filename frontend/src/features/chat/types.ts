@@ -38,4 +38,10 @@ export type ChatResponse = {
   absenceReason?: AbsenceReason | null;
   /** Present on a `no_records` turn; absent or empty otherwise. */
   suggestedActions?: SuggestedAction[];
+  /**
+   * The conversational part of a message that also depends on the clinical
+   * history. It travels apart from `message` so the interface never presents a
+   * conversational reply as an answer grounded in the history.
+   */
+  generalReply?: string | null;
 };

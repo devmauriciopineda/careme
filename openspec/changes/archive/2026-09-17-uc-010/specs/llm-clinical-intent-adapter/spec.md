@@ -1,10 +1,4 @@
-# llm-clinical-intent-adapter Specification
-
-## Purpose
-
-Define the structured, provider-neutral boundary that converts natural-language messages into validated clinical intents while preventing the language model from writing directly to clinical persistence.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Produce provider-neutral clinical intents
 
@@ -51,68 +45,7 @@ The adapter MUST send the user message together with the current reference date 
 - **THEN** the adapter returns a `CONVERSATION` intent with no event candidates
 - **AND** it does not return a `QUERY` intent
 
-### Requirement: Validate provider responses before side effects
-
-The adapter MUST reject malformed JSON, unknown intent kinds, unsupported event types, missing required candidate fields, responses containing both an answer and event candidates, and composed answers that cite a clinical event outside the retrieved set. A rejected response MUST never reach clinical persistence and MUST never be presented as a grounded answer.
-
-#### Scenario: Provider returns invalid JSON
-- **WHEN** the provider response cannot be parsed or does not match the structured schema
-- **THEN** the adapter reports a controlled integration failure
-- **AND** the system returns `failed` without persisting an event
-
-#### Scenario: Provider times out or is unavailable
-- **WHEN** the provider does not respond within the configured timeout or returns an unavailable error
-- **THEN** the system returns `failed` with a retryable Spanish message
-- **AND** the provider credential and internal error details remain hidden
-
-#### Scenario: Provider cites an event outside the retrieved set
-- **WHEN** the provider composes an answer that references a clinical event the adapter did not retrieve
-- **THEN** the adapter rejects the response
-- **AND** the system does not present that answer as grounded
-
-### Requirement: Compose grounded answers from retrieved events
-
-The adapter MUST compose the Spanish answer from the retrieved clinical events it receives, MUST use only their content and temporal precision, MUST NOT introduce facts, dates, or interpretations absent from that set, and MUST report the references of the events the answer relies on.
-
-The adapter MUST also report how much of the question the retrieved events support: the whole question, part of it, or none of it. When the retrieved set supports only part of the question, the adapter MUST answer the supported part and MUST report the part of the question it could not support. When the retrieved set does not support the question at all, the adapter MUST report that the events do not answer it, MUST NOT present any of them as support, and MUST NOT compose an answer from them. Deciding this is the adapter's job: the caller MUST NOT treat a question as answered merely because retrieval returned events.
-
-#### Scenario: Compose from retrieved events
-- **WHEN** the adapter receives a question and the set of clinical events retrieved for it
-- **THEN** it returns a Spanish answer that uses only those events
-- **AND** it reports the references of the events the answer relies on
-- **AND** it reports that the retrieved events support the whole question
-
-#### Scenario: Preserve temporal precision in the answer
-- **WHEN** a retrieved event carries an approximate or unknown date
-- **THEN** the composed answer keeps that precision and does not state an exact date
-
-#### Scenario: No retrieved events
-- **WHEN** the set of retrieved events is empty
-- **THEN** the adapter reports that there is nothing to answer with
-- **AND** it does not fall back to general knowledge or assumptions
-
-#### Scenario: Retrieved events support only part of the question
-- **WHEN** the retrieved events answer part of the question and leave another part unsupported
-- **THEN** the adapter composes the answer for the supported part
-- **AND** it reports that the retrieved events support the question only in part
-- **AND** it reports the part of the question that the retrieved events do not support
-- **AND** it does not fill the unsupported part with general knowledge, assumptions, or events outside the retrieved set
-
-#### Scenario: Retrieved events do not support the question
-- **WHEN** the retrieved events do not answer the question
-- **THEN** the adapter reports that the retrieved events support none of the question
-- **AND** it reports no references, because no event supports the answer
-- **AND** it does not compose an answer from those events
-- **AND** it does not fall back to general knowledge or assumptions
-
-### Requirement: Keep provider access behind the backend
-
-The provider credential MUST be loaded only by the backend. The frontend MUST never receive the credential or call the provider directly. Prompts, model identifiers, and provider responses MUST be versioned or correlated in internal telemetry without logging complete clinical message content.
-
-#### Scenario: Browser sends a chat message
-- **WHEN** the frontend submits a chat message
-- **THEN** the request targets the backend chat endpoint
-- **AND** no provider credential is present in the request or browser configuration
+## ADDED Requirements
 
 ### Requirement: Compose conversational replies outside the clinical history
 

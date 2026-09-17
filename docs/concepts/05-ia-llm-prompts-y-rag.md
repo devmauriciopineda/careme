@@ -30,7 +30,7 @@ Una distinción importante de vocabulario: este sistema usa un **adaptador de mo
 
 **Por qué salida estructurada en lugar de texto libre.** Si el modelo devolviera prosa, habría que adivinar qué quiso decir. Pidiéndole JSON con una forma fija, el resultado se convierte en un dato que el programa puede **validar y rechazar**. El modelo nunca escribe directamente en la persistencia: primero su salida pasa por validación.
 
-**Por qué dos llamadas separadas.** La primera **clasifica** el mensaje y extrae una intención. La segunda **redacta** una respuesta a partir de hechos ya recuperados. Separarlas aporta tres cosas: la clasificación no necesita ver la historia; la redacción solo ve los hechos que se le entregan; y cada una se puede probar y sustituir por separado.
+**Por qué llamadas separadas.** El sistema no le pide todo al modelo en una sola vez. La primera llamada **clasifica** el mensaje y extrae una intención. A partir de ahí hay dos caminos de redacción, y en cada turno se usa uno solo: la **composición fundamentada** redacta una respuesta a partir de hechos ya recuperados, y la **composición conversacional** redacta una respuesta que no depende de la historia. Separarlas aporta tres cosas: la clasificación no necesita ver la historia; cada composición recibe únicamente el material que le corresponde —y lo que una llamada no recibe no lo puede afirmar—; y cada una se puede probar y sustituir por separado.
 
 **Por qué RAG con recuperación léxica.** El modelo no conoce la historia clínica de la persona, y no debe inventarla. La recuperación aporta los hechos reales, y el modelo solo los redacta. La búsqueda es **léxica** (sobre las palabras de la persona), no semántica: es predecible, no requiere almacenar vectores y respeta el vocabulario original.
 
@@ -80,14 +80,24 @@ La primera llamada convierte el mensaje en una **intención** tipada. Hay cuatro
 | --- | --- |
 | `events` | El mensaje describe hechos clínicos que deben registrarse |
 | `query` | El mensaje pregunta por la historia clínica |
-| `clarification` | El mensaje podría ser un hecho, pero falta información |
-| `conversation` | Cualquier otra cosa |
+| `clarification` | Falta información: el mensaje podría ser un hecho, o no puede determinarse su cauce |
+| `conversation` | El mensaje ni registra un hecho ni depende de la historia |
 
-Una intención de consulta lleva la pregunta, un **ámbito** (historia o seguimiento corporal), los **términos de búsqueda** y, cuando la persona los mencionó, filtros de tipo y de fecha.
+Una intención de consulta lleva la pregunta, un **ámbito** (historia o seguimiento corporal), los **términos de búsqueda** y, cuando la persona los mencionó, filtros de tipo y de fecha. Puede llevar además la **parte general** del mensaje: la porción que no depende de la historia, cuando el mensaje mezcla ambas cosas.
+
+**Qué decide el cauce.** El reparto no depende de «lo que parece», sino de una regla con una asimetría deliberada:
+
+- si **alguna** parte del mensaje depende de la historia, la intención es `query` —aunque el resto del mensaje no dependa, y aunque la pregunta esté formulada en lenguaje coloquial;
+- la parte que no depende de la historia se conserva en la consulta, **fuera** de los términos de búsqueda, para poder responderla aparte;
+- si no puede determinarse si el mensaje depende de la historia, la intención es `clarification`: el sistema **pregunta** en lugar de adivinar;
+- `conversation` es lo que queda cuando el mensaje ni registra un hecho ni depende de la historia.
+
+La asimetría es intencionada porque los dos errores no cuestan lo mismo. Clasificar como conversación algo que dependía de la historia llevaría a responder con conocimiento general una pregunta clínica, es decir, a **fabricar**. Clasificar como consulta algo que era general produce, como mucho, una ausencia explícita y accionable.
 
 Después de parsear, el código **valida** antes de usar la intención:
 
 - una intención de consulta **no puede** traer hechos candidatos;
+- solo una consulta puede llevar pregunta y parte general;
 - debe contener al menos un término de búsqueda o un filtro;
 - un hecho con precisión exacta **necesita** una fecha.
 
@@ -157,27 +167,47 @@ Verificar las citas no basta, porque una respuesta puede apoyarse en hechos real
 - Con cobertura **parcial**, se responde solo la parte respaldada y se declara explícitamente la que no tiene registros.
 - Con cobertura **ninguna**, el texto compuesto se descarta —podría describir hechos que no vienen al caso— y el sistema declara la ausencia: ningún hecho recuperado se presenta como apoyo de algo que no responde.
 
-### 3.8 RAG, y qué no hace este sistema
+No todos los mensajes pasan por aquí. Cuando el mensaje no depende de la historia, la redacción es otra: la del apartado siguiente.
 
-RAG significa, literalmente, **recuperar y luego generar condicionado por lo recuperado**. Aquí: recuperar hechos y redactar una respuesta apoyada solo en ellos.
+### 3.8 La composición conversacional: responder sin hechos
+
+No todo mensaje depende de la historia. Cuando la intención es `conversation`, el sistema pide una respuesta al mismo modelo, pero con otro material: **el mensaje y los turnos recientes de la conversación, y nada más**. No se recupera nada, no se envía ningún hecho y la firma del compositor no admite ni hechos ni referencias.
+
+Eso es una garantía **estructural**, no un filtro sobre el texto ya escrito: el compositor no puede citar un hecho registrado porque nunca lo recibe. Es la misma idea que recorre este documento desde otro ángulo: *lo que una llamada no recibe no lo puede afirmar*. Un filtro detecta lo que ya se redactó; quitar el material impide redactarlo.
+
+El prompt de esta llamada lleva sus propios límites, porque aquí el riesgo no es inventar una cita, sino **aplicar** conocimiento general al caso de la persona:
+
+- explicar un concepto en términos generales, **sin** aplicarlo a su caso ni interpretar sus datos;
+- no afirmar nada sobre la historia clínica ni presentar la respuesta como un hecho registrado;
+- no diagnosticar ni recomendar tratamiento: si la persona lo pide, la petición se **declina** de forma explícita (ver §3.11);
+- responder en el idioma del mensaje y con el tono del chat.
+
+**Un mensaje, dos salidas.** Cuando el mensaje mezcla una parte general con otra que depende de la historia, el turno no elige un cauce: los atiende por separado. El resultado clínico conserva su estado y su mensaje —`answered`, `no_records` o `failed`— y la parte general viaja en un campo propio, aparte. Ninguna de las dos rellena a la otra: la réplica conversacional no puede tapar una ausencia declarada ni presentarse como apoyo de una respuesta fundada.
+
+Conviene no confundir este reparto con la **cobertura parcial** de §3.7. Allí se parte una *pregunta* en la parte que los hechos respaldan y la que no; aquí se parte un *mensaje* en dos cauces, y cada uno tiene su propio mecanismo de verdad.
+
+### 3.9 RAG, y qué no hace este sistema
+
+RAG significa, literalmente, **recuperar y luego generar condicionado por lo recuperado**. Aquí: recuperar hechos y redactar una respuesta apoyada solo en ellos. Con un matiz que importa: **no toda respuesta del sistema es RAG**. La conversación general (§3.8) no recupera nada y, precisamente por eso, no puede afirmar nada sobre la historia.
 
 Para delimitar el concepto, conviene decir qué **no** ocurre:
 
 - **No hay búsqueda vectorial ni *embeddings*.** La recuperación es léxica, sobre las palabras de la persona.
-- **No hay agente ni uso de herramientas.** No hay bucle de decisión ni el modelo invoca funciones; son dos llamadas de una sola vuelta.
+- **No hay agente ni uso de herramientas.** No hay bucle de decisión ni el modelo invoca funciones; son llamadas de una sola vuelta: clasificar y, después, redactar —con hechos recuperados o sin ellos, según el cauce.
 - **No hay reentrenamiento.** El modelo no se ajusta; se le aporta contexto mediante el prompt.
 
-### 3.9 Memoria, límites y fallos
+### 3.10 Memoria, límites y fallos
 
 - **Memoria conversacional.** Los turnos recientes se guardan en memoria y se reenvían en el prompt, porque el modelo no recuerda. El búfer está **acotado**, sujeto a un tiempo de vida y a un límite de conversaciones. **No se persiste**: si el proceso se reinicia, se pierde. Las respuestas no dependen del búfer para ser ciertas: salen de la historia, no de lo conversado.
 - **Idempotencia.** Repetir un turno con los mismos identificadores devuelve el resultado original sin repetir efectos.
 - **Límite de tamaño del mensaje**, además de los tiempos de espera de conexión y lectura.
 - **Los fallos no inventan.** Si la interpretación o la búsqueda fallan, el resultado es un fallo recuperable, sin respuesta fabricada.
+- **Un fallo al redactar tampoco inventa.** Si falla la composición conversacional, el turno es un fallo recuperable que conserva el mensaje para reintentarlo. Y en un mensaje mixto, un fallo de la parte general no cuesta el resultado clínico ya obtenido: el turno conserva su estado y simplemente no lleva parte conversacional.
 - **Ausencia no es fallo.** Que la historia no respalde una pregunta es un **resultado**, no un error: se declara con su motivo —historia vacía, sin hechos de ese tipo, sin hechos en ese periodo, o ninguno que responda—, con su alcance acotado y con una salida para continuar. Además **no niega que el hecho ocurriera**: solo dice que no consta. Un fallo de búsqueda, en cambio, se informa como recuperable y nunca se disfraza de ausencia.
 
-### 3.10 Controles para datos clínicos
+### 3.11 Controles para datos clínicos
 
-- **El asistente registra lo que la persona afirma**, no lo que el sistema deduce: no diagnostica, no infiere, no recomienda tratamiento. Una sospecha no es un hecho.
+- **El asistente registra lo que la persona afirma**, no lo que el sistema deduce: no diagnostica, no infiere, no recomienda tratamiento. Una sospecha no es un hecho. Cuando la persona pide justamente eso —un diagnóstico, una recomendación o una interpretación de su caso—, el sistema lo **declina de forma explícita**: no lo responde desde la historia, no lo sustituye por una respuesta inventada y no lo disfraza de conversación útil.
 - **Los registros no incluyen el contenido clínico** ni el prompt, la respuesta del proveedor o la credencial; solo identificadores de correlación para poder seguir un turno.
 - **El proveedor externo queda fuera del control de la aplicación.** Su política de retención y su región de procesamiento no las garantiza este sistema: son una decisión de despliegue antes de enviar datos reales.
 - **El modelo puede equivocarse igualmente.** De ahí la combinación de controles: salida estructurada, validación, recuperación acotada, fundamentación con citas y un camino explícito para "no hay registros".
@@ -197,4 +227,8 @@ Para delimitar el concepto, conviene decir qué **no** ocurre:
 - Recuperar **no es responder**: la respuesta declara qué parte de la pregunta cubren los hechos recuperados.
 - El sistema **declara que no encuentra registros** en lugar de improvisar, y esa ausencia es un resultado con motivo, alcance y salida para continuar, no un error.
 - La **memoria conversacional es efímera y acotada**; la verdad está en la historia, no en la conversación.
+- El **cauce se decide antes de responder**: registro, consulta o conversación, y ante la duda se pregunta en lugar de adivinar.
+- La **composición conversacional no recibe hechos**: la garantía es el material que recibe la llamada, no un filtro sobre lo ya escrito.
+- Un mensaje puede llevar **dos salidas**: el resultado clínico y la parte conversacional viajan separados, y ninguna rellena a la otra.
+- Cuando la persona pide un diagnóstico o una recomendación, el sistema **declina**: una negativa explícita es una respuesta, no un fallo.
 - Los **fallos no producen respuestas inventadas**, y los datos clínicos no se registran en los logs.

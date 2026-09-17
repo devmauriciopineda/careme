@@ -1,5 +1,6 @@
 package com.careme.backend.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -102,5 +103,83 @@ class ChatControllerTest {
                 .andExpect(jsonPath("$.status").value("failed"))
                 .andExpect(jsonPath("$.absenceReason").doesNotExist())
                 .andExpect(jsonPath("$.suggestedActions").isEmpty());
+    }
+
+    @Test
+    void reportsTheGeneralPartOfAMixedTurnApartFromTheHistoryOutcome() throws Exception {
+        when(orchestrator.process(any())).thenReturn(new ChatMessageResponse(
+                "conversation-1", "message-1", ChatMessageResponse.Status.ANSWERED,
+                "Te la diagnosticaron en enero.",
+                List.of(new ChatMessageResponse.EventSummary(
+                        "evt_001", "diagnosis", "2026-01-10", "exact", "Hipertensión")),
+                null,
+                List.of(),
+                "Es una condición que se mide en consulta."));
+
+        mockMvc.perform(post("/api/v1/chat/messages")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"message\":\"¿Qué es la hipertensión? ¿Cuándo me la diagnosticaron?\",\"messageId\":\"message-1\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("answered"))
+                .andExpect(jsonPath("$.message").value("Te la diagnosticaron en enero."))
+                .andExpect(jsonPath("$.generalReply").value("Es una condición que se mide en consulta."))
+                .andExpect(jsonPath("$.events[0].code").value("evt_001"));
+    }
+
+    @Test
+    void keepsTheAbsenceDetailOnAMixedTurnWithAGeneralPart() throws Exception {
+        when(orchestrator.process(any())).thenReturn(new ChatMessageResponse(
+                "conversation-1", "message-1", ChatMessageResponse.Status.NO_RECORDS,
+                "No encuentro registros que respondan a tu pregunta.",
+                List.of(),
+                ChatMessageResponse.AbsenceReason.NO_TERM_MATCH,
+                List.of(ChatMessageResponse.SuggestedAction.REFORMULATE,
+                        ChatMessageResponse.SuggestedAction.REGISTER),
+                "Es una condición que se mide en consulta."));
+
+        mockMvc.perform(post("/api/v1/chat/messages")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"message\":\"¿Qué es la hipertensión? ¿He tenido migrañas?\",\"messageId\":\"message-1\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("no_records"))
+                .andExpect(jsonPath("$.absenceReason").value("no_term_match"))
+                .andExpect(jsonPath("$.suggestedActions[0]").value("reformulate"))
+                .andExpect(jsonPath("$.generalReply").value("Es una condición que se mide en consulta."));
+    }
+
+    @Test
+    void leavesTheGeneralPartOutOfTurnsThatHaveNone() throws Exception {
+        when(orchestrator.process(any())).thenReturn(new ChatMessageResponse(
+                "conversation-1", "message-1", ChatMessageResponse.Status.GENERAL_CONVERSATION,
+                "Es una condición que se mide en consulta.", List.of()));
+
+        mockMvc.perform(post("/api/v1/chat/messages")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"message\":\"¿Qué es la hipertensión?\",\"messageId\":\"message-1\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("general_conversation"))
+                .andExpect(jsonPath("$.generalReply").doesNotExist())
+                .andExpect(jsonPath("$.events").isEmpty());
+    }
+
+    @Test
+    void doesNotExposePromptsCredentialsOrInternalDetail() throws Exception {
+        when(orchestrator.process(any())).thenReturn(new ChatMessageResponse(
+                "conversation-1", "message-1", ChatMessageResponse.Status.GENERAL_CONVERSATION,
+                "Es una condición que se mide en consulta.", List.of()));
+
+        String body = mockMvc.perform(post("/api/v1/chat/messages")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"message\":\"¿Qué es la hipertensión?\",\"messageId\":\"message-1\"}"))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        assertThat(body)
+                .doesNotContainIgnoringCase("prompt")
+                .doesNotContainIgnoringCase("apikey")
+                .doesNotContainIgnoringCase("credential")
+                .doesNotContain("Bearer ")
+                .doesNotContainIgnoringCase("stacktrace");
     }
 }

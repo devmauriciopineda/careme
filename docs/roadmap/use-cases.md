@@ -1,10 +1,10 @@
 # Use Cases — MVP
 
-> **Control de avance:** 6 de 11 implementados · 3 cubiertos · 2 pendientes.
+> **Control de avance:** 7 de 11 implementados · 3 cubiertos · 1 pendiente.
 >
-> Implementación actual: **UC-001 → UC-004, UC-007 y UC-008**.
+> Implementación actual: **UC-001 → UC-004, UC-007, UC-008 y UC-010**.
 >
-> Documentado y pendiente de implementación: **UC-010**. Sin documentar: **UC-011**.
+> Sin documentar ni implementar: **UC-011**.
 
 Leyenda de estados:
 
@@ -80,9 +80,9 @@ Cubierto por UC-004 como flujo alterno: el hecho se registra conservando la prec
 
 ## UC-010 — Consultar información que no pertenece a la historia clínica
 
-**Estado:** 📝 Documentado (pendiente de implementación)
+**Estado:** ✅ Implementado
 
-Permite al usuario realizar preguntas de carácter general que no requieren consultar los registros de su historia clínica.
+Permite al usuario realizar preguntas de carácter general que no requieren consultar los registros de su historia clínica, obtener una respuesta conversacional y recibir una negativa explícita cuando pide un diagnóstico, una recomendación o una interpretación de su caso.
 
 Documento: [`UC-010.md`](../use-cases/UC-010.md) · [criterios de aceptación](../use-cases/UC-010-acceptance-criteria.md).
 

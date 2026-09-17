@@ -35,6 +35,13 @@ contract.
   response names the scope of the absence (`empty_history`, `no_events_of_type`,
   `no_events_in_period` or `no_term_match`) and the actions offered to the user.
   Queries never modify the Markdown history or its index.
+- A message that neither registers an event nor depends on the clinical history is
+  answered as `general_conversation`. That reply is composed from the message and
+  the recent turns of the active conversation only: this path does not read the
+  clinical history, does not cite any event and never presents anything as a
+  recorded fact. A request for a diagnosis, a recommendation or an interpretation
+  of the user's own case is declined in the reply, which states that the assistant
+  does not diagnose and does not recommend treatment.
 - Clinical events are Markdown files under `data/events/`, configurable with
   `careme.events.directory`; PostgreSQL stores only the derived index. The index is
   rebuilt at startup and with `POST /api/v1/clinical-events/reindex`.
@@ -138,13 +145,20 @@ events in `events`; `no_records` includes none, and instead reports:
 | ------------------ | ------------- | -------------------------------------------------------------------------------------- |
 | `absenceReason`    | `no_records`  | `empty_history`, `no_events_of_type`, `no_events_in_period` or `no_term_match`, or `null` |
 | `suggestedActions` | `no_records`  | `reformulate` and/or `register`; empty otherwise                                        |
+| `generalReply`     | mixed message | the conversational part of a message that also depends on the history, or `null`        |
 
-Both fields are additive and optional, so a client that does not know them keeps
-working. A search that cannot be completed is reported as `failed`, never as
-`no_records`, so an absence is only ever declared after it was verified. When the
-retrieved events support only part of a question, the answer is `answered`: it
-answers the supported part and its Spanish message declares the part that has no
-records.
+All three fields are additive and optional, so a client that does not know them
+keeps working. A `general_conversation` response carries the composed
+conversational reply in `message`, includes no events and no absence reason, and
+is declined from the clinical history: the turn never reads or cites it. When a
+single message contains a general part and a part that depends on the clinical
+history, the status is the one of the history outcome, `message` carries that
+outcome and `generalReply` carries the general part, so a client presents them as
+two different kinds of answer. A search that cannot be completed is reported as
+`failed`, never as `no_records`, so an absence is only ever declared after it was
+verified. When the retrieved events support only part of a question, the answer is
+`answered`: it answers the supported part and its Spanish message declares the part
+that has no records.
 Conversation state is in memory and is not persisted; successfully registered events
 survive because their Markdown documents are the source of truth.
 
@@ -268,9 +282,11 @@ backend/
 │   ├── application-{dev,pre,prd}.yml   # per-environment overrides
 │   ├── prompts/clinical-intent-v1.txt  # reversible registration prompt
 │   ├── prompts/clinical-intent-v2.txt  # classification prompt with history queries
+│   ├── prompts/clinical-intent-v3.txt  # in use: adds the channel rules and the general part
 │   ├── prompts/clinical-answer-v1.txt  # grounded answer composition prompt
 │   ├── prompts/clinical-answer-v2.txt  # adds the unsupported part of the question
 │   ├── prompts/clinical-answer-v3.txt  # in use: adds the reported answer coverage
+│   ├── prompts/conversation-reply-v1.txt  # in use: conversational reply outside the history
 │   └── db/migration/                   # Flyway migrations (V1 measurements, V2 event index)
 ├── src/test/java/com/careme/backend/   # mirrors the package structure
 ├── .mvn/wrapper/                       # Maven wrapper configuration
@@ -370,7 +386,7 @@ running.
 ./mvnw verify      # tests + JaCoCo report + coverage gate
 ```
 
-The suite is 21 test classes (113 test methods), organized by layer:
+The suite is 31 test classes (232 test methods), organized by layer:
 
 | Class                                      | Covers                                                     |
 | ------------------------------------------ | ---------------------------------------------------------- |
@@ -397,6 +413,9 @@ The suite is 21 test classes (113 test methods), organized by layer:
 | `ClinicalHistoryUnsupportedRetrievalIntegrationTest` | A retrieved event that does not answer the question declares the absence |
 | `OpenAiClinicalAnswerComposerTest`         | Grounded composition, citations, reported coverage          |
 | `FakeClinicalAnswerComposerTest`           | Deterministic offline composition and reported coverage     |
+| `OpenAiClinicalConversationComposerTest`   | Conversational prompt wiring, reply parsing and failure mapping |
+| `FakeClinicalConversationComposerTest`     | Offline conversational reply, declination and concept limits |
+| `ClinicalConversationIntegrationTest`      | Conversational outcomes leave the index and the documents untouched, with no repository read |
 
 Integration tests extend `PostgresIntegrationTest`, which starts one
 `postgres:17-alpine` container per JVM and reuses it. They run the real Flyway

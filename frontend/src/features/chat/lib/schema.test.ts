@@ -98,4 +98,25 @@ describe("chatResponseSchema", () => {
 
     expect(parsed.success).toBe(false);
   });
+
+  it("accepts a turn that carries the general part of a mixed message", () => {
+    const parsed = chatResponseSchema.safeParse({
+      ...base,
+      status: "answered",
+      generalReply: "Es una condición que se mide y se valora en consulta.",
+    });
+
+    expect(parsed.success).toBe(true);
+  });
+
+  it("accepts a turn that omits the general part or reports it as null", () => {
+    expect(chatResponseSchema.safeParse({ ...base, status: "answered" }).success).toBe(true);
+    expect(chatResponseSchema.safeParse({ ...base, status: "answered", generalReply: null }).success).toBe(true);
+  });
+
+  it("rejects a general part the interface cannot render", () => {
+    const parsed = chatResponseSchema.safeParse({ ...base, status: "answered", generalReply: 12 });
+
+    expect(parsed.success).toBe(false);
+  });
 });

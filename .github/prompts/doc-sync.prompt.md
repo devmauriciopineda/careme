@@ -31,6 +31,11 @@ El procedimiento es **idempotente**: si la documentación ya está correcta, no 
 - `graphify-out/**` (generado por `graphify`)
 - `openspec/**` (solo lectura: es la fuente de verdad de los cambios)
 
+**Idioma por documento:** `README.md`, `backend/README.md`, `frontend/README.md`,
+`docs/architecture.md` y `docs/data-model.md` están en inglés; `docs/roadmap/` y
+`docs/use-cases/` en español. Respeta el idioma de cada documento: no lo traduzcas ni
+lo cambies de idioma por tu cuenta.
+
 Si un cambio archivado afecta a descripciones o alcances de use cases, **menciónalo como aviso y no los edites**.
 
 # Paso 1 — Identificar el cambio disparador
@@ -78,15 +83,15 @@ Para cada documento del alcance, comprueba:
 - `README.md`: descripción, *Use of APIs or external services*, endpoints, *Basic usage*, estructura.
 - `backend/README.md`: endpoints, stack, ejecución, base de datos.
 - `frontend/README.md`: rutas, stack, ejecución, autenticación.
-- `docs/architecture.md`: secciones 1–9 (resumen, contexto/alcance, stack, contenedores,
-  componentes, mapa del repositorio, patrones, ADR-light, seguridad). Revisa la tabla de lenguaje
-  ubicuo y que cada afirmación cite el archivo que la respalda. Resuelve los `⚠️ NO DETECTADO` que
-  los specs ya permitan confirmar.
+- `docs/architecture.md`: secciones 1–9 (executive summary, context and scope, technology
+  stack, container view, component view, repository map, patterns, ADR-light, security).
+  Revisa la tabla de lenguaje ubicuo y que cada afirmación cite el archivo que la respalda.
+  Resuelve los `⚠️ NOT DETECTED` que los specs ya permitan confirmar.
 - `docs/data-model.md`: entidades **implementadas** vs **propuestas**, campos, validaciones,
   migraciones y diagrama ER.
 
 Clasifica cada hallazgo como: **DESACTUALIZADO**, **FALTA**, **OBSOLETO** o **MARCADOR RESUELTO**
-(un `⚠️ NO DETECTADO` que ya puede confirmarse).
+(un `⚠️ NOT DETECTED` que ya puede confirmarse).
 
 # Paso 4b — Estados en `docs/roadmap/use-cases.md` (solo estados)
 
@@ -122,10 +127,12 @@ menciónalo como aviso (**sin editar**). Si no hay drift, dilo y termina sin toc
 # Reglas
 
 - Cada afirmación nueva debe citar `ruta` del spec (y línea) que la respalde.
-- Lo no deducible se marca `⚠️ NO DETECTADO — requiere confirmación humana`; nunca lo inventes.
+- Lo no deducible se marca `⚠️ NOT DETECTED — requires human confirmation`; nunca lo inventes.
+  Los documentos en inglés usan ese literal (y `✅ RESOLVED` para un marcador ya confirmado):
+  búscalo así, no en español.
 - **Idempotente**: reejecutar el prompt sobre documentación ya sincronizada debe producir **cero
   ediciones** (solo el veredicto OK), sin cambios de formato ni de redacción.
 - La especificación manda (SDD): no audites el código; solo consultas puntuales cuando haga falta.
-- Mantén el idioma español y el tono/estilo de cada documento.
+- Mantén el idioma y el tono/estilo de cada documento, según la tabla de idioma del Alcance.
 - No edites código ni `openspec/`. En `docs/roadmap/use-cases.md` toca **solo los estados**; en el
   resto de `docs/roadmap/` y en `docs/use-cases/` no edites nada.

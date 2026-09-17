@@ -6,6 +6,7 @@ import com.careme.backend.dto.ClinicalEventIntent;
 import com.careme.backend.service.ClinicalIntentInterpreter.InterpretationContext;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,19 +17,30 @@ public class ChatOrchestrator {
 
     private static final Logger log = LoggerFactory.getLogger(ChatOrchestrator.class);
 
+    /**
+     * The measurement tracking has its own space, so the answer is a fixed
+     * redirect rather than a composed conversation.
+     */
+    private static final String MEASUREMENT_REDIRECT =
+            "El peso y la circunferencia abdominal tienen su propio espacio de seguimiento"
+                    + " y no forman parte de la historia clínica que consulto aquí.";
+
     private final ClinicalIntentInterpreter interpreter;
     private final ClinicalEventRegistrationService registrationService;
     private final ClinicalHistoryQueryService historyQueryService;
+    private final ClinicalConversationComposer conversationComposer;
     private final ConversationStateStore stateStore;
 
     public ChatOrchestrator(
             ClinicalIntentInterpreter interpreter,
             ClinicalEventRegistrationService registrationService,
             ClinicalHistoryQueryService historyQueryService,
+            ClinicalConversationComposer conversationComposer,
             ConversationStateStore stateStore) {
         this.interpreter = interpreter;
         this.registrationService = registrationService;
         this.historyQueryService = historyQueryService;
+        this.conversationComposer = conversationComposer;
         this.stateStore = stateStore;
     }
 
@@ -50,7 +62,7 @@ public class ChatOrchestrator {
             intent = interpreter.interpret(
                 message,
                 new InterpretationContext(
-                    LocalDate.now(), ZoneId.systemDefault(), "clinical-intent-v2", state.recentTurns()));
+                    LocalDate.now(), ZoneId.systemDefault(), "clinical-intent-v3", state.recentTurns()));
         } catch (LlmIntegrationException exception) {
             log.warn("LLM provider failure conversationId={} messageId={}", conversationId, request.messageId());
             ChatMessageResponse response = ChatMessageResponse.of(
@@ -70,9 +82,7 @@ public class ChatOrchestrator {
             }
             case CONVERSATION -> {
                 state.clearPendingMessage();
-                yield ChatMessageResponse.of(conversationId, request.messageId(),
-                        ChatMessageResponse.Status.GENERAL_CONVERSATION,
-                        "Puedo ayudarte a registrar hechos médicos de tu historia clínica.", null);
+                yield conversationTurn(conversationId, request.messageId(), request.message(), state);
             }
             case EVENTS -> {
                 var result = registrationService.register(conversationId, intent, LocalDate.now());
@@ -89,22 +99,79 @@ public class ChatOrchestrator {
         return response;
     }
 
+    /**
+     * Answers a message that neither registers an event nor depends on the clinical
+     * history. The clinical history is never read here: the composer receives only
+     * the message and the recent turns of the active conversation, so the reply
+     * cannot present anything as a recorded fact.
+     */
+    private ChatMessageResponse conversationTurn(
+            String conversationId,
+            String messageId,
+            String message,
+            ConversationStateStore.State state) {
+        String reply;
+        try {
+            reply = conversationComposer.compose(message, state.recentTurns());
+        } catch (LlmIntegrationException exception) {
+            log.warn(
+                    "Could not compose a conversational reply conversationId={} messageId={}",
+                    conversationId,
+                    messageId);
+            return ChatMessageResponse.of(
+                    conversationId,
+                    messageId,
+                    ChatMessageResponse.Status.FAILED,
+                    "No pude elaborar la respuesta. Puedes reintentarlo.",
+                    null);
+        }
+        return ChatMessageResponse.of(
+                conversationId,
+                messageId,
+                ChatMessageResponse.Status.GENERAL_CONVERSATION,
+                reply,
+                null);
+    }
+
     private ChatMessageResponse answerQuery(
             String conversationId,
             String messageId,
             ClinicalEventIntent intent,
             ConversationStateStore.State state) {
         state.clearPendingMessage();
+        String generalReply = generalReply(intent.query().generalPart(), state);
         if (intent.query().scope() == ClinicalEventIntent.Query.Scope.MEASUREMENTS) {
-            return ChatMessageResponse.of(conversationId, messageId,
+            return ChatMessageResponse.of(
+                    conversationId,
+                    messageId,
                     ChatMessageResponse.Status.GENERAL_CONVERSATION,
-                    "El peso y la circunferencia abdominal tienen su propio espacio de seguimiento"
-                            + " y no forman parte de la historia clínica que consulto aquí.",
-                    null);
+                    MEASUREMENT_REDIRECT,
+                    null,
+                    null,
+                    List.of(),
+                    generalReply);
         }
         ClinicalAnswerResult result = historyQueryService.answer(intent);
         return ChatMessageResponse.of(conversationId, messageId, mapStatus(result.kind()),
-                result.message(), result.events(), result.absenceReason(), result.suggestedActions());
+                result.message(), result.events(), result.absenceReason(), result.suggestedActions(), generalReply);
+    }
+
+    /**
+     * Composes the general part of a message that also depends on the clinical
+     * history. A failure here never costs the clinical result already obtained: the
+     * turn keeps its history outcome and simply carries no general part, and the
+     * clinical history stays untouched either way.
+     */
+    private String generalReply(String generalPart, ConversationStateStore.State state) {
+        if (generalPart == null) {
+            return null;
+        }
+        try {
+            return conversationComposer.compose(generalPart, state.recentTurns());
+        } catch (LlmIntegrationException exception) {
+            log.warn("Could not compose the general part of a mixed message");
+            return null;
+        }
     }
 
     private ChatMessageResponse.Status mapStatus(ClinicalEventRegistrationResult.Kind kind) {
