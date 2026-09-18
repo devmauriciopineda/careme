@@ -1,15 +1,17 @@
 # Careme — Frontend
 
 Next.js application for the Careme personal clinical assistant and body-tracking
-dashboard. `/` is the assistant chat and `/measurements` shows daily weight and
-abdominal circumference as trend charts and as a table, and registers the
-measurement of a day, all through the Careme backend API.
+dashboard. `/` is the assistant chat, `/clinical-events` inspects the recorded
+clinical history, and `/measurements` shows daily weight and abdominal
+circumference as trend charts and as a table, and registers the measurement of a
+day, all through the Careme backend API.
 
 There is no authentication yet. Measurements come from
 `GET /api/v1/measurements`, and the registration form sends
 `POST /api/v1/measurements`, through a service layer that validates the payload
 before it reaches the backend. The chat posts to `POST /api/v1/chat/messages`
-through `chatService`.
+through `chatService`. The clinical-events route reads the inspection endpoints
+through `clinicalEventService`.
 
 ## Tech stack
 
@@ -72,13 +74,14 @@ test an old build by mistake.
 frontend/
 ├── e2e/playwright/               # Reserved for end-to-end tests
 ├── src/
-│   ├── app/                      # layout, chat entry (/), measurements (/measurements), error
+│   ├── app/                      # layout, chat (/), clinical-events, measurements, error
 │   ├── components/ui/            # shadcn/ui primitives
 │   ├── features/chat/            # chat feature (workspace, actions, schema, types)
+│   ├── features/clinical-events/ # clinical history inspection feature
 │   ├── features/measurements/    # body-tracking feature module
 │   │   ├── components/           # dashboard, chart and table
 │   │   └── lib/                  # pure logic, schema, copy
-│   ├── services/                 # API clients (measurements, chat) and base URL
+│   ├── services/                 # API clients (clinical events, measurements, chat) and base URL
 │   └── test/                     # test setup
 ├── components.json               # shadcn/ui configuration
 ├── next.config.ts                # standalone output for containers
@@ -94,6 +97,7 @@ that submits a turn through the `sendChatMessage` Server Action; the action call
 renders registration, clarification, general conversation, failure, answered
 history queries with supporting events, and no-records outcomes distinctly, with
 the absence reason the backend reported and the continuation it offered. The
+clinical-event inspection lives at `src/app/clinical-events/page.tsx`, and the
 body-tracking view lives at `src/app/measurements/page.tsx`.
 
 **Server Components first.** That measurements page renders
@@ -111,9 +115,10 @@ metric instead of being duplicated per metric.
 helpers. Adding a metric means adding a field to `Measurement`, a value to
 `MetricKey` and an entry to `METRICS`.
 
-**Service boundary.** `src/services/measurementService.ts` and
-`src/services/chatService.ts` are the only places that know where data comes
-from. The measurement service calls `GET /api/v1/measurements` with
+**Service boundary.** `src/services/measurementService.ts`,
+`src/services/chatService.ts` and `src/services/clinicalEventService.ts` are the
+places that know where data comes from. The measurement service calls
+`GET /api/v1/measurements` with
 `cache: "no-store"`, unwraps the response envelope, validates `data` with Zod and
 returns chronologically sorted measurements; the chat service posts to
 `/api/v1/chat/messages` and validates the turn with Zod. The base URL is read

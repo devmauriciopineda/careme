@@ -29,8 +29,9 @@ facts only and never diagnoses or recommends treatment.
   history, without reading it, and declines requests for a diagnosis, a
   recommendation or an interpretation of the case.
 - Clinical events are stored as Markdown documents (`data/events/`) as the source
-  of truth, with a rebuildable PostgreSQL full-text index; there is no query,
-  edit or delete endpoint yet.
+  of truth, with a rebuildable PostgreSQL full-text index. They can be inspected
+  through read-only list and detail endpoints; editing and deletion are not
+  available.
 - Daily records of weight (kg) and abdominal circumference (cm).
 - A registration form that records the measurement of a day; re-registering a day
   replaces its values instead of creating a second record.
@@ -63,17 +64,19 @@ browser ──▶ frontend (Next.js, port 3000)
 ```
 
 - The **frontend** is a Next.js App Router application. The chat workspace is the
-  entry point at `/`; the body-tracking dashboard lives at `/measurements`. The
-  dashboard is an async Server Component: it fetches the measurements on the
+  entry point at `/`; clinical-event inspection lives at `/clinical-events`; the
+  body-tracking dashboard lives at `/measurements`. The dashboard is an async
+  Server Component: it fetches the measurements on the
   server, validates the payload and derives every chart series, axis domain and
   date label there. The registration form is a client island that submits through
   a Server Action, which revalidates the path so the charts and the table refresh
   on their own. Recharts, the registration/import forms and the chat workspace
   are the client-side islands.
 - The **backend** is a Spring Boot REST service with measurement read, write and
-  import endpoints, a chat endpoint and a clinical-event reindex endpoint. It
-  follows a layered structure (controller → service → repository) and is the
-  source of truth for the API contract.
+  import endpoints, a chat endpoint, read-only clinical-event inspection
+  endpoints and a clinical-event reindex endpoint. It follows a layered
+  structure (controller → service → repository) and is the source of truth for
+  the API contract.
 - **Storage** is PostgreSQL, behind a repository interface, plus the Markdown
   files in `data/events/` as the source of truth for clinical events. Flyway owns
   the schema, so the tables exist from the first start without manual DDL; the
@@ -106,8 +109,9 @@ Each service is documented in its own README:
   environment (`CAREME_LLM_API_KEY`) and never reaches the browser; see
   [`backend/README.md`](./backend/README.md).
 - The frontend consumes the backend's own HTTP API
-  (`GET` and `POST /api/v1/measurements`, the CSV import endpoints and
-  `POST /api/v1/chat/messages`). The contract is documented in
+  (`GET` and `POST /api/v1/measurements`, the CSV import endpoints,
+  `POST /api/v1/chat/messages` and the read-only clinical-event inspection
+  endpoints). The contract is documented in
   [`backend/README.md`](./backend/README.md).
 - Measurements live in a **PostgreSQL** table owned by the backend, created and
   versioned by Flyway migrations. Clinical events live as Markdown documents in

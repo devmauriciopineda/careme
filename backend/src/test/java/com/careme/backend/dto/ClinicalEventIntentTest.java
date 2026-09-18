@@ -100,4 +100,18 @@ class ClinicalEventIntentTest {
 
         assertThat(query.generalPart()).isNull();
     }
+
+        @Test
+        void rejectsInvalidIntentPayloadCombinations() {
+                assertThatThrownBy(() -> new ClinicalEventIntent(null, List.of(), null))
+                                .isInstanceOf(IllegalArgumentException.class)
+                                .hasMessageContaining("kind");
+                assertThatThrownBy(() -> new ClinicalEventIntent(
+                                ClinicalEventIntent.Kind.CONVERSATION, List.of(), "not clarification"))
+                                .isInstanceOf(IllegalArgumentException.class)
+                                .hasMessageContaining("Only clarification");
+                assertThatThrownBy(() -> ClinicalEventIntent.query(null))
+                                .isInstanceOf(IllegalArgumentException.class)
+                                .hasMessageContaining("query");
+        }
 }

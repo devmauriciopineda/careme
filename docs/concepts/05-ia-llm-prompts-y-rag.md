@@ -1,10 +1,23 @@
 # 05 — IA: LLM, prompts y RAG
 
-Este documento explica **qué es un modelo de lenguaje**, cómo se le pide una respuesta **estructurada**, cómo se le dan **hechos reales** para que no invente, y **dónde termina el modelo y empieza el código** en este sistema.
+Este documento explica qué es un modelo de lenguaje, cómo se estructura una
+consulta, cómo se recuperan hechos antes de redactar una respuesta y dónde
+termina el modelo y empieza el código. También distingue los patrones de RAG,
+los roles de los mensajes de un chat y la memoria multiturno que implementa
+Careme.
+
+## Índice
+
+1. [Qué es un LLM](#1-qué-es-un-llm)
+2. [Por qué se utiliza aquí](#2-por-qué-se-utiliza-aquí)
+3. [Qué ocurre durante una consulta](#3-qué-ocurre-durante-una-consulta)
+4. [Patrones de RAG](#4-patrones-de-rag)
+5. [Memoria y conversaciones multiturno](#5-memoria-y-conversaciones-multiturno)
+6. [Límites y controles para datos clínicos](#6-límites-y-controles-para-datos-clínicos)
 
 ---
 
-## 1. ¿Qué es?
+## 1. Qué es un LLM
 
 Un **modelo de lenguaje grande (LLM)** es un modelo estadístico entrenado para predecir el siguiente **token** de una secuencia. Al generar texto, no consulta una base de datos ni "recuerda" interacciones anteriores: produce la continuación más probable dado **todo lo que está escrito en el prompt**.
 
@@ -18,13 +31,14 @@ Términos que hay que retener:
 - **Salida estructurada**: pedir al modelo que responda en un formato fijo, como JSON, para poder parsearlo.
 - **RAG** (*retrieval-augmented generation*): recuperar información relevante de una fuente propia y dársela al modelo en el prompt, de modo que responda **a partir de esos datos** y no de su conocimiento general.
 - **Fundamentación (grounding)**: que la respuesta se apoye solo en los datos aportados, y que cite de dónde salió.
-- **Adaptador**: aquí, la pieza que traduce entre el formato propio del sistema y el del proveedor del modelo.
+- **Puerto**: interfaz que expresa una capacidad que el dominio necesita sin depender de una tecnología concreta.
+- **Adaptador**: componente que traduce entre el contrato de un puerto y una tecnología externa, como un proveedor LLM o el sistema de archivos.
 
 Una distinción importante de vocabulario: este sistema usa un **adaptador de modelo** —llamadas puntuales con entrada y salida definidas—, no un **agente** ni un uso de **herramientas** por parte del modelo. El modelo no decide qué ejecutar; solo clasifica y redacta.
 
 ---
 
-## 2. ¿Por qué se utiliza aquí?
+## 2. Por qué se utiliza aquí
 
 **Por qué un LLM.** La entrada del sistema es lenguaje natural en español: "me diagnosticaron hipertensión el mes pasado", "¿cuándo empecé con la medicación?". Interpretar eso con reglas rígidas es frágil; el modelo maneja bien la variación del lenguaje. Pero el modelo **no es la fuente de verdad**: el código sigue siendo el que guarda, busca y decide.
 
@@ -40,7 +54,7 @@ Una distinción importante de vocabulario: este sistema usa un **adaptador de mo
 
 ---
 
-## 3. ¿Qué ocurre bajo el capó?
+## 3. Qué ocurre durante una consulta
 
 ### 3.1 Cómo genera texto un modelo
 
@@ -71,6 +85,31 @@ Dos decisiones destacan:
 - **El formato se pide, pero no se confía.** Se solicita al proveedor una respuesta JSON, y aun así la aplicación **parsea y valida** el contenido. La petición de formato reduce errores; la validación los detecta.
 
 El mensaje de usuario añade el contexto que el modelo no tiene: la **fecha de referencia** (para poder interpretar expresiones como "ayer") y, cuando los hay, los **turnos recientes** de la conversación.
+
+### 3.2.1 Roles de los mensajes
+
+Las APIs de chat representan la entrada como una secuencia ordenada de
+mensajes. Cada mensaje tiene un rol que indica cómo debe interpretarse:
+
+| Rol o elemento | Función |
+| --- | --- |
+| `system` | Instrucciones de comportamiento, límites, formato y criterios de seguridad |
+| `user` | Solicitud o datos aportados por la persona |
+| `assistant` | Respuesta producida por el modelo en un turno anterior o actual |
+| `tool` | Resultado devuelto por una función externa invocada durante una conversación |
+| `model` | Normalmente identifica el modelo elegido, no un rol estándar del mensaje |
+
+En Careme, las llamadas al proveedor incluyen un mensaje `system` con el prompt
+versionado y un mensaje `user` con la información concreta del turno. La
+respuesta del proveedor llega como mensaje del modelo, que la API suele
+presentar con rol `assistant`; el backend extrae su contenido JSON y lo valida.
+
+No hay mensajes `tool` en el flujo actual. El modelo no llama una función para
+buscar en PostgreSQL: el backend interpreta primero la intención, ejecuta la
+recuperación y después construye otra llamada con los hechos recuperados. En
+otras arquitecturas, un mensaje `assistant` puede solicitar una herramienta y el
+backend respondería con un mensaje `tool`; ese es un patrón de uso de
+herramientas, no el que implementa Careme.
 
 ### 3.3 De lenguaje a estructura: la intención
 
@@ -129,6 +168,20 @@ El dominio depende de un **puerto**, no de un proveedor. Hay dos implementacione
 - **Las pruebas usan la implementación simulada**, así que no dependen de la red ni de credenciales.
 - **La credencial la lee solo el backend** y nunca llega al navegador. Los tiempos de conexión y de lectura están acotados por configuración.
 
+Un puerto es una interfaz que nombra la capacidad, por ejemplo
+`ClinicalIntentInterpreter.interpret(...)`. Un adaptador es la implementación
+que traduce esa capacidad al protocolo concreto de una dependencia. El adaptador
+real transforma el contrato del sistema en una petición HTTP con `model`,
+`messages`, temperatura y formato JSON; después transforma la respuesta del
+proveedor en `ClinicalEventIntent`. El adaptador simulado cumple la misma
+interfaz sin abrir una conexión.
+
+Por eso “el dominio depende de un puerto, no de un proveedor” significa que las
+reglas reciben una abstracción estable. El dominio conoce que puede interpretar
+un mensaje, pero no conoce una URL, una clave API, el formato de `/chat/completions`
+ni las clases HTTP de un proveedor. Esta inversión de dependencias permite
+cambiar proveedor, usar el modo simulado o probar una regla sin red.
+
 ### 3.6 La recuperación: código, no modelo
 
 ```mermaid
@@ -179,7 +232,7 @@ El prompt de esta llamada lleva sus propios límites, porque aquí el riesgo no 
 
 - explicar un concepto en términos generales, **sin** aplicarlo a su caso ni interpretar sus datos;
 - no afirmar nada sobre la historia clínica ni presentar la respuesta como un hecho registrado;
-- no diagnosticar ni recomendar tratamiento: si la persona lo pide, la petición se **declina** de forma explícita (ver §3.11);
+- no diagnosticar ni recomendar tratamiento: si la persona lo pide, la petición se **declina** de forma explícita (ver §6);
 - responder en el idioma del mensaje y con el tono del chat.
 
 **Un mensaje, dos salidas.** Cuando el mensaje mezcla una parte general con otra que depende de la historia, el turno no elige un cauce: los atiende por separado. El resultado clínico conserva su estado y su mensaje —`answered`, `no_records` o `failed`— y la parte general viaja en un campo propio, aparte. Ninguna de las dos rellena a la otra: la réplica conversacional no puede tapar una ausencia declarada ni presentarse como apoyo de una respuesta fundada.
@@ -196,39 +249,100 @@ Para delimitar el concepto, conviene decir qué **no** ocurre:
 - **No hay agente ni uso de herramientas.** No hay bucle de decisión ni el modelo invoca funciones; son llamadas de una sola vuelta: clasificar y, después, redactar —con hechos recuperados o sin ellos, según el cauce.
 - **No hay reentrenamiento.** El modelo no se ajusta; se le aporta contexto mediante el prompt.
 
-### 3.10 Memoria, límites y fallos
+## 4. Patrones de RAG
 
-- **Memoria conversacional.** Los turnos recientes se guardan en memoria y se reenvían en el prompt, porque el modelo no recuerda. El búfer está **acotado**, sujeto a un tiempo de vida y a un límite de conversaciones. **No se persiste**: si el proceso se reinicia, se pierde. Las respuestas no dependen del búfer para ser ciertas: salen de la historia, no de lo conversado.
+**RAG** (*retrieval-augmented generation*) es un patrón en el que una aplicación
+recupera información externa y la incorpora al contexto de una generación. El
+modelo no obtiene automáticamente acceso a la base de datos: el código debe
+seleccionar los documentos, formatearlos y enviarlos en el prompt.
+
+Existen varias formas de organizarlo:
+
+| Patrón | Flujo | Característica |
+| --- | --- | --- |
+| RAG ingenuo o básico | recuperar → generar | Una recuperación y una generación en una sola cadena |
+| RAG conversacional | historial → recuperar → generar | Usa la conversación para resolver referencias como “ese tratamiento” |
+| RAG con reranking | recuperar candidatos → reordenar → generar | Un segundo criterio mejora la selección antes del prompt |
+| RAG híbrido | búsqueda léxica + vectorial → combinar → generar | Combina coincidencias de términos y similitud semántica |
+| RAG agentivo | modelo decide → llama herramientas → observa → genera | El modelo participa en un ciclo de decisiones y herramientas |
+| RAG multi-etapa | clasificar → recuperar → verificar → generar | Divide la consulta en pasos con controles intermedios |
+
+Careme utiliza un **RAG multi-etapa y conversacional, pero no agentivo**:
+
+1. el intérprete clasifica el mensaje y extrae términos y filtros;
+2. el código recupera candidatos mediante búsqueda léxica PostgreSQL y filtros
+    de metadatos;
+3. el compositor recibe la pregunta y ese conjunto acotado;
+4. el backend valida cobertura y referencias antes de devolver la respuesta.
+
+La parte conversacional se limita a usar turnos recientes para interpretar una
+pregunta de seguimiento. No se envía todo el historial clínico al modelo ni se
+permite que el modelo elija libremente una consulta SQL. La recuperación sigue
+siendo determinista y la ejecuta el backend.
+
+Este diseño también puede describirse como **retrieve-then-generate**: primero se
+recupera y después se genera. Es diferente de un agente que decide en tiempo de
+ejecución qué herramienta invocar, cuántas veces invocarla y cuándo considera
+que tiene suficiente información.
+
+## 5. Memoria y conversaciones multiturno
+
+Un modelo de lenguaje no conserva automáticamente el estado entre peticiones. Para
+que entienda “¿y cuándo ocurrió eso?”, la aplicación debe guardar una parte de
+la conversación y volver a incluirla en la siguiente solicitud.
+
+Careme lo hace con `ConversationStateStore`, un almacén en memoria indexado por
+`conversationId`:
+
+```mermaid
+sequenceDiagram
+        participant P as Persona
+        participant B as Backend
+        participant S as ConversationStateStore
+        participant L as LLM
+        P->>B: mensaje 1 + conversationId
+        B->>S: crear o recuperar estado
+        B->>L: system + user
+        L-->>B: intención o respuesta
+        B->>S: guardar turno resumido
+        P->>B: mensaje 2 + mismo conversationId
+        B->>S: leer turnos recientes
+        B->>L: system + turnos + nuevo user
+        L-->>B: interpretación contextual
+```
+
+Cada turno almacenado contiene el mensaje de la persona y un resumen de la
+respuesta del asistente. El almacén conserva como máximo seis turnos recientes
+por conversación (`max-recent-turns: 6`), expulsa conversaciones inactivas tras
+el TTL configurado (dos horas por defecto) y limita el número total de
+conversaciones (1000 por defecto). El mapa está protegido con acceso
+sincronizado porque varias peticiones pueden llegar al mismo tiempo.
+
+Esta memoria es **efímera y operacional**, no historia clínica:
+
+- vive solo en la memoria del proceso;
+- no se escribe en PostgreSQL ni en Markdown;
+- se pierde al reiniciar el backend o al expulsar el estado;
+- sirve para resolver referencias y continuidad lingüística, no para demostrar
+    que un hecho clínico ocurrió;
+- la respuesta clínica se fundamenta en hechos recuperados desde la historia,
+    no en el resumen conversacional.
+
+El flujo multiturno tiene dos usos. El intérprete recibe turnos recientes para
+resolver una referencia y producir términos de búsqueda explícitos. El
+compositor conversacional recibe el mensaje y esos turnos, pero no recibe hechos
+clínicos. La separación impide que una conversación general se convierta por
+accidente en una afirmación sobre la historia.
+
 - **Idempotencia.** Repetir un turno con los mismos identificadores devuelve el resultado original sin repetir efectos.
 - **Límite de tamaño del mensaje**, además de los tiempos de espera de conexión y lectura.
 - **Los fallos no inventan.** Si la interpretación o la búsqueda fallan, el resultado es un fallo recuperable, sin respuesta fabricada.
 - **Un fallo al redactar tampoco inventa.** Si falla la composición conversacional, el turno es un fallo recuperable que conserva el mensaje para reintentarlo. Y en un mensaje mixto, un fallo de la parte general no cuesta el resultado clínico ya obtenido: el turno conserva su estado y simplemente no lleva parte conversacional.
 - **Ausencia no es fallo.** Que la historia no respalde una pregunta es un **resultado**, no un error: se declara con su motivo —historia vacía, sin hechos de ese tipo, sin hechos en ese periodo, o ninguno que responda—, con su alcance acotado y con una salida para continuar. Además **no niega que el hecho ocurriera**: solo dice que no consta. Un fallo de búsqueda, en cambio, se informa como recuperable y nunca se disfraza de ausencia.
 
-### 3.11 Controles para datos clínicos
+## 6. Límites y controles para datos clínicos
 
 - **El asistente registra lo que la persona afirma**, no lo que el sistema deduce: no diagnostica, no infiere, no recomienda tratamiento. Una sospecha no es un hecho. Cuando la persona pide justamente eso —un diagnóstico, una recomendación o una interpretación de su caso—, el sistema lo **declina de forma explícita**: no lo responde desde la historia, no lo sustituye por una respuesta inventada y no lo disfraza de conversación útil.
 - **Los registros no incluyen el contenido clínico** ni el prompt, la respuesta del proveedor o la credencial; solo identificadores de correlación para poder seguir un turno.
 - **El proveedor externo queda fuera del control de la aplicación.** Su política de retención y su región de procesamiento no las garantiza este sistema: son una decisión de despliegue antes de enviar datos reales.
 - **El modelo puede equivocarse igualmente.** De ahí la combinación de controles: salida estructurada, validación, recuperación acotada, fundamentación con citas y un camino explícito para "no hay registros".
-
----
-
-## 4. Ideas clave
-
-- Un LLM **predice tokens**; no consulta datos ni recuerda. Todo su contexto es el prompt.
-- La **temperatura cero** se usa aquí por consistencia, no por creatividad.
-- El **prompt es un contrato versionado**; el formato se pide y aun así se **valida**.
-- La intención se convierte en una **estructura tipada** que se valida antes de usarse.
-- Las **fechas las normaliza el código**, y nunca se aumenta la precisión de un dato aproximado.
-- El adaptador es una **frontera**: el dominio no depende del proveedor, y hay un modo sin red por defecto.
-- La **recuperación la hace el código**, no el modelo; es léxica, filtrada y acotada.
-- La **respuesta se fundamenta y se cita**; una cita fuera del conjunto recuperado se rechaza.
-- Recuperar **no es responder**: la respuesta declara qué parte de la pregunta cubren los hechos recuperados.
-- El sistema **declara que no encuentra registros** en lugar de improvisar, y esa ausencia es un resultado con motivo, alcance y salida para continuar, no un error.
-- La **memoria conversacional es efímera y acotada**; la verdad está en la historia, no en la conversación.
-- El **cauce se decide antes de responder**: registro, consulta o conversación, y ante la duda se pregunta en lugar de adivinar.
-- La **composición conversacional no recibe hechos**: la garantía es el material que recibe la llamada, no un filtro sobre lo ya escrito.
-- Un mensaje puede llevar **dos salidas**: el resultado clínico y la parte conversacional viajan separados, y ninguna rellena a la otra.
-- Cuando la persona pide un diagnóstico o una recomendación, el sistema **declina**: una negativa explícita es una respuesta, no un fallo.
-- Los **fallos no producen respuestas inventadas**, y los datos clínicos no se registran en los logs.

@@ -93,6 +93,18 @@ class OpenAiClinicalConversationComposerTest {
                 .hasMessage("There is nothing to reply to");
     }
 
+            @Test
+            void refusesAReplyWithNullMessageOrApiKey() throws Exception {
+            assertThatThrownBy(() -> composer().compose(null, List.of()))
+                .isInstanceOf(LlmIntegrationException.class)
+                .hasMessage("There is nothing to reply to");
+            assertThatThrownBy(() -> new OpenAiClinicalConversationComposer(
+                RestClient.builder(), new ObjectMapper(), "http://localhost", " ", "model",
+                Duration.ofSeconds(1), Duration.ofSeconds(1), new ClassPathResource(PROMPT_RESOURCE)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("CAREME_LLM_API_KEY");
+            }
+
     @Test
     void rejectsAnEmptyReply() throws Exception {
         respondWithContent("{\\\"reply\\\":\\\"   \\\"}");

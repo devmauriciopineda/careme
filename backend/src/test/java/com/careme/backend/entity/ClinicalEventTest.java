@@ -68,4 +68,29 @@ class ClinicalEventTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("content");
     }
+
+    @Test
+    void rejectsMissingRequiredIdentityTypeSourceAndCreationTime() {
+        assertThatThrownBy(() -> event(null, "evt_005", ClinicalEvent.ClinicalEventType.NOTE,
+                ClinicalEvent.DatePrecision.UNKNOWN, "content", ClinicalEvent.EventSource.PATIENT, CREATED_AT))
+                .hasMessageContaining("id");
+        assertThatThrownBy(() -> event(VALID_ID, "evt_005", null,
+                ClinicalEvent.DatePrecision.UNKNOWN, "content", ClinicalEvent.EventSource.PATIENT, CREATED_AT))
+                .hasMessageContaining("type");
+        assertThatThrownBy(() -> event(VALID_ID, "evt_006", ClinicalEvent.ClinicalEventType.NOTE,
+                null, "content", ClinicalEvent.EventSource.PATIENT, CREATED_AT))
+                .hasMessageContaining("precision");
+        assertThatThrownBy(() -> event(VALID_ID, "evt_007", ClinicalEvent.ClinicalEventType.NOTE,
+                ClinicalEvent.DatePrecision.UNKNOWN, "content", null, CREATED_AT))
+                .hasMessageContaining("source");
+        assertThatThrownBy(() -> event(VALID_ID, "evt_008", ClinicalEvent.ClinicalEventType.NOTE,
+                ClinicalEvent.DatePrecision.UNKNOWN, "content", ClinicalEvent.EventSource.PATIENT, null))
+                .hasMessageContaining("creation");
+    }
+
+    private static ClinicalEvent event(UUID id, String code, ClinicalEvent.ClinicalEventType type,
+            ClinicalEvent.DatePrecision precision, String content, ClinicalEvent.EventSource source,
+            OffsetDateTime createdAt) {
+        return new ClinicalEvent(id, code, type, null, precision, null, content, source, createdAt);
+    }
 }

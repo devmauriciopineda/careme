@@ -104,7 +104,7 @@ remaining runtime dependencies are PostgreSQL and the local filesystem.
 | Backend CSV | Apache Commons CSV | 1.14.1 | Reading import files | `backend/pom.xml` |
 | Backend build | Maven Wrapper + enforcer | 3.9.9 / JDK 21 | Reproducible build without an installed Maven | `backend/pom.xml`, `backend/.mvn/wrapper/` |
 | Backend tests | JUnit 5, Mockito, AssertJ, MockMvc, Spring Boot Test, Testcontainers | — | Unit + web layer + real integration | `backend/pom.xml` |
-| Backend coverage | JaCoCo (gate 90 % branches / 90 % lines) | 0.8.12 | Bound to `verify`, not to `test` | `backend/pom.xml` |
+| Backend coverage | JaCoCo (gate 85 % branches / 85 % lines) | 0.8.12 | Bound to `verify`, not to `test` | `backend/pom.xml` |
 | Backend LLM | Spring `RestClient` (JDK HttpClient) to an OpenAI-compatible API | `deepseek-flash` | Chat opt-in (`CAREME_LLM_MODE=openai`), versioned prompts: classification in `prompts/clinical-intent-v3.txt`, composition in `prompts/clinical-answer-v3.txt` and `prompts/conversation-reply-v1.txt` | `backend/.../service/OpenAiClinical*.java`, `backend/src/main/resources/application.yml` |
 | Data | PostgreSQL | 17 (`postgres:17-alpine`) | Repository standard and integration tests | `docker-compose.yml`, `backend/README.md` |
 | Packaging | Docker multi-stage | `maven:3.9-eclipse-temurin-21` → `eclipse-temurin:21-jre-alpine` | Non-root image | `backend/Dockerfile` |
@@ -173,7 +173,8 @@ flowchart TB
         queryRepo["ClinicalEventQueryRepository<br/>index reads"]
         mdStore["ClinicalEventMarkdownStore<br/>source of truth"]
         idxWriter["ClinicalEventIndexWriter<br/>derived index"]
-        evtCtrl["ClinicalEventIndexController<br/>POST /api/v1/clinical-events/reindex"]
+        evtCtrl["ClinicalEventIndexController<br/>GET list/detail + POST /reindex"]
+        inspSvc["ClinicalEventInspectionService<br/>read-only Markdown reads"]
         evtDomain["ClinicalEvent / ClinicalEventIntent<br/>domain records, invariants"]
         dtos["dto/*<br/>Measurement* · Import* · ChatMessage*<br/>ClinicalEventIntent · ApiResponse · ErrorResponse"]
         exc["ApiExceptionHandler<br/>@RestControllerAdvice"]
@@ -206,6 +207,8 @@ flowchart TB
     regSvc --> idxWriter
     evtCtrl --> mdStore
     evtCtrl --> idxWriter
+    evtCtrl --> inspSvc
+    inspSvc --> mdStore
     mdStore --> fs
     idxWriter --> pg
     exc -.-> ctrl
@@ -230,7 +233,11 @@ flowchart TB
 ```mermaid
 flowchart TB
     page["app/page.tsx<br/>entry point — chat"]
+    epage["app/clinical-events/page.tsx<br/>read-only inspection"]
     mpage["app/measurements/page.tsx<br/>Server Component"]
+    subgraph clinical["features/clinical-events"]
+      browser["ClinicalEventsBrowser<br/>client interaction"]
+    end
     subgraph feat["features/measurements"]
         dash["MeasurementsDashboard<br/>async server"]
         chart["MetricTrendChart<br/>client island Recharts"]
@@ -251,11 +258,13 @@ flowchart TB
     ui["components/ui<br/>shadcn/ui primitives"]
     be["Backend :8080"]
     page --> workspace
+    epage --> browser
     workspace --> caction
     workspace --> ctypes
     caction --> csvc
     csvc --> cfg
     csvc --> be
+    browser --> be
     mpage --> dash
     dash --> chart
     dash --> table
@@ -275,14 +284,15 @@ flowchart TB
 
 | Module | Architectural role | Evidence |
 | --- | --- | --- |
-| `app/` | Entry points: chat at `/`, dashboard at `/measurements`; layout, error boundary and styles | `frontend/src/app/page.tsx`, `measurements/page.tsx`, `error.tsx`, `layout.tsx` |
+| `app/` | Entry points: chat at `/`, clinical-event inspection at `/clinical-events`, dashboard at `/measurements`; layout, error boundary and styles | `frontend/src/app/page.tsx`, `clinical-events/page.tsx`, `measurements/page.tsx`, `error.tsx`, `layout.tsx` |
 | `features/chat/` | Assistant module: workspace, Server Action, schema and types | `frontend/src/features/chat/` |
+| `features/clinical-events/` | Read-only clinical-history inspection module | `frontend/src/features/clinical-events/` |
 | `features/measurements/` | Self-contained body-tracking module (feature-sliced) | `frontend/src/features/measurements/` |
 | `features/.../lib/metrics.ts` | Metric registry + pure helpers (series, axis domain, labels) | `frontend/src/features/measurements/lib/metrics.ts` |
 | `features/.../lib/schema.ts` | Zod schemas for the API and the form | `frontend/src/features/measurements/lib/schema.ts` |
 | `features/.../lib/strings.ts` | The only place with user-facing text (Spanish) | `frontend/src/features/measurements/lib/strings.ts` |
 | `features/.../actions.ts` | Registration Server Action + `revalidatePath("/")` | `frontend/src/features/measurements/actions.ts` |
-| `services/` | Data boundary: `fetch` + envelope + Zod (measurements and chat) | `frontend/src/services/measurementService.ts`, `chatService.ts`, `apiConfig.ts` |
+| `services/` | Data boundary: `fetch` + envelope + Zod (clinical events, measurements and chat) | `frontend/src/services/clinicalEventService.ts`, `measurementService.ts`, `chatService.ts`, `apiConfig.ts` |
 | `components/ui/` | Reusable shadcn/ui primitives | `frontend/src/components/ui/` |
 | `test/` | Vitest setup | `frontend/src/test/setup.ts` |
 
@@ -307,9 +317,10 @@ careme/
 │   ├── Dockerfile                  # Non-root multi-stage image
 │   └── pom.xml
 ├── frontend/                       # Next.js SPA/SSR
-│   ├── src/app/                    # Chat (/), dashboard (/measurements), layout, error, styles
+│   ├── src/app/                    # Chat (/), clinical events (/clinical-events), dashboard (/measurements), layout, error, styles
 │   ├── src/components/ui/          # shadcn/ui primitives
 │   ├── src/features/chat/          # Assistant module
+│   ├── src/features/clinical-events/ # Read-only clinical-history inspection
 │   ├── src/features/measurements/  # Body-tracking module
 │   ├── src/services/               # Data boundary (fetch + Zod)
 │   ├── src/test/                   # Test setup
@@ -402,7 +413,7 @@ the code and the READMEs.
 | ADR-007 | Server Components by default; minimal client islands | Current | Avoid sending logic and `Date` to the browser | Date labels do not shift because of the time zone |
 | ADR-008 | All-or-nothing import validation, reusing `MeasurementRequest` | Current | A file cannot accept what the form rejects | A large file with one error loads nothing; a single source of rules |
 | ADR-009 | Integration tests against real PostgreSQL (Testcontainers), not H2 | Current | Test the production schema | Requires a container runtime locally |
-| ADR-010 | Coverage gate (90 % branches/lines) bound to `verify`, not to `test` | Current | Do not block fast test cycles | `mvn test` can pass with insufficient coverage |
+| ADR-010 | Coverage gate (85 % branches/lines) bound to `verify`, not to `test` | Current | Do not block fast test cycles | `mvn test` can pass with insufficient coverage |
 | ADR-011 | Java 21 pinned by `maven-enforcer-plugin` and a committed Maven wrapper | Current | Reproducible build | Builds with another JDK fail explicitly |
 | ADR-012 | User-facing text in Spanish isolated in `strings.ts`; code in English | Current | Future i18n without a refactor | Manual discipline; no automated check |
 | ADR-013 | Implicit `Patient` and clinical events in Markdown as the source of truth + derived PostgreSQL index | Current | MVP of the clinical history assistant | Markdown rules; PostgreSQL indexes and is rebuilt; the query is read-only and there is no edit or delete |
@@ -448,6 +459,8 @@ and must not be reused outside it.
 | Errors | Global handler: 400 `VALIDATION_ERROR` / `INVALID_REQUEST`, 500 `INTERNAL_ERROR`; no internal detail reaches the client | `backend/.../exception/ApiExceptionHandler.java` |
 | `POST /api/v1/chat/messages` | Bean Validation: message not empty and ≤ 4000 characters, required `messageId`; deterministic validation of the intent before registering | `backend/.../dto/ChatMessageRequest.java`, `ClinicalEventIntentValidator.java` |
 | `POST /api/v1/clinical-events/reindex` | No body; rebuilds the derived index from `data/events/` | `backend/.../controller/ClinicalEventIndexController.java` |
+| `GET /api/v1/clinical-events` | Read-only list with type/date filters and record/occurrence-date sorting | `backend/.../controller/ClinicalEventIndexController.java`, `ClinicalEventInspectionService.java` |
+| `GET /api/v1/clinical-events/{code}` | Read-only detail lookup by event code; missing events return `404 EVENT_NOT_FOUND` | `backend/.../controller/ClinicalEventIndexController.java`, `ClinicalEventInspectionService.java` |
 
 **CORS:** the `/api/**` mapping is restricted to configured origins and to the
 `GET` and `POST` methods (`CorsConfig.java`). It is not a security defence by

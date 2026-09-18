@@ -1,160 +1,293 @@
-# 06 — SDD y OpenSpec
+# 06 — Desarrollo guiado por especificaciones y OpenSpec
 
-Este documento explica **qué es el desarrollo guiado por especificaciones**, qué papel cumple una especificación frente al código y al diseño, y **cómo está organizado OpenSpec** en este repositorio para gobernar los cambios.
+Este documento explica el **desarrollo guiado por especificaciones (SDD)** y la
+forma en que OpenSpec organiza requisitos, decisiones, tareas y cambios en
+Careme. El objetivo es entender cómo una intención se convierte en un contrato
+observable, cómo ese contrato guía la implementación y cómo se conserva la
+trazabilidad cuando el cambio termina.
 
----
+## Índice
 
-## 1. ¿Qué es?
+1. [Qué es SDD](#1-qué-es-sdd)
+2. [Especificación, diseño y tareas](#2-especificación-diseño-y-tareas)
+3. [Estructura de OpenSpec](#3-estructura-de-openspec)
+4. [Cómo se escribe un comportamiento verificable](#4-cómo-se-escribe-un-comportamiento-verificable)
+5. [Ciclo de vida de un cambio](#5-ciclo-de-vida-de-un-cambio)
+6. [Deltas y sincronización](#6-deltas-y-sincronización)
+7. [Trazabilidad y verificación](#7-trazabilidad-y-verificación)
+8. [Archivo e historial](#8-archivo-e-historial)
+9. [Otras formas de gestionar requisitos](#9-otras-formas-de-gestionar-requisitos)
 
-El **desarrollo guiado por especificaciones (SDD)** es una forma de trabajar en la que el **comportamiento esperado** se escribe y se acuerda como artefacto de referencia **antes o junto con** el código, y no se deduce después leyendo la implementación. La especificación no describe cómo se construye algo, sino **qué debe observarse** cuando esté construido.
+## 1. Qué es SDD
 
-Términos que hay que retener:
+El **desarrollo guiado por especificaciones (SDD)** es una forma de construir
+software en la que el comportamiento esperado se expresa como un artefacto
+revisable antes o junto con el código. La especificación funciona como un
+contrato: define qué debe observarse, mientras la implementación decide cómo
+lograrlo.
 
-- **Especificación**: contrato de comportamiento. Dice qué hace el sistema, no cómo lo hace.
-- **Requisito**: una obligación normativa (*el sistema MUST…*).
-- **Escenario**: un caso concreto y verificable de un requisito, en forma *cuando… entonces…*.
-- **Capacidad**: una unidad funcional del sistema con su propia especificación (por ejemplo, la conversación del chat o la consulta de la historia clínica).
-- **Cambio**: una unidad de trabajo acotada que modifica una o varias capacidades.
-- **Especificación delta**: la parte de un cambio que describe **qué se añade, modifica, elimina o renombra** respecto a las especificaciones vigentes.
-- **Archivo**: el acto de cerrar un cambio completado, integrando sus deltas en las especificaciones vigentes y guardándolo como histórico.
+Un **requisito** es una obligación del sistema. Un requisito normativo usa
+palabras como `MUST` o “debe” porque no propone una posibilidad: fija una
+condición de aceptación.
 
-**OpenSpec** es la herramienta y la convención que estructuran ese flujo en el repositorio: separa las especificaciones **vigentes** de los cambios **en curso** y del **histórico archivado**.
+Un **escenario** es un ejemplo concreto de un requisito, con una condición de
+entrada y resultados observables. Un requisito sin escenario puede parecer claro
+pero ser difícil de probar, porque no concreta qué debe ocurrir en una situación
+real.
 
-Una distinción útil desde el principio: la **especificación** dice *qué*, el **diseño** dice *cómo se resolverá*, las **tareas** dicen *en qué orden se hará*, y la **propuesta** dice *por qué y qué cambia*. Los cuatro son artefactos distintos con propósitos distintos.
+Una **capacidad** es una unidad coherente de comportamiento que puede tener sus
+propios requisitos, como registrar hechos clínicos, consultar la historia o
+mantener mediciones. Un **cambio** es una unidad de trabajo que modifica una o
+varias capacidades.
 
----
+SDD no significa escribir toda la implementación antes del código. Significa
+acordar primero el comportamiento que no debe perderse mientras el diseño y el
+código evolucionan.
 
-## 2. ¿Por qué se utiliza aquí?
+## 2. Especificación, diseño y tareas
 
-**Porque el valor del sistema es su comportamiento verificable.** Este proyecto trata con hechos clínicos: cuándo se registra algo, cuándo se responde, cuándo se declara que no hay registros, cuándo no se debe inventar una respuesta. Ese tipo de garantías no debería vivir solo en la cabeza de quien implementa. Escribirlas como requisitos y escenarios las hace **explícitas, revisables y comprobables**.
+Los artefactos de un cambio responden preguntas distintas:
 
-**Porque la implementación cambia y el contrato no debería hacerlo por sorpresa.** Una especificación expresa comportamiento externo: si se puede cambiar el código sin alterar ese comportamiento, el cambio no pertenece a la especificación. Eso mantiene el contrato estable mientras la implementación evoluciona.
+| Artefacto | Pregunta | Tipo de información |
+| --- | --- | --- |
+| Propuesta | ¿Por qué se necesita el cambio y qué alcance tiene? | Motivación, impacto, capacidades afectadas y fuera de alcance |
+| Especificación | ¿Qué comportamiento debe observarse? | Requisitos y escenarios normativos |
+| Diseño | ¿Cómo se resolverá? | Arquitectura, decisiones, restricciones y alternativas |
+| Tareas | ¿En qué orden se implementará? | Pasos concretos y verificables |
+| Código | ¿Qué hace realmente el sistema? | Implementación ejecutable |
 
-**Porque los cambios necesitan un límite.** Un cambio acotado a una o varias capacidades, con un "fuera de alcance" explícito, evita el crecimiento silencioso del trabajo. La propuesta obliga a decir **qué entra y qué no**.
+La **especificación** no debe convertirse en una copia del código. Si se cambia
+una clase o una biblioteca sin cambiar el comportamiento observable, no debería
+cambiar el requisito. El diseño puede mencionar capas, adaptadores, tablas o
+bibliotecas porque responde al “cómo”; la especificación debe conservar el
+contrato que esas decisiones implementan.
 
-**Porque el repositorio ya distingue "cómo es" de "cómo cambia".** `docs/` describe el sistema tal como está. `openspec/` describe lo que se propone cambiar y conserva lo ya cambiado. Mezclarlos haría que la documentación de arquitectura se llenara de propuestas no decididas.
+Las **tareas** descomponen el trabajo, pero no sustituyen a los requisitos. Una
+lista como “crear controlador” indica una acción técnica; un escenario como
+“cuando llega una medición futura, la API responde con error de validación”
+indica cómo se reconoce que la capacidad funciona.
 
----
+## 3. Estructura de OpenSpec
 
-## 3. ¿Qué ocurre bajo el capó?
-
-### 3.1 La estructura en el repositorio
+OpenSpec es la convención y el conjunto de herramientas que separan el estado
+vigente del sistema, los cambios en curso y el historial:
 
 ```text
 openspec/
-├── config.yaml                     # esquema del flujo y ajustes
-├── specs/                          # especificaciones VIGENTES
-│   └── <capacidad>/spec.md         # una por capacidad del sistema
+├── config.yaml
+├── specs/                         # comportamiento vigente
+│   └── <capacidad>/spec.md
 └── changes/
-    ├── <cambio>/                   # cambios EN CURSO
-    │   ├── .openspec.yaml          # metadatos del cambio (esquema, fecha)
-    │   ├── proposal.md             # por qué y qué cambia
-    │   ├── design.md               # cómo se resolverá
-    │   ├── tasks.md                # plan de ejecución
-    │   └── specs/<capacidad>/spec.md   # deltas por capacidad
+    ├── <cambio>/                  # propuesta en curso
+    │   ├── .openspec.yaml
+    │   ├── proposal.md
+    │   ├── design.md
+    │   ├── tasks.md
+    │   └── specs/<capacidad>/spec.md
     └── archive/
-        └── YYYY-MM-DD-<cambio>/    # cambios COMPLETADOS
+        └── YYYY-MM-DD-<cambio>/   # cambio completado
 ```
 
-La división clave es **vigente / en curso / archivado**. Las especificaciones de `specs/` son la verdad actual. Un cambio en `changes/` aún no ha ocurrido: propone. `archive/` guarda lo ya integrado, con su fecha.
+Las especificaciones de `openspec/specs/` representan el contrato vigente. Un
+directorio en `changes/` representa una propuesta que todavía no debe leerse
+como comportamiento implementado. `archive/` conserva el cambio que ya pasó por
+implementación, verificación e integración.
 
-### 3.2 Qué contiene cada artefacto
+El archivo `config.yaml` declara el esquema de trabajo y el contexto del
+proyecto. En Careme usa el esquema `spec-driven` y documenta restricciones como
+la ausencia de autenticación en el MVP, la fuente Markdown de los hechos
+clínicos y el uso de PostgreSQL con un índice derivado.
 
-| Artefacto | Responde a | Contiene |
-| --- | --- | --- |
-| `proposal.md` | ¿Por qué y qué cambia? | Motivación, cambios propuestos, capacidades nuevas y modificadas, impacto y fuera de alcance |
-| `design.md` | ¿Cómo se resolverá? | Contexto y restricciones, objetivos y no-objetivos, decisiones y alternativas descartadas |
-| `tasks.md` | ¿En qué orden se hará? | Lista ordenada de pasos, cada uno verificable |
-| `specs/<capacidad>/spec.md` | ¿Qué comportamiento cambia? | Requisitos y escenarios, como delta |
-| `.openspec.yaml` | ¿Con qué reglas se trabaja? | El esquema del flujo y la fecha de creación |
+La separación evita que una especificación vigente prometa algo que todavía es
+solo una propuesta y permite consultar por qué una capacidad cambió.
 
-Cada artefacto responde a una pregunta distinta y **ninguno sustituye a otro**. Que una decisión esté en el diseño no la convierte en requisito; que un requisito esté en la especificación no indica cómo implementarlo.
+## 4. Cómo se escribe un comportamiento verificable
 
-### 3.3 Qué es una especificación y qué no
-
-Una especificación describe **comportamiento observable**:
+Un formato habitual de requisito y escenario es:
 
 ```text
-### Requirement: <nombre>
-El sistema MUST <comportamiento exigido>.
+### Requirement: Rechazar una medición futura
+El sistema MUST rechazar una medición cuya fecha sea posterior al día actual.
 
-#### Scenario: <nombre>
-- **WHEN** <condición>
-- **THEN** <resultado esperado>
-- **AND** <otro resultado>
+#### Scenario: Fecha posterior al día actual
+- **WHEN** se envía una medición con fecha futura
+- **THEN** la API responde con HTTP 400
+- **AND** devuelve el código de validación correspondiente
+- **AND** no crea ni modifica una fila
 ```
 
-Lo que **sí** aparece en una especificación: comportamiento que un usuario o un sistema externo puede observar, entradas y salidas, condiciones de error, y restricciones externas relevantes.
+El requisito formula la obligación. El escenario fija una situación y un
+resultado. La frase “no crea ni modifica una fila” protege también un efecto
+negativo, que es tan importante como la respuesta HTTP.
 
-Lo que **no** aparece: nombres de clases o funciones, elecciones de biblioteca, pasos de implementación o detalles de ejecución. La prueba para decidirlo es directa: **si la implementación puede cambiar sin cambiar el comportamiento visible, no pertenece a la especificación.**
+### 4.1 Propiedades de un buen escenario
 
-Un requisito es **normativo** (*MUST*, *SHALL*): no es una sugerencia. Y todo requisito lleva **al menos un escenario**, porque un requisito sin un caso concreto no se puede comprobar. Cada escenario es un **candidato a prueba**: describe una situación y el resultado exigido.
+Un escenario útil es:
 
-### 3.4 El ciclo de vida de un cambio
+- **observable:** se puede comprobar desde una respuesta, estado o efecto;
+- **determinista:** no depende de una hora, red o dato aleatorio sin controlar;
+- **aislado:** describe una situación que puede preparar una prueba;
+- **completo:** expresa los resultados relevantes, incluidos errores;
+- **atómico:** verifica una conducta principal sin mezclar varias capacidades;
+- **trazable:** se puede relacionar con una prueba, tarea o decisión.
+
+Los escenarios deben cubrir caminos normales, límites, errores y efectos que no
+deben ocurrir. No es necesario describir cada detalle de implementación.
+
+### 4.2 Alcance y no objetivos
+
+El **fuera de alcance** es una decisión explícita sobre lo que no cambia en una
+entrega. No significa que una capacidad nunca vaya a existir; significa que no
+forma parte de ese cambio. Registrar esta frontera evita que una tarea técnica
+crezca por asociación.
+
+Un **criterio de aceptación** es una condición que debe cumplirse para
+considerar terminado un cambio. En SDD, los escenarios de los requisitos son la
+forma más precisa de expresarlos.
+
+## 5. Ciclo de vida de un cambio
+
+Un cambio atraviesa estados conceptuales, aunque cada equipo puede automatizar
+los pasos de forma distinta:
 
 ```mermaid
 flowchart LR
-    P["Propuesta<br/>(por qué y qué)"] --> D["Diseño<br/>(cómo)"]
-    P --> DS["Deltas de spec<br/>(qué comportamiento)"]
-    D --> T["Tareas<br/>(orden de trabajo)"]
-    DS --> T
-    T --> I["Implementación"]
-    I --> V["Verificación<br/>(escenarios como pruebas)"]
-    V --> S["Sincronización<br/>(deltas → specs vigentes)"]
-    S --> A["Archivo<br/>(histórico)"]
+    Idea["Problema o necesidad"] --> Proposal["Propuesta"]
+    Proposal --> Spec["Deltas de especificación"]
+    Proposal --> Design["Diseño"]
+    Spec --> Tasks["Tareas"]
+    Design --> Tasks
+    Tasks --> Code["Implementación"]
+    Code --> Tests["Pruebas y verificación"]
+    Tests --> Sync["Sincronizar specs vigentes"]
+    Sync --> Archive["Archivar cambio"]
 ```
 
-El punto que suele sorprender es el penúltimo: **las especificaciones vigentes no se tocan mientras el cambio está en curso**. El cambio vive aparte con sus deltas; solo cuando se verifica que está implementado, los deltas se **integran** en `specs/` y el cambio pasa a `archive/`. Así, `specs/` siempre refleja el sistema **actual**, y no una mezcla de lo hecho y lo propuesto.
+### 5.1 Propuesta
 
-Verificar significa comprobar que lo implementado **satisface los escenarios**. Como los escenarios están escritos en términos observables, se traducen de forma natural en pruebas.
+La propuesta explica el problema, el valor del cambio, las capacidades
+implicadas y sus límites. Su función es permitir una decisión antes de invertir
+en diseño y código.
 
-### 3.5 Las operaciones delta
+### 5.2 Deltas y diseño
 
-Un delta declara explícitamente la naturaleza del cambio sobre cada requisito:
+El delta expresa cómo cambia el comportamiento vigente. El diseño explica la
+solución técnica: capas afectadas, contratos, persistencia, compatibilidad,
+alternativas y riesgos.
+
+Separar ambos evita dos errores opuestos: escribir un diseño sin saber qué
+comportamiento se necesita, o convertir una especificación en una receta
+inflexible de implementación.
+
+### 5.3 Tareas e implementación
+
+Las tareas convierten la decisión en una secuencia ejecutable. Una tarea debe
+ser suficientemente concreta para producir un cambio comprobable y debe
+relacionarse con un requisito o escenario.
+
+Durante la implementación puede descubrirse una decisión nueva. Si cambia el
+comportamiento o el alcance, el cambio debe actualizar sus artefactos en lugar
+de dejar la decisión solo en el código o en una conversación informal.
+
+### 5.4 Verificación
+
+Verificar significa demostrar que los escenarios se cumplen. La evidencia puede
+ser una prueba unitaria, una prueba de integración, una comprobación manual o
+una combinación de ellas, según la propiedad que se verifica.
+
+Un cambio no está completo porque las tareas estén marcadas: está completo
+cuando el comportamiento implementado coincide con la especificación y la
+documentación resultante puede explicar la decisión.
+
+## 6. Deltas y sincronización
+
+Una **especificación delta** describe la diferencia entre el comportamiento
+vigente y el comportamiento propuesto. OpenSpec usa operaciones explícitas:
 
 | Operación | Significado |
 | --- | --- |
-| **Añadido** | Un requisito nuevo que no existía |
-| **Modificado** | Un requisito existente cambia de comportamiento |
-| **Eliminado** | Un requisito deja de existir, con razón y migración |
-| **Renombrado** | El requisito cambia de nombre sin cambiar de fondo |
+| `ADDED` | Aparece un requisito nuevo |
+| `MODIFIED` | Cambia el comportamiento de un requisito existente |
+| `REMOVED` | El requisito deja de aplicar, con una razón documentada |
+| `RENAMED` | Cambia el identificador o título sin cambiar necesariamente el comportamiento |
 
-Merece atención **Modificado**: un delta de este tipo debe llevar el requisito **completo** —su descripción y todos los escenarios que sobreviven—, no solo el fragmento que cambia. La razón es que la integración **reemplaza** el requisito en la especificación vigente; si el delta trajera solo la diferencia, la integración perdería lo demás. Es un error frecuente y silencioso.
+Un delta `MODIFIED` debe incluir el requisito completo y sus escenarios que siguen
+vigentes. Si solo contiene una frase parcial, una sincronización que reemplace el
+requisito puede borrar accidentalmente escenarios anteriores.
 
-La cualidad deseada de todo el proceso es la **idempotencia**: aplicar los deltas dos veces debe dejar el mismo resultado que aplicarlos una. Por eso la integración se piensa como "dejar la especificación en el estado correcto", no como "aplicar un parche".
+La **sincronización** integra los deltas aprobados en `openspec/specs/`. Es una
+operación semántica: deja la especificación vigente en el estado correcto, no
+simplemente concatena archivos.
 
-### 3.6 Cómo una especificación restringe la implementación
+La propiedad deseable es la **idempotencia**: sincronizar un cambio ya integrado
+no debe duplicar requisitos ni cambiar el resultado. Después de sincronizar, el
+directorio de cambio conserva el contexto histórico hasta ser archivado.
 
-Una especificación no es un adorno documental; condiciona el trabajo de tres maneras:
+## 7. Trazabilidad y verificación
 
-- **Define la aceptación.** El criterio de "terminado" no es una opinión: es que los escenarios se cumplan.
-- **Fija el alcance.** La sección de "fuera de alcance" es una decisión registrada; lo que no está, no se hace en ese cambio.
-- **Impide la deriva.** Al integrar los deltas al cerrar el cambio, si el código y las especificaciones no coinciden, la discrepancia se hace visible. Las especificaciones no pueden quedarse atrás en silencio.
+La **trazabilidad** es la relación que permite seguir una decisión desde su
+motivo hasta su evidencia:
 
-### 3.7 Relación con el código y con esta guía
+```mermaid
+flowchart TB
+    Requirement["Requisito"] --> Scenario["Escenario"]
+    Scenario --> Test["Prueba o verificación"]
+    Requirement --> Task["Tarea"]
+    Task --> Code["Código"]
+    Design["Decisión de diseño"] --> Code
+    Test --> Evidence["Evidencia de resultado"]
+```
 
-Hay tres registros distintos, y conviene no confundirlos:
+Una matriz de trazabilidad puede responder:
 
-| Registro | Responde a | Dónde vive |
+| Pregunta | Relación |
+| --- | --- |
+| ¿Por qué existe este código? | Código → tarea → propuesta |
+| ¿Qué comportamiento protege? | Código → requisito → escenario |
+| ¿Cómo sé que funciona? | Escenario → prueba → resultado |
+| ¿Por qué se eligió esta solución? | Código → decisión de diseño |
+| ¿Qué documentación debe actualizarse? | Cambio → capacidades y contratos afectados |
+
+La trazabilidad no obliga a enlazar cada línea con un documento. Su utilidad es
+mantener relaciones significativas entre comportamiento, decisión e información
+que permite verificarlo.
+
+## 8. Archivo e historial
+
+**Archivar** un cambio es cerrarlo después de implementar, verificar y sincronizar
+sus deltas. El archivo conserva la propuesta, el diseño, las tareas y las
+especificaciones del cambio con su fecha.
+
+El archivo sirve para dos propósitos:
+
+- registrar decisiones históricas que explican por qué el sistema tiene su forma
+  actual;
+- impedir que `changes/` acumule propuestas que parecen activas cuando ya
+  terminaron.
+
+Archivar no sustituye la sincronización. La especificación vigente debe reflejar
+primero el comportamiento actual; el archivo conserva cómo se llegó a ese
+estado.
+
+Cuando el código, las especificaciones y la documentación divergen, la solución
+no es ocultar la diferencia. Se debe decidir cuál es el comportamiento correcto,
+actualizar el artefacto que corresponda y dejar una nueva decisión trazable si
+el cambio modifica el contrato.
+
+## 9. Otras formas de gestionar requisitos
+
+SDD es una estrategia entre varias. Para contextualizar:
+
+| Enfoque | Unidad principal | Fortaleza |
 | --- | --- | --- |
-| **Comportamiento exigido** | ¿Qué debe hacer el sistema? | `openspec/specs/` |
-| **Cambio en curso** | ¿Qué vamos a cambiar y por qué? | `openspec/changes/` |
-| **Cómo es hoy y cómo funciona** | ¿Qué hay y cómo está construido? | `docs/` (incluida esta guía) |
-| **La realidad ejecutable** | ¿Qué hace de verdad el software? | El código |
+| Historias de usuario | Necesidad de una persona | Centra la conversación en valor y resultado |
+| BDD | Ejemplos compartidos | Hace los criterios legibles para negocio y desarrollo |
+| RFC o ADR | Decisión técnica | Conserva alternativas, razones y consecuencias |
+| Gestión tradicional | Documento de requisitos completo | Útil con contratos estables y regulación formal |
+| Desarrollo iterativo | Incremento pequeño y feedback | Reduce el riesgo mediante entregas frecuentes |
+| Test-first/TDD | Prueba antes de implementación | Fuerza interfaces y feedback rápido sobre diseño |
 
-La conexión entre ellos es bidireccional: los **escenarios** de una especificación son las **pruebas** que el código debe pasar, y las **decisiones** del diseño son las que esta guía explica como mecanismos. Cuando se quiere entender por qué una parte del sistema está construida de cierta forma, el diseño del cambio que la introdujo suele contener esa respuesta.
-
----
-
-## 4. Ideas clave
-
-- **SDD** escribe el comportamiento esperado como artefacto de referencia, antes o junto con el código.
-- Una **especificación** describe *qué* se observa; el **diseño** describe *cómo*; las **tareas**, *en qué orden*; la **propuesta**, *por qué y qué*.
-- Un **requisito** es normativo y lleva **al menos un escenario** verificable.
-- Si la implementación puede cambiar sin alterar el comportamiento visible, **no pertenece a la especificación**.
-- OpenSpec separa **especificaciones vigentes**, **cambios en curso** e **histórico archivado**.
-- Los cambios viven aparte con sus **deltas**; las especificaciones vigentes solo se actualizan al **integrar** el cambio.
-- Un delta de tipo **Modificado** debe traer el requisito **completo**, no solo la diferencia.
-- El proceso busca la **idempotencia**: integrar dos veces da el mismo resultado.
-- La especificación **restringe** la implementación: define la aceptación, fija el alcance y evita la deriva.
-- Los **escenarios** son el puente entre la especificación y las pruebas.
+Estos enfoques se pueden combinar. En Careme, OpenSpec aporta el registro de
+cambios y deltas; los escenarios se relacionan naturalmente con las pruebas, y
+los documentos de `docs/` explican la arquitectura y los conceptos que resultan
+del sistema construido.

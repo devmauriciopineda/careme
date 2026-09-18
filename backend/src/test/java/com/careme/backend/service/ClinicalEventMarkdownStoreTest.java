@@ -78,4 +78,98 @@ class ClinicalEventMarkdownStoreTest {
 
         assertThat(Files.readString(eventsDirectory.resolve("evt_001.md"))).isEqualTo(persisted);
     }
+
+    @Test
+    void publishesSeveralDocumentsAtomicallyAndReadsOnlyMarkdownFiles() throws Exception {
+        ClinicalEventMarkdownStore store = new ClinicalEventMarkdownStore(eventsDirectory);
+
+        store.writeAtomically(List.of(sampleEvent(), eventWithCode("evt_002")));
+        Files.writeString(eventsDirectory.resolve("notes.txt"), "ignore me");
+
+        assertThat(store.readAll()).extracting(ClinicalEvent::code)
+                .containsExactlyInAnyOrder("evt_001", "evt_002");
+    }
+
+    @Test
+    void returnsEmptyForMissingDirectoryAndDeletesExistingOrMissingDocuments() throws Exception {
+        ClinicalEventMarkdownStore store = new ClinicalEventMarkdownStore(eventsDirectory.resolve("missing"));
+
+        assertThat(store.readAll()).isEmpty();
+        store.write(sampleEvent());
+        store.delete("evt_001");
+        store.delete("evt_999");
+
+        assertThat(store.readAll()).isEmpty();
+    }
+
+    @Test
+    void reservesCodesWhileIgnoringNonCodeAndMalformedDocuments() throws Exception {
+        ClinicalEventMarkdownStore store = new ClinicalEventMarkdownStore(eventsDirectory);
+
+        Files.writeString(eventsDirectory.resolve("evt_bad.md"), "not an event");
+        Files.writeString(eventsDirectory.resolve("evt_004.md"), "not an event");
+        Files.writeString(eventsDirectory.resolve("other.txt"), "not an event");
+
+        assertThat(store.reserveCodes(2)).containsExactly("evt_005", "evt_006");
+    }
+
+    @Test
+    void serializesAndReadsEventsWithoutOptionalDates() throws Exception {
+        ClinicalEvent event = new ClinicalEvent(
+                UUID.randomUUID(),
+                "evt_010",
+                ClinicalEvent.ClinicalEventType.NOTE,
+                null,
+                ClinicalEvent.DatePrecision.UNKNOWN,
+                null,
+                "Sin fecha conocida",
+                ClinicalEvent.EventSource.PATIENT,
+                OffsetDateTime.parse("2026-09-13T10:15:30Z"));
+        ClinicalEventMarkdownStore store = new ClinicalEventMarkdownStore(eventsDirectory);
+
+        store.write(event);
+
+        var loaded = store.read("evt_010");
+        assertThat(loaded.id()).isEqualTo(event.id());
+        assertThat(loaded.date()).isNull();
+        assertThat(loaded.dateText()).isEmpty();
+        assertThat(loaded.content()).isEqualTo(event.content());
+    }
+
+    @Test
+    void rejectsMalformedMarkdown() {
+        assertThatThrownBy(() -> ClinicalEventMarkdownStore.deserialize("not markdown"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("front matter");
+        assertThatThrownBy(() -> ClinicalEventMarkdownStore.deserialize(
+                "---\nid: 6f1d0f9a-1f5f-4a0e-9a4e-4f0f6a1c2b3d\n---\nbody"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("body");
+    }
+
+            @Test
+            void handlesMissingDirectoriesEscapedTextAndUnreadableDocuments() throws Exception {
+            ClinicalEventMarkdownStore missingStore = new ClinicalEventMarkdownStore(eventsDirectory.resolve("absent"));
+            assertThat(missingStore.reserveCodes(1)).containsExactly("evt_001");
+
+            String escaped = "---\n"
+                + "id: 6f1d0f9a-1f5f-4a0e-9a4e-4f0f6a1c2b3d\n"
+                + "code: evt_020\n"
+                + "type: note\n"
+                + "date: \n"
+                + "date_precision: unknown\n"
+                + "date_text: \"hoy \\\"literal\\\"\"\n"
+                + "source: patient\n"
+                + "created_at: 2026-09-13T10:15:30Z\n"
+                + "---\n\n# note\n\nContenido\n";
+            assertThat(ClinicalEventMarkdownStore.deserialize(escaped).dateText())
+                .isEqualTo("hoy \"literal\"");
+
+            Files.createDirectories(eventsDirectory);
+            Files.writeString(eventsDirectory.resolve("broken.md"), "broken");
+            ClinicalEventMarkdownStore store = new ClinicalEventMarkdownStore(eventsDirectory);
+            assertThatThrownBy(store::readAll)
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("front matter");
+            }
 }

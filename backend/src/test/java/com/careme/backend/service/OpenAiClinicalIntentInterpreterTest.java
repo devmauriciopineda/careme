@@ -109,6 +109,122 @@ class OpenAiClinicalIntentInterpreterTest {
     }
 
     @Test
+    void mapsEventsWithDatesAndRecentTurns() throws Exception {
+        respond(200, "{\"choices\":[{\"message\":{\"content\":\"{\\\"kind\\\":\\\"events\\\",\\\"events\\\":[{\\\"type\\\":\\\"medication\\\",\\\"content\\\":\\\"Tomo ibuprofeno\\\",\\\"date\\\":\\\"2026-09-12\\\",\\\"date_precision\\\":\\\"exact\\\",\\\"date_text\\\":\\\"ayer\\\"}]}\"}}]}");
+
+        var interpreter = interpreter(Duration.ofSeconds(1), Duration.ofSeconds(1));
+        var intent = interpreter.interpret(
+                "Ayer tomé ibuprofeno",
+                new ClinicalIntentInterpreter.InterpretationContext(
+                        java.time.LocalDate.of(2026, 9, 13),
+                        java.time.ZoneId.of("UTC"),
+                        "clinical-intent-v3",
+                        java.util.List.of("¿Qué tomé?")));
+
+        assertThat(intent.kind()).isEqualTo(com.careme.backend.dto.ClinicalEventIntent.Kind.EVENTS);
+        assertThat(intent.events()).singleElement().satisfies(event -> {
+            assertThat(event.type()).isEqualTo(com.careme.backend.entity.ClinicalEvent.ClinicalEventType.MEDICATION);
+            assertThat(event.date()).isEqualTo(java.time.LocalDate.of(2026, 9, 12));
+            assertThat(event.datePrecision())
+                    .isEqualTo(com.careme.backend.entity.ClinicalEvent.DatePrecision.EXACT);
+        });
+    }
+
+    @Test
+    void mapsAnEventWithUnknownDateFields() throws Exception {
+        respond(200, "{\"choices\":[{\"message\":{\"content\":\"{\\\"kind\\\":\\\"events\\\",\\\"events\\\":[{\\\"type\\\":\\\"note\\\",\\\"content\\\":\\\"Sin fecha\\\",\\\"date\\\":null,\\\"date_precision\\\":\\\"unknown\\\",\\\"date_text\\\":null}]}\"}}]}");
+
+        var intent = interpreter(Duration.ofSeconds(1), Duration.ofSeconds(1))
+                .interpret("Tuve una molestia", context());
+
+        assertThat(intent.events()).singleElement().satisfies(event -> {
+            assertThat(event.date()).isNull();
+            assertThat(event.dateText()).isNull();
+            assertThat(event.datePrecision())
+                    .isEqualTo(com.careme.backend.entity.ClinicalEvent.DatePrecision.UNKNOWN);
+        });
+    }
+
+    @Test
+    void appliesQueryDefaultsAndFiltersBlankSearchValues() throws Exception {
+        respond(200, "{\"choices\":[{\"message\":{\"content\":\"{\\\"kind\\\":\\\"query\\\",\\\"question\\\":\\\"¿Qué ocurrió?\\\",\\\"search_terms\\\":[\\\"dolor\\\",\\\" \\\",3],\\\"general_part\\\":\\\"  \\\"}\"}}]}");
+
+        var interpreter = interpreter(Duration.ofSeconds(1), Duration.ofSeconds(1));
+        var query = interpreter.interpret("¿Qué ocurrió?", context()).query();
+
+        assertThat(query.scope()).isEqualTo(com.careme.backend.dto.ClinicalEventIntent.Query.Scope.HISTORY);
+        assertThat(query.searchTerms()).containsExactly("dolor");
+        assertThat(query.type()).isNull();
+        assertThat(query.fromDate()).isNull();
+        assertThat(query.toDate()).isNull();
+        assertThat(query.generalPart()).isNull();
+    }
+
+    @Test
+    void appliesParserDefaultsToMissingQueryFields() throws Exception {
+        respond(200, "{\"choices\":[{\"message\":{\"content\":\"{\\\"kind\\\":\\\"query\\\",\\\"question\\\":\\\"¿Qué ocurrió?\\\",\\\"scope\\\":\\\" \\\",\\\"search_terms\\\":\\\"dolor\\\",\\\"type\\\":\\\" \\\",\\\"date_from\\\":\\\" \\\",\\\"date_to\\\":null,\\\"general_part\\\":3}\"}}]}");
+
+        var query = interpreter(Duration.ofSeconds(1), Duration.ofSeconds(1))
+                .interpret("¿Qué ocurrió?", context()).query();
+
+        assertThat(query.scope()).isEqualTo(com.careme.backend.dto.ClinicalEventIntent.Query.Scope.HISTORY);
+        assertThat(query.searchTerms()).isEmpty();
+        assertThat(query.type()).isNull();
+        assertThat(query.fromDate()).isNull();
+        assertThat(query.toDate()).isNull();
+        assertThat(query.generalPart()).isNull();
+    }
+
+    @Test
+    void appliesDefaultsWhenOptionalQueryNodesAreAbsent() throws Exception {
+        respond(200, "{\"choices\":[{\"message\":{\"content\":\"{\\\"kind\\\":\\\"query\\\",\\\"question\\\":\\\"¿Qué ocurrió?\\\"}\"}}]}");
+
+        var query = interpreter(Duration.ofSeconds(1), Duration.ofSeconds(1))
+                .interpret("¿Qué ocurrió?", context()).query();
+
+        assertThat(query.scope()).isEqualTo(com.careme.backend.dto.ClinicalEventIntent.Query.Scope.HISTORY);
+        assertThat(query.searchTerms()).isEmpty();
+        assertThat(query.type()).isNull();
+        assertThat(query.fromDate()).isNull();
+        assertThat(query.toDate()).isNull();
+        assertThat(query.generalPart()).isNull();
+    }
+
+    @Test
+    void rejectsEmptyEventsAndMissingApiKey() throws Exception {
+        respond(200, "{\"choices\":[{\"message\":{\"content\":\"{\\\"kind\\\":\\\"events\\\",\\\"events\\\":[]}\"}}]}");
+        var interpreter = interpreter(Duration.ofSeconds(1), Duration.ofSeconds(1));
+
+        assertThatThrownBy(() -> interpreter.interpret("Tuve fiebre", context()))
+                .isInstanceOf(LlmIntegrationException.class)
+                .hasMessage("LLM response does not match the clinical intent schema");
+        assertThatThrownBy(() -> new OpenAiClinicalIntentInterpreter(
+                RestClient.builder(),
+                new ObjectMapper(),
+                "http://localhost",
+                " ",
+                "model",
+                Duration.ofSeconds(1),
+                Duration.ofSeconds(1),
+                new ClassPathResource("prompts/clinical-intent-v3.txt")))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("CAREME_LLM_API_KEY");
+    }
+
+            @Test
+            void rejectsUnknownIntentKindAndNonArrayEvents() throws Exception {
+            respond(200, "{\"choices\":[{\"message\":{\"content\":\"{\\\"kind\\\":\\\"other\\\"}\"}}]}");
+            var interpreter = interpreter(Duration.ofSeconds(1), Duration.ofSeconds(1));
+            assertThatThrownBy(() -> interpreter.interpret("Hola", context()))
+                .isInstanceOf(LlmIntegrationException.class);
+
+            server.removeContext("/chat/completions");
+            respond(200, "{\"choices\":[{\"message\":{\"content\":\"{\\\"kind\\\":\\\"events\\\",\\\"events\\\":{}}\"}}]}");
+            assertThatThrownBy(() -> interpreter.interpret("Tuve fiebre", context()))
+                .isInstanceOf(LlmIntegrationException.class);
+            }
+
+    @Test
     void rejectsAnUnknownQueryScope() throws Exception {
         respond(200, "{\"choices\":[{\"message\":{\"content\":\"{\\\"kind\\\":\\\"query\\\",\\\"question\\\":\\\"¿Cuándo?\\\",\\\"scope\\\":\\\"otro\\\",\\\"search_terms\\\":[\\\"x\\\"]}\"}}]}");
 

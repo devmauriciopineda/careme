@@ -1,147 +1,449 @@
 # 02 — Frontend: renderizado y comunicación
 
-Este documento explica **dónde se ejecuta** cada parte de la interfaz, **cómo viajan los datos** entre el servidor y el navegador, y **por qué** el frontend está construido con un modelo de renderizado en servidor con islas de interactividad.
+Este documento explica cómo está construido el frontend de Careme, dónde se
+ejecuta cada parte, cómo viajan los datos entre servidor y navegador y qué
+reglas permiten ampliar la interfaz sin romper sus límites ni su estilo visual.
 
----
+## Índice
 
-## 1. ¿Qué es?
+1. [Qué es el frontend](#1-qué-es-el-frontend)
+2. [El stack y sus responsabilidades](#2-el-stack-y-sus-responsabilidades)
+3. [Estructura del proyecto](#3-estructura-del-proyecto)
+4. [Features y composición de la interfaz](#4-features-y-composición-de-la-interfaz)
+5. [Modelos de renderizado](#5-modelos-de-renderizado)
+6. [El modelo usado en Careme](#6-el-modelo-usado-en-careme)
+7. [Comunicación con el backend](#7-comunicación-con-el-backend)
+8. [Estilos y componentes reutilizables](#8-estilos-y-componentes-reutilizables)
+9. [Estados, errores y actualización](#9-estados-errores-y-actualización)
 
-El frontend es una aplicación **React sobre Next.js con App Router**. Su modelo de renderizado no es "todo en el navegador": por defecto, los componentes son **Server Components**, es decir, se ejecutan en el servidor y no envían JavaScript al navegador. La interactividad se concentra en **islas**: componentes que sí se ejecutan en el navegador porque necesitan APIs que solo existen allí.
+## 1. Qué es el frontend
 
-Los términos que hay que retener:
+El **frontend** es la parte de una aplicación que presenta información y recibe
+interacciones de la persona. En una aplicación web moderna no es únicamente
+HTML y CSS: también incluye código que se ejecuta en un servidor, código que se
+ejecuta en el navegador, comunicación con servicios externos y reglas para
+convertir datos en una interfaz observable.
 
-- **Server Component**: componente que se ejecuta en el servidor. Puede ser asíncrono y hacer trabajo pesado antes de enviar HTML. No puede usar estado ni eventos.
-- **Client Component**: componente marcado explícitamente para ejecutarse en el navegador. Puede usar estado, efectos y eventos.
-- **Isla (client island)**: porción interactiva incrustada dentro de una página que, en su mayoría, es estática y ya viene renderizada.
-- **Hidratación**: proceso por el que el navegador toma el HTML ya enviado y le "pega" el comportamiento del cliente.
-- **Server Action**: función que se declara en el servidor y que el navegador puede invocar como si fuera local; el transporte ocurre por debajo.
-- **Frontera de serialización**: el límite donde los datos dejan de ser objetos del servidor y pasan a ser datos transportables al cliente.
+Careme usa **React** sobre **Next.js**, con TypeScript, para construir una
+interfaz compuesta por tres capacidades principales: chat en `/`, inspección de
+eventos clínicos en `/clinical-events` y seguimiento corporal en
+`/measurements`.
 
-La aplicación tiene dos rutas: la entrada del asistente en `/` y la vista de seguimiento corporal en `/measurements`.
+Una interfaz tiene dos responsabilidades distintas:
 
----
+- **Presentación:** convertir datos válidos en una estructura visual accesible.
+- **Interacción:** recibir eventos del navegador, validar entradas y solicitar
+  cambios al sistema.
 
-## 2. ¿Por qué se utiliza aquí?
+Separar ambas responsabilidades permite que una página pueda prepararse en el
+servidor y que solo las partes que necesitan interacción reciban JavaScript de
+cliente.
 
-**Por qué renderizar en el servidor.** Buena parte de lo que se ve son **datos derivados**: series de un gráfico, dominios de ejes, etiquetas de fecha y resúmenes. Calcularlos en el servidor tiene tres ventajas concretas: el navegador recibe HTML listo para mostrar, se envía menos JavaScript, y el cálculo se hace una sola vez, en un entorno controlado. Esto último importa para las **fechas**: si se formatearan en el navegador, el resultado dependería de la zona horaria de cada visitante; hacerlo en el servidor con una zona fija garantiza que una fecha-calendario se vea igual en todas partes.
+## 2. El stack y sus responsabilidades
 
-**Por qué islas en lugar de client components generalizados.** Los gráficos y los formularios sí necesitan el navegador: los primeros dibujan sobre el DOM; los segundos gestionan la interacción y el foco. Confinarlos en islas mantiene el resto de la página como contenido ya renderizado, sin coste de interactividad innecesario.
+Un **stack tecnológico** es el conjunto de lenguajes, bibliotecas, frameworks y
+herramientas que colaboran para construir y ejecutar una aplicación. En Careme,
+cada pieza aporta una capacidad concreta:
 
-**Por qué una frontera de datos separada.** Todas las llamadas a la API salen desde el **servidor** del frontend. Por eso el navegador nunca conoce la dirección del backend: no hay una variable pública con la URL. Esa frontera también es el lugar donde se **valida** lo que llega, de modo que el resto de la aplicación solo trabaja con datos bien formados.
+| Tecnología | Responsabilidad en el frontend |
+| --- | --- |
+| React 19 | Modelo de componentes, composición y actualización de la interfaz |
+| Next.js 16 | Enrutamiento, renderizado servidor/cliente, Server Actions y build |
+| TypeScript 5 | Tipado estático del código y de los contratos internos |
+| Tailwind CSS 4 | Utilidades de estilo y tokens visuales |
+| shadcn/ui + Radix | Componentes accesibles y composables |
+| Recharts | Gráficos de las métricas corporales |
+| Zod | Validación de datos en tiempo de ejecución |
+| Vitest + Testing Library | Pruebas de lógica y componentes |
+| pnpm | Instalación reproducible y ejecución de scripts |
 
-**Por qué acciones de servidor para escribir.** Al escribir desde una acción, la petición sale del servidor, el navegador sigue sin conocer la API, y la acción puede **invalidar** los datos ya renderizados para que la vista se refresque sola. La interfaz no necesita orquestar un `fetch` ni decidir cuándo recargar.
+### 2.1 Qué aporta React
 
----
+**React** es una biblioteca para construir interfaces mediante componentes. Un
+**componente** es una función que recibe propiedades (`props`) y produce una
+representación de la interfaz. La composición permite construir una pantalla
+grande a partir de piezas pequeñas con responsabilidades explícitas.
 
-## 3. ¿Qué ocurre bajo el capó?
+```tsx
+type GreetingProps = { name: string };
 
-### 3.1 El modelo de renderizado, en una página real
-
-La ruta de mediciones es un **Server Component** que compone tres piezas: el formulario y la importación —ambos islas cliente, porque interactúan— y el panel de datos, que es asíncrono y se ejecuta en el servidor.
-
-El panel es el ejemplo más claro del modelo:
-
-```text
-Panel (async, servidor)
-  └─ await obtenerMediciones()          // I/O en el servidor
-  └─ si no hay datos → mensaje de vacío
-  └─ por cada métrica:
-       serie  = construir puntos        // lógica pura, servidor
-       dominio = calcular rango del eje // lógica pura, servidor
-  └─ renderiza N gráficos + tabla
+function Greeting({ name }: GreetingProps) {
+  return <p>Hola, {name}</p>;
+}
 ```
 
-Cuando el panel produce el gráfico, **no le pasa objetos ni funciones**: le entrega datos ya resueltos. El gráfico es una isla cliente y recibe únicamente valores primitivos —etiquetas ya formateadas y números—, nunca objetos de fecha ni lógica de formateo.
+React mantiene una representación interna del árbol de elementos y actualiza el
+DOM cuando cambian los datos relevantes. El **estado** es información que puede
+cambiar durante la vida de un componente; un **evento** es una notificación de
+una acción del navegador, como un clic o el envío de un formulario.
 
-**Por qué ese detalle es importante.** Todo lo que cruza la frontera de serialización debe poder transportarse. Si el servidor enviara un objeto de fecha, el cliente tendría que formatearlo, y volvería el problema de la zona horaria. Al resolver el formato en el servidor, el cliente solo dibuja. La regla práctica es: **calcula en el servidor, dibuja en el cliente, y cruza solo primitivos**.
+React aporta principalmente:
 
-### 3.2 Renderizado y hidratación
+- composición de componentes;
+- propiedades y estado para representar datos cambiantes;
+- renderizado declarativo, donde el código describe qué debe verse para cada
+  estado;
+- un modelo de eventos y ciclo de vida para las islas que se ejecutan en el
+  navegador.
+
+React no define por sí solo rutas, acceso al backend ni construcción para
+producción. Esas responsabilidades las cubre Next.js.
+
+### 2.2 Qué aporta Next.js
+
+**Next.js** es un framework de React que define convenciones para construir una
+aplicación web completa. En este proyecto aporta:
+
+- **App Router:** el árbol de carpetas bajo `src/app/` define rutas y archivos
+  especiales como `layout.tsx`, `loading.tsx` y `error.tsx`;
+- **Server Components:** componentes que se ejecutan en el servidor por
+  defecto;
+- **Client Components:** componentes marcados con `"use client"` para estado,
+  eventos y APIs del navegador;
+- **Server Actions:** funciones de servidor invocables desde la interfaz para
+  operaciones de escritura;
+- **renderizado y streaming:** preparación de HTML y datos antes de entregarlos
+  al navegador;
+- **build de producción:** compilación, optimización y salida autónoma para el
+  contenedor.
+
+La ruta de una página se determina por su ubicación. Por ejemplo:
+
+```text
+src/app/clinical-events/page.tsx  ->  /clinical-events
+src/app/measurements/page.tsx     ->  /measurements
+```
+
+### 2.3 Qué aporta TypeScript
+
+**TypeScript** es JavaScript con un sistema de tipos estático. Un tipo describe
+qué valores puede manejar una operación y qué propiedades tiene una estructura.
+El compilador comprueba esas relaciones antes de ejecutar el programa.
+
+```ts
+type Measurement = {
+  date: string;
+  weightKg: number;
+  waistCm: number;
+};
+
+function formatWeight(measurement: Measurement): string {
+  return `${measurement.weightKg.toFixed(1)} kg`;
+}
+```
+
+El tipado estático detecta usos incompatibles durante `typecheck`, pero no
+valida datos que llegan por HTTP en tiempo de ejecución. Por eso Careme combina
+TypeScript con Zod: TypeScript protege el código que ya se conoce y Zod protege
+la frontera donde llegan datos externos.
+
+## 3. Estructura del proyecto
+
+La estructura del frontend separa rutas, funcionalidades, componentes visuales,
+servicios y pruebas. Cada zona tiene una razón distinta para cambiar:
+
+```text
+frontend/src/
+├── app/              # rutas, layouts y estados de ruta
+├── components/ui/    # primitivas visuales reutilizables
+├── features/         # capacidades completas del producto
+├── services/         # frontera con la API
+├── lib/              # utilidades transversales
+└── test/             # configuración común de pruebas
+```
+
+### 3.1 `src/app/`: rutas y composición
+
+El **App Router** interpreta el sistema de archivos como un árbol de rutas.
+`page.tsx` define el contenido de una ruta; `layout.tsx` define una envoltura
+compartida; `loading.tsx` representa una espera; `error.tsx` captura errores de
+renderizado de ese segmento.
+
+```text
+src/app/
+├── layout.tsx
+├── page.tsx
+├── clinical-events/
+│   ├── page.tsx
+│   ├── loading.tsx
+│   └── error.tsx
+└── measurements/
+    ├── page.tsx
+    ├── loading.tsx
+    └── error.tsx
+```
+
+La carpeta `app/` compone las páginas; no debe convertirse en el lugar donde se
+acumula toda la lógica de negocio o de acceso a datos.
+
+### 3.2 `src/components/ui/`: primitivas visuales
+
+Una **primitiva de interfaz** es un componente pequeño que resuelve una
+necesidad visual o de interacción general, como un botón, una tarjeta, un campo
+o una tabla. No conoce la lógica específica de mediciones o chat. Las
+funcionalidades las combinan para formar pantallas.
+
+### 3.3 `src/services/`: frontera de datos
+
+Un **servicio frontend** es un módulo que encapsula una operación de comunicación
+con el backend. En Careme, `measurementService`, `chatService` y
+`clinicalEventService` conocen las rutas HTTP, la envoltura de respuesta y la
+validación Zod. Los componentes reciben datos ya convertidos a estructuras
+útiles y no construyen URLs ni interpretan respuestas crudas.
+
+### 3.4 Otras zonas
+
+- `src/lib/` contiene utilidades transversales, como la combinación de clases.
+- `src/test/` configura el entorno común de Vitest y Testing Library.
+- `e2e/playwright/` reserva el espacio para pruebas de extremo a extremo.
+- `components.json` configura shadcn/ui, sus alias y su integración con
+  Tailwind.
+
+## 4. Features y composición de la interfaz
+
+Una **feature** es un módulo organizado alrededor de una capacidad observable,
+no alrededor de una extensión de archivo. Una feature puede contener
+componentes, tipos, validadores, acciones de servidor y lógica pura que cambian
+por la misma razón.
+
+Careme organiza sus capacidades así:
+
+| Feature | Responsabilidad |
+| --- | --- |
+| `features/chat/` | Composición del chat, acciones, tipos y estados de respuesta |
+| `features/clinical-events/` | Lista, filtros, orden, detalle y estados de inspección |
+| `features/measurements/` | Panel, gráficos, tabla, formulario, importación y métricas |
+
+La composición sigue una dirección clara:
+
+```mermaid
+flowchart TB
+    Route["src/app/<br/>ruta"] --> Feature["features/<br/>capacidad"]
+    Feature --> UI["components/ui<br/>primitivas"]
+    Feature --> Service["services/<br/>API validada"]
+    Service --> Backend["Backend HTTP"]
+```
+
+Una feature puede usar primitivas compartidas y servicios, pero una primitiva
+visual no debe depender de una feature concreta. Esta dirección mantiene
+reutilizable la capa visual.
+
+## 5. Modelos de renderizado
+
+El **renderizado** es el proceso de convertir componentes y datos en HTML y
+comportamiento ejecutable. La diferencia principal entre modelos es dónde y
+cuándo se realiza ese proceso.
+
+### 5.1 Renderizado del lado del cliente
+
+En **Client-Side Rendering (CSR)**, el navegador recibe una estructura inicial y
+JavaScript que obtiene datos y construye gran parte de la interfaz en el
+cliente. Su ventaja es una interacción rica después de cargar el código. Su
+coste es enviar más JavaScript y retrasar el contenido útil hasta que el código
+se ejecute.
+
+```text
+Navegador -> descarga JavaScript -> obtiene datos -> construye la interfaz
+```
+
+### 5.2 Renderizado del lado del servidor
+
+En **Server-Side Rendering (SSR)**, el servidor ejecuta componentes y obtiene
+datos antes de enviar HTML. El navegador puede mostrar contenido antes de
+descargar toda la lógica interactiva. El coste es que cada render depende del
+servidor y de sus fuentes de datos.
+
+```text
+Servidor -> obtiene datos -> renderiza HTML -> navegador muestra contenido
+```
+
+SSR no significa que toda la aplicación sea estática. Una página puede tener
+partes renderizadas en servidor y pequeñas partes interactivas en cliente.
+
+### 5.3 Generación estática y renderizado híbrido
+
+La **generación estática** produce HTML durante la construcción o antes de una
+petición. Es apropiada cuando los datos cambian poco. El **renderizado híbrido**
+combina estrategias: algunas rutas o componentes pueden ser estáticos, otros
+dinámicos y otros interactivos en el navegador.
+
+Next.js permite esta combinación mediante Server Components, Client Components,
+obtención de datos en servidor y revalidación.
+
+## 6. El modelo usado en Careme
+
+Careme usa un modelo **server-first**: los Server Components son el valor
+predeterminado y los Client Components aparecen solo donde hacen falta estado,
+eventos o APIs del navegador.
+
+Un **Server Component** se ejecuta en el servidor, puede ser asíncrono y puede
+leer datos sin enviar esa lógica al navegador. No puede usar estado de React ni
+eventos de navegador. Un **Client Component** se marca con `"use client"`, se
+incluye en el código del navegador y puede usar estado, efectos y eventos.
+
+Una **isla de cliente** es una porción interactiva dentro de una página que en
+su mayor parte fue preparada en el servidor. La **hidratación** es el proceso
+por el que JavaScript conecta eventos y estado con el HTML ya recibido.
+
+El flujo de mediciones ilustra la composición:
+
+```text
+MeasurementsDashboard (servidor, asíncrono)
+├── obtiene mediciones
+├── deriva series, ejes y etiquetas
+├── MeasurementsTable (renderizado)
+├── MetricTrendChart (isla cliente: Recharts)
+└── MeasurementForm (isla cliente: formulario)
+```
+
+El servidor envía a las islas valores serializables, como cadenas y números.
+No envía objetos `Date` ni funciones. Así, el formato de fechas se resuelve en
+un único entorno y no depende de la zona horaria del navegador.
 
 ```mermaid
 sequenceDiagram
     participant B as Navegador
-    participant S as Servidor (Next.js)
-    S->>S: ejecuta Server Components
-    S->>S: deriva series, dominios y fechas
-    S-->>B: HTML ya renderizado
-    B->>B: muestra el contenido
-    B->>B: hidrata las islas (gráfico, formularios)
+    participant S as Next.js (servidor)
+    participant API as Backend
+    S->>API: solicita datos
+    API-->>S: respuesta JSON
+    S->>S: valida y deriva datos visuales
+    S-->>B: HTML + props serializables
+    B->>B: hidrata solo las islas interactivas
 ```
 
-La hidratación conecta comportamiento a HTML existente. Si el HTML del servidor y el primer render del cliente no coincidieran, aparecería un error de hidratación. Derivar todo en el servidor y pasar primitivos es precisamente lo que hace predecible ese primer render.
+## 7. Comunicación con el backend
 
-### 3.3 Obtención y validación de datos
+La **frontera de datos** es el conjunto de módulos que traduce entre el
+contrato HTTP y los tipos que consume la interfaz. En Careme vive en
+`src/services/` y se ejecuta en el servidor.
 
-La frontera de datos vive en `src/services/`. Su forma es siempre la misma:
+El recorrido general es:
 
 ```text
-petición HTTP  →  comprobar estado  →  desenvolver la envoltura  →  validar  →  devolver
+URL base + ruta -> fetch -> estado HTTP -> envoltura -> Zod -> datos tipados
 ```
 
-Tres decisiones merecen atención:
+Una validación de respuesta representa una defensa contra datos externos. Un
+tipo TypeScript no basta, porque desaparece al ejecutar JavaScript; un esquema
+Zod conserva reglas ejecutables:
 
-- **Sin caché.** Las mediciones pueden cambiar fuera de esta aplicación, así que se pide siempre el dato fresco (`cache: "no-store"`). Servir una copia antigua mostraría un estado que ya no existe.
-- **Validación en la frontera.** La respuesta se comprueba contra un **esquema** que refleja el contrato. Si el backend cambia de forma, el error aparece al entrar, en un solo sitio, y no disperso por la interfaz.
-- **Normalización.** El servicio devuelve los datos en el orden en que la interfaz los necesita (por fecha ascendente), para que ningún componente tenga que reordenarlos.
+```ts
+const measurementSchema = z.object({
+  date: z.string(),
+  weightKg: z.number(),
+  waistCm: z.number(),
+});
 
-La dirección base de la API se lee de una variable de entorno **sin prefijo público**, y el módulo está marcado como solo-servidor: nada del paquete del cliente puede importarlo.
+const measurements = z.array(measurementSchema).parse(response.data);
+```
 
-### 3.4 Escritura: acción de servidor y revalidación
+El servicio también normaliza datos para que los componentes no repitan reglas.
+Por ejemplo, `measurementService` solicita datos sin caché, desenvuelve la
+respuesta, valida con Zod y devuelve mediciones ordenadas cronológicamente.
+`clinicalEventService` y `chatService` aplican el mismo principio a sus
+contratos.
 
-El formulario es una isla cliente. Su ciclo es:
+La variable `API_BASE_URL` no tiene prefijo `NEXT_PUBLIC_`. En Next.js, ese
+prefijo indica que un valor puede incluirse en el bundle del navegador. Al no
+usarlo, la dirección del backend permanece en el servidor.
+
+### 7.1 Escrituras mediante Server Actions
+
+Una **Server Action** es una función ejecutada en el servidor que puede
+invocarse desde una interacción de la interfaz. En Careme, el formulario valida
+la entrada para dar feedback inmediato; la acción vuelve a validarla, llama al
+servicio y revalida la ruta.
 
 ```mermaid
 sequenceDiagram
     participant U as Persona
-    participant F as Formulario (cliente)
-    participant A as Acción (servidor)
-    participant S as Servicio (servidor)
-    U->>F: escribe y envía
-    F->>F: valida el texto introducido
-    F->>A: invoca la acción con el payload numérico
-    A->>A: vuelve a validar
-    A->>S: createMeasurement
-    S-->>A: resultado o error
-    A->>A: revalida la ruta
-    A-->>F: resultado pequeño { ok } o { ok: false, errorCode }
+    participant C as Componente cliente
+    participant A as Server Action
+    participant S as Servicio
+    U->>C: envía formulario
+    C->>C: valida entrada
+    C->>A: payload serializable
+    A->>A: valida de nuevo
+    A->>S: llama al backend
+    S-->>A: éxito o código de error
+    A->>A: revalidatePath
+    A-->>C: resultado pequeño
 ```
 
-Dos aspectos definen este flujo:
+La acción devuelve un resultado controlado, no detalles técnicos. La interfaz
+traduce códigos como `VALIDATION_ERROR` o `SAVE_FAILED` a texto visible en
+español.
 
-- **Se valida dos veces.** La interfaz valida para dar respuesta inmediata; la acción vuelve a validar porque es la frontera de confianza y no puede asumir que el cliente hizo su parte.
-- **El resultado es pequeño y nombrado.** La acción no devuelve una excepción ni un detalle técnico, sino un objeto mínimo con un **código de error con nombre** (`VALIDATION_ERROR`, `SAVE_FAILED`). La redacción para la persona vive en la interfaz, no en el error. Esto impide que un detalle de transporte llegue al navegador.
+## 8. Estilos y componentes reutilizables
 
-Tras guardar, la acción **revalida la ruta**. Eso hace que los Server Components vuelvan a ejecutarse y que el gráfico y la tabla reflejen el dato nuevo sin recargar la página. La misma mecánica usa la importación por archivo, con su previsualización y su confirmación.
+**Tailwind CSS** es un sistema de utilidades: clases pequeñas representan
+propiedades CSS y se combinan directamente en el marcado. **shadcn/ui** es una
+colección de componentes que se incorpora al código del proyecto para poder
+componerlos y adaptarlos; no es una caja negra remota. **Radix** aporta
+primitivas de comportamiento y accesibilidad. **Lucide** aporta iconos
+consistentes.
 
-El chat sigue el mismo patrón: una acción de servidor valida la entrada, llama al servicio correspondiente y devuelve un resultado con código. La diferencia es que el éxito incluye la respuesta del asistente, que la isla de chat renderiza.
+Los tokens visuales se definen en `src/app/globals.css` mediante variables CSS,
+como colores, radios y tipografías. `components.json` declara que la hoja de
+estilos es `src/app/globals.css`, que se usan variables CSS, que la base es
+neutral y que la biblioteca de iconos es Lucide.
 
-### 3.5 Estados de error y actualización
+La consistencia se mantiene mediante tres mecanismos:
 
-- **Error de ruta.** Cuando el panel no puede obtener datos, la excepción llega a la **frontera de error** de la ruta, que muestra un mensaje localizado y un botón de reintento. El reintento re-ejecuta el renderizado del servidor.
-- **Error de escritura.** El formulario conserva lo escrito cuando el guardado falla, de modo que la persona puede reintentar sin volver a teclear.
-- **Actualización.** No hay refresco manual: al revalidar, el servidor regenera la vista con el estado nuevo.
+1. **Primitivas compartidas:** botones, tarjetas, campos y tablas viven en
+   `components/ui/` y se reutilizan en lugar de duplicarse.
+2. **Tokens:** color, radio, borde y tipografía se expresan mediante variables;
+   cambiar un token actualiza todas las superficies que lo usan.
+3. **Composición tipada:** una feature combina primitivas con `className`,
+   variantes y propiedades explícitas, sin alterar arbitrariamente la base.
 
-### 3.6 Localización, formato y separación de idiomas
+Para crear un componente reutilizable, el proyecto necesita:
 
-- Las **fechas** se formatean en el servidor con una zona horaria fija, para que una fecha-calendario no se desplace.
-- Los **valores numéricos** se formatean con un formateador reutilizado por número de decimales, en lugar de recrearlo en cada render.
-- Los **textos visibles** están en español y centralizados en un módulo de cadenas; el **código** se escribe en inglés. Separar ambos evita mezclar idioma de producto con idioma de implementación.
+- React y TypeScript para definir una API de propiedades explícita;
+- Tailwind y los tokens globales para conservar la escala visual;
+- primitivas Radix o componentes shadcn/ui cuando exista una necesidad de
+  interacción accesible;
+- `cn` para combinar clases sin perder variantes;
+- iconos de Lucide en lugar de SVGs dibujados de forma aislada;
+- una prueba de componente cuando el comportamiento sea interactivo o tenga
+  estados relevantes.
 
-### 3.7 Configuración por métrica en un solo lugar
+Ejemplo de una API visual pequeña y reutilizable:
 
-Las métricas se describen en un **registro**: etiqueta, unidad, decimales, color y margen del eje. Los componentes consumen ese registro en lugar de codificar cada caso. Añadir una métrica es añadir una entrada, no duplicar un gráfico. Esto es lo que permite que un solo componente de gráfico sirva a varias métricas.
+```tsx
+type StatusBadgeProps = {
+  label: string;
+  tone?: "neutral" | "danger";
+};
 
----
+function StatusBadge({ label, tone = "neutral" }: StatusBadgeProps) {
+  return (
+    <span className={cn("rounded-md px-2 py-1", tone === "danger" && "bg-destructive")}>
+      {label}
+    </span>
+  );
+}
+```
 
-## 4. Ideas clave
+La feature decide qué significa el estado; el componente decide cómo aplicar su
+presentación. Esa separación evita que una primitiva visual conozca el dominio.
 
-- El renderizado es **servidor primero**; la interactividad vive en **islas** concretas.
-- El **panel** de datos es un Server Component asíncrono que deriva todo lo que se puede derivar antes de enviar HTML.
-- A través de la **frontera de serialización** solo cruzan primitivos; nada de fechas ni lógica de formato.
-- Las **fechas se formatean en el servidor con zona fija**, por eso no se desplazan.
-- La **dirección de la API** es solo del servidor; el navegador nunca la conoce.
-- Toda respuesta de la API se **valida en la frontera** contra un esquema del contrato.
-- Las **acciones de servidor** escriben, revalidan y devuelven resultados pequeños con **códigos de error con nombre**.
-- La validación del cliente **no sustituye** a la del servidor.
-- La **revalidación** sustituye al refresco manual.
-- Los **textos** van en español y el **código** en inglés; cada métrica se describe en un **registro único**.
+## 9. Estados, errores y actualización
+
+Next.js permite declarar estados de ruta junto a la página:
+
+- `loading.tsx` representa la espera mientras se prepara contenido;
+- `error.tsx` captura un fallo de renderizado y permite reintentar;
+- un estado vacío representa una respuesta válida sin registros y no debe
+  confundirse con un error.
+
+En un formulario, el estado local conserva el texto introducido si el guardado
+falla. Después de una escritura correcta, `revalidatePath` invalida el resultado
+renderizado de la ruta; los Server Components vuelven a ejecutarse y la página
+refleja el dato nuevo sin que el navegador coordine un `fetch` adicional.
+
+Las fechas se formatean en el servidor con una zona fija y los textos visibles
+se mantienen en español, mientras que identificadores y código se escriben en
+inglés. La separación evita que las decisiones de presentación se dispersen por
+las capas de datos y que el idioma del producto se mezcle con el del código.

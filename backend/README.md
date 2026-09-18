@@ -268,6 +268,49 @@ Rebuilds the derived clinical-event index from the Markdown documents in
 { "indexedEvents": 12 }
 ```
 
+### `GET /api/v1/clinical-events`
+
+Lists the persisted clinical events without changing Markdown or the derived
+index. The default order is `recordDate` descending, meaning the most recently
+saved event appears first. Use `sort=occurrenceDate` for occurrence-date order;
+events without an occurrence date are last in that order.
+
+Optional query parameters are `type` (`diagnosis`, `medication`, `measurement`
+or `note`), inclusive `from` and `to` occurrence dates in `yyyy-MM-dd`, and
+`sort` (`recordDate` or `occurrenceDate`).
+
+**Success — `200 OK`**
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "0a3b5ce7-fb23-4810-b588-e2f13de310a6",
+      "code": "evt_012",
+      "type": "note",
+      "content": "Dolor de cabeza",
+      "occurrenceDate": "2026-09-01",
+      "occurrenceDatePrecision": "approximate",
+      "recordDate": "2026-09-17"
+    }
+  ],
+  "messageCode": "SUCCESS",
+  "message": "Operation completed successfully"
+}
+```
+
+An empty history or a filter with no matches is successful with `"data": []`.
+Relative expressions stored with an event are not returned; their normalized
+occurrence date is marked `approximate`.
+
+### `GET /api/v1/clinical-events/{code}`
+
+Returns one event with the same payload and temporal fields as the list. A
+missing event returns `404 EVENT_NOT_FOUND`; invalid filters on the list return
+`400 INVALID_FILTER`. Unexpected read failures return `500 INTERNAL_ERROR` and
+never include partial event data.
+
 ## General repository structure
 
 ```text

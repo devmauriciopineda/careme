@@ -61,6 +61,17 @@ class FakeClinicalAnswerComposerTest {
         assertThatThrownBy(() -> new FakeClinicalAnswerComposer("full", "").compose("¿Cuándo?", List.of()))
                 .isInstanceOf(LlmIntegrationException.class)
                 .hasMessage("There is nothing to answer with");
+        assertThatThrownBy(() -> new FakeClinicalAnswerComposer("full", "").compose("¿Cuándo?", null))
+            .isInstanceOf(LlmIntegrationException.class)
+            .hasMessage("There is nothing to answer with");
+        }
+
+        @Test
+        void treatsNullConfigurationAsFullCoverage() {
+        var composed = new FakeClinicalAnswerComposer(null, null)
+            .compose("¿Cuándo?", List.of(event("evt_001", "Hipertensión")));
+
+        assertThat(composed.coverage()).isEqualTo(ClinicalAnswerComposer.Coverage.FULL);
     }
 
     private static ClinicalEvent event(String code, String content) {

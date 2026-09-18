@@ -1,170 +1,544 @@
 # 03 — Backend: API, concurrencia y persistencia
 
-Este documento explica **cómo el backend atiende una petición HTTP**: qué hace cada capa, dónde se valida, dónde empieza y termina una transacción, cómo se comparte el estado entre peticiones simultáneas y cómo se traducen los errores a un contrato uniforme.
+Este documento explica cómo funciona el backend de Careme como servicio HTTP:
+qué responsabilidades concentra, cómo se organiza el stack, cómo se validan los
+datos, cómo se ejecutan las peticiones, cómo se coordinan las transacciones y
+cómo se conserva el estado en PostgreSQL y en los documentos Markdown.
 
----
+## Índice
 
-## 1. ¿Qué es?
+1. [Qué es un backend](#1-qué-es-un-backend)
+2. [Responsabilidades del backend](#2-responsabilidades-del-backend)
+3. [Stack tecnológico](#3-stack-tecnológico)
+4. [Arquitectura y patrones](#4-arquitectura-y-patrones)
+5. [Ciclo de una petición HTTP](#5-ciclo-de-una-petición-http)
+6. [Validación y Bean Validation](#6-validación-y-bean-validation)
+7. [Servidores bloqueantes y reactivos](#7-servidores-bloqueantes-y-reactivos)
+8. [Persistencia y transacciones](#8-persistencia-y-transacciones)
+9. [Concurrencia y estado compartido](#9-concurrencia-y-estado-compartido)
+10. [Errores y operaciones compuestas](#10-errores-y-operaciones-compuestas)
+11. [Dos formas de leer los hechos clínicos](#11-dos-formas-de-leer-los-hechos-clínicos)
 
-El backend es un servicio **Spring Boot** sobre Java 21 que expone una **API REST JSON**. Internamente usa **Spring Web MVC** (modelo de petición-respuesta bloqueante), **Bean Validation** para validar la entrada, **Spring Data JPA/Hibernate** para persistir y **Flyway** para versionar el esquema en PostgreSQL.
+## 1. Qué es un backend
 
-Los términos que hay que retener:
+Un **backend** es el conjunto de procesos que reciben solicitudes de clientes,
+aplican reglas, acceden a datos y producen respuestas. En una aplicación web,
+el backend suele ejecutarse fuera del navegador y ofrece una interfaz de
+comunicación, normalmente una API HTTP.
 
-- **Contenedor de servlets**: el servidor web embebido que acepta conexiones y despacha peticiones.
-- **Hilo de trabajo (worker thread)**: el hilo del servidor que atiende una petición de principio a fin.
-- **DTO**: objeto que define la forma de los datos que entran o salen por HTTP.
-- **Transacción**: unidad de trabajo que se confirma entera o se descarta entera.
-- **Contexto de persistencia**: el espacio de Hibernate donde viven las entidades asociadas a una transacción.
-- **Migración**: script versionado que define el esquema; se aplica una sola vez y en orden.
+Una **API** (Application Programming Interface) es un contrato entre un
+consumidor y un proveedor. El contrato define rutas, métodos, datos de entrada,
+respuestas y errores. Una API REST utiliza recursos identificables por URL y
+métodos HTTP con semántica definida, como `GET` para leer y `POST` para crear o
+solicitar una operación.
 
----
+Careme implementa un backend REST con Java 21 y Spring Boot. Expone mediciones,
+chat e inspección de eventos clínicos, y coordina dos formas de persistencia:
+PostgreSQL para datos estructurados e índice derivado, y archivos Markdown como
+fuente de verdad de los hechos clínicos.
 
-## 2. ¿Por qué se utiliza aquí?
+```mermaid
+flowchart LR
+    Client["Frontend"] -->|HTTP + JSON| API["Backend Spring Boot"]
+    API --> Rules["Reglas de dominio"]
+    API --> PG[("PostgreSQL")]
+    API --> MD["Markdown clínico"]
+    API --> LLM["Proveedor LLM opcional"]
+```
 
-**Por qué un servidor bloqueante y no uno reactivo.** El servicio atiende operaciones cortas de petición-respuesta: leer mediciones, registrar un día, reenviar un mensaje de chat. Para ese perfil, el modelo de **un hilo por petición** es directo de razonar y de depurar. El precio es que cada petición ocupa un hilo mientras espera a la base de datos; la concurrencia queda acotada por el tamaño del grupo de hilos.
+## 2. Responsabilidades del backend
 
-**Por qué capas.** Ya se explicó en el documento anterior; aquí importa la consecuencia práctica: la **capa web no decide**, la **capa de servicio decide**, y la **capa de datos traduce**. Un cambio en el esquema afecta al adaptador; un cambio de reglas afecta al servicio; un cambio de contrato afecta al DTO.
+La responsabilidad principal del backend es mantener un contrato confiable entre
+la interfaz y el estado de la aplicación. Esa responsabilidad se descompone en
+funciones concretas:
 
-**Por qué la validación vive en tres sitios.** Cada validación protege una frontera distinta, y por eso no se solapan:
+1. **Exponer operaciones:** traducir rutas HTTP como
+   `GET /api/v1/measurements` a operaciones internas.
+2. **Validar entradas externas:** rechazar estructuras inválidas antes de que
+   lleguen a las reglas o a la persistencia.
+3. **Aplicar invariantes:** impedir que el dominio represente estados inválidos,
+   como una medición con valores no positivos.
+4. **Orquestar operaciones:** decidir qué servicios y adaptadores deben
+   participar en una petición.
+5. **Persistir y consultar:** guardar datos mediante repositorios y recuperar
+   información desde sus fuentes correspondientes.
+6. **Uniformar respuestas y errores:** devolver una forma estable para que el
+   frontend no dependa de excepciones internas.
+7. **Aislar detalles técnicos:** evitar que el contrato HTTP conozca SQL, JPA,
+   archivos o el proveedor LLM.
 
-| Nivel | Protege contra | Ejemplo de regla |
-| --- | --- | --- |
-| Bean Validation (DTO) | Un cliente que envía una petición inválida | La fecha no puede ser futura; un valor debe ser positivo y tener un solo decimal |
-| Invariantes del dominio | Construir un objeto inválido desde dentro del código | Un valor debe ser positivo y no nulo, siempre |
-| Restricciones del esquema | Escrituras que ocurren fuera de la aplicación | `CHECK` de positividad y `UNIQUE` por día |
+El backend es también la **frontera de confianza**. Una frontera de confianza es
+el límite donde una entrada externa deja de considerarse fiable. Aunque el
+frontend valide sus formularios, el backend vuelve a validar porque cualquier
+cliente puede llamar a la API sin utilizar esa interfaz.
 
-Las reglas **de esta petición** —como "la fecha no puede ser futura"— no pertenecen al dominio, porque un hecho histórico sí puede tener cualquier fecha; pertenecen a la solicitud. Las reglas **siempre verdaderas** pertenecen al dominio. La base de datos repite lo esencial para no depender de que el código se porte bien.
+## 3. Stack tecnológico
 
-**Por qué el esquema lo posee la migración y no Hibernate.** Con la generación automática activada, un cambio en una entidad puede alterar la base de datos en silencio. Aquí Hibernate está en modo **validación**: comprueba que el mapeo coincide con el esquema y **falla al arrancar** si hay divergencia. El esquema tiene un único dueño —las migraciones— y una desviación se detecta antes de servir tráfico.
+Un **stack tecnológico** es el conjunto de herramientas que colaboran en una
+aplicación. No son sinónimos: cada elemento ocupa una responsabilidad distinta.
 
----
+| Elemento | Función en Careme |
+| --- | --- |
+| Java 21 | Lenguaje, tipos, clases, records y concurrencia de la aplicación |
+| Spring Boot 3.5 | Configuración, arranque, composición de componentes y empaquetado |
+| Spring Web MVC | Rutas HTTP, deserialización, controladores y respuestas síncronas |
+| Bean Validation | Reglas declarativas para validar objetos de entrada |
+| Spring Data JPA | Abstracción para declarar repositorios y ejecutar persistencia JPA |
+| Hibernate ORM | Implementación JPA: mapeo entre objetos Java y tablas SQL |
+| PostgreSQL | Base de datos relacional y motor de transacciones |
+| Flyway | Migraciones versionadas que poseen el esquema |
+| Maven | Dependencias, compilación, pruebas y ciclo de construcción |
+| Testcontainers | PostgreSQL real para pruebas de integración |
+| JaCoCo | Medición y umbral de cobertura durante `verify` |
 
-## 3. ¿Qué ocurre bajo el capó?
+### 3.1 Spring Boot
 
-### 3.1 El ciclo de una petición
+**Spring Boot** es una capa de conveniencia sobre Spring que configura una
+aplicación ejecutable con convenciones y auto-configuración. La
+auto-configuración inspecciona las dependencias y propiedades disponibles para
+crear componentes adecuados, como el servidor HTTP, el acceso a datos o la
+validación.
+
+Un **componente Spring** es un objeto cuya creación y ciclo de vida administra
+el contenedor de inversión de control. La **inyección de dependencias** consiste
+en entregar a un objeto las colaboraciones que necesita, en lugar de que las
+construya directamente.
+
+```java
+@Service
+public final class MeasurementService {
+    private final MeasurementRepository repository;
+
+    public MeasurementService(MeasurementRepository repository) {
+        this.repository = repository;
+    }
+}
+```
+
+El servicio declara su dependencia; Spring crea el repositorio y lo entrega.
+Esto reduce el acoplamiento y facilita sustituir la colaboración en pruebas.
+
+### 3.2 Spring Web MVC
+
+**Spring Web MVC** es el módulo de Spring que implementa el modelo
+Model-View-Controller para peticiones HTTP. En una API JSON, el controlador es
+el adaptador de entrada: recibe una solicitud, Spring convierte el cuerpo a un
+DTO, ejecuta validaciones y el controlador delega en un servicio.
+
+Un **controlador** no debe contener reglas de negocio. Su responsabilidad es
+traducir entre HTTP y objetos de la aplicación:
+
+```java
+@RestController
+@RequestMapping("/api/v1/measurements")
+final class MeasurementController {
+    @GetMapping
+    ApiResponse<List<MeasurementResponse>> list() {
+        return ApiResponse.success(service.findAll());
+    }
+}
+```
+
+El modelo MVC no obliga a generar HTML. En este backend, la vista se representa
+como JSON y el consumidor es el frontend Next.js.
+
+### 3.3 Hibernate y JPA
+
+**JPA** (Jakarta Persistence) es una especificación que define cómo representar
+objetos persistentes y consultar entidades. **Hibernate ORM** es la
+implementación que usa Careme.
+
+Un **mapeo objeto-relacional** relaciona clases y propiedades Java con tablas y
+columnas relacionales. Hibernate traduce operaciones sobre entidades a SQL y
+mantiene un contexto de persistencia que explicaremos más adelante.
+
+Careme separa tres representaciones:
+
+```text
+MeasurementRequest  -> DTO de entrada HTTP
+Measurement         -> tipo de dominio, sin anotaciones JPA
+MeasurementEntity   -> mapeo JPA de la tabla
+MeasurementResponse -> DTO de salida HTTP
+```
+
+La separación evita que una modificación de la tabla cambie automáticamente el
+JSON público o que una entidad de infraestructura se convierta en dominio.
+
+### 3.4 Flyway
+
+**Flyway** es una herramienta de migraciones. Una migración es un script
+versionado que transforma el esquema desde un estado conocido a otro. Flyway
+registra qué versiones ya se aplicaron y ejecuta las pendientes en orden.
+
+En Careme, Flyway es el propietario del esquema y Hibernate solo lo valida:
+
+```yaml
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+```
+
+`validate` significa que Hibernate comprueba que sus mapeos coinciden con las
+tablas existentes; no crea ni modifica tablas. Esta división evita que el
+modelo Java altere el esquema de forma implícita.
+
+## 4. Arquitectura y patrones
+
+Un **patrón arquitectónico** es una solución recurrente para organizar
+responsabilidades y dependencias. Un patrón no es una clase concreta: es una
+regla de colaboración que puede tener distintas implementaciones.
+
+### 4.1 Arquitectura por capas
+
+La arquitectura por capas agrupa componentes por nivel de abstracción y limita
+la dirección de sus dependencias:
+
+```mermaid
+flowchart TB
+    HTTP["HTTP"] --> Controller["controller<br/>traducción HTTP"]
+    Controller --> Service["service<br/>decisiones y reglas"]
+    Service --> Port["repository<br/>contrato de datos"]
+    Port --> Adapter["adaptador<br/>JPA, SQL o filesystem"]
+    Adapter --> Storage["PostgreSQL / Markdown"]
+```
+
+| Capa | Responsabilidad |
+| --- | --- |
+| `controller` | Traducir HTTP, validar DTOs y envolver respuestas |
+| `service` | Orquestar operaciones, aplicar decisiones y mapear resultados |
+| `repository` | Declarar operaciones de acceso a datos |
+| `entity` | Expresar dominio o mapeo persistente según el tipo |
+| `dto` | Definir la forma pública de entrada y salida |
+| `exception` | Convertir fallos en respuestas uniformes |
+
+### 4.2 DTO y separación de modelos
+
+Un **DTO** (Data Transfer Object) es un objeto diseñado para cruzar una frontera
+entre procesos o capas. No representa necesariamente una entidad completa ni
+contiene toda la lógica del dominio.
+
+Por ejemplo, `MeasurementRequest` representa lo que el cliente puede solicitar,
+mientras `Measurement` representa una medición válida y `MeasurementResponse`
+representa lo que se permite devolver. Este patrón limita la exposición de
+campos internos y permite validar entradas antes de construir el dominio.
+
+### 4.3 Puerto y adaptador
+
+Un **puerto** es una interfaz que expresa una capacidad que la aplicación
+necesita, sin mencionar la tecnología que la implementa. Un **adaptador** es un
+componente que traduce ese puerto hacia una tecnología externa, como PostgreSQL,
+JPA, el sistema de archivos o un proveedor HTTP.
+
+Este es el **patrón Adapter**: una interfaz estable permite que una colaboración
+con una forma incompatible se utilice mediante una conversión controlada.
+También se relaciona con la arquitectura hexagonal, donde el dominio queda en
+el centro y las tecnologías se conectan en los bordes.
+
+```java
+public interface EventReader {
+    List<ClinicalEvent> findAll(EventFilter filter);
+}
+
+@Repository
+final class MarkdownEventReader implements EventReader {
+    public List<ClinicalEvent> findAll(EventFilter filter) {
+        // Traduce archivos Markdown a objetos de dominio.
+        return List.of();
+    }
+}
+```
+
+El servicio depende de `EventReader`, no del filesystem. Por eso una prueba
+puede entregar una implementación controlada sin cambiar las reglas.
+
+### 4.4 Repository y Service
+
+El **patrón Repository** encapsula el acceso a una colección de objetos o a un
+almacenamiento. El servicio pide datos mediante el repositorio y no construye
+SQL ni navega directamente por tablas.
+
+El **Service Layer** concentra decisiones de una operación que coordinan varias
+colaboraciones. No es una capa para esconder cualquier código: su función es
+expresar reglas y orquestación que no pertenecen al controlador ni al adaptador.
+
+El backend también usa un **manejador global de excepciones**. Este patrón
+centraliza la traducción de excepciones a códigos HTTP y sobres de error, de
+modo que cada controlador no tenga que repetir la misma lógica.
+
+## 5. Ciclo de una petición HTTP
+
+Una petición HTTP contiene un método, una URL, cabeceras y opcionalmente un
+cuerpo. El servidor la recibe, determina la ruta y la entrega al componente que
+puede procesarla.
 
 ```mermaid
 sequenceDiagram
     participant C as Cliente
-    participant T as Contenedor (Tomcat)
-    participant W as Hilo de trabajo
-    participant Ctrl as Controlador
-    participant S as Servicio
-    participant R as Adaptador de datos
+    participant T as Tomcat
+    participant W as Hilo worker
+    participant Ctrl as Controller
+    participant S as Service
+    participant R as Repository
     participant DB as PostgreSQL
-    C->>T: petición HTTP
-    T->>W: asigna un hilo del grupo
-    W->>Ctrl: despacha con el método y la ruta
-    Ctrl->>Ctrl: deserializa el cuerpo y valida el DTO
-    Ctrl->>S: llama al caso de uso
-    S->>R: pide o escribe datos
-    R->>DB: abre transacción y ejecuta SQL
+    C->>T: HTTP request
+    T->>W: asigna hilo
+    W->>Ctrl: ruta + DTO
+    Ctrl->>Ctrl: deserializa y valida
+    Ctrl->>S: operación
+    S->>R: consulta o escritura
+    R->>DB: SQL dentro de transacción
     DB-->>R: filas o confirmación
-    R-->>S: tipos de dominio
+    R-->>S: dominio
     S-->>Ctrl: DTO de respuesta
-    Ctrl->>Ctrl: envuelve la respuesta
-    W-->>C: JSON y libera el hilo
+    Ctrl-->>C: JSON uniforme
 ```
 
-Cuatro hechos importan para razonar sobre este flujo:
+El controlador adapta el protocolo; el servicio decide; el repositorio traduce.
+Si el DTO es inválido, el flujo termina antes de ejecutar las reglas y la
+persistencia.
 
-1. **El hilo se ocupa durante toda la petición.** Mientras se espera a la base de datos, ese hilo no atiende otra cosa. El número de hilos del grupo fija cuántas peticiones se procesan a la vez; las demás esperan en cola.
-2. **La deserialización y la validación ocurren antes de la lógica.** Si el cuerpo no cumple las reglas, el caso de uso no llega a ejecutarse.
-3. **La transacción la abre el adaptador de datos, no el controlador.** El controlador no conoce transacciones.
-4. **La respuesta se envuelve siempre** en la misma forma, tanto en éxito como en error.
+## 6. Validación y Bean Validation
 
-### 3.2 Qué hace cada capa
+La **validación** comprueba si un valor cumple restricciones antes de utilizarlo.
+En Careme se aplica en tres niveles:
 
-| Capa | Hace | No hace |
+| Nivel | Qué protege | Ejemplo |
 | --- | --- | --- |
-| Controlador | Mapea ruta y verbo a un método, valida el DTO, envuelve la respuesta | Decidir reglas ni consultar datos |
-| DTO de entrada | Declara las restricciones de la solicitud | Conocer el esquema |
-| Servicio | Decide el caso de uso, ordena y mapea a DTO de salida | Conocer HTTP ni SQL |
-| Puerto de datos | Declara qué operaciones existen | Elegir el motor |
-| Adaptador | Traduce filas a dominio, abre transacciones | Decidir reglas ni ordenar |
-| DAO | Consulta concreta sobre una entidad | Exponerse fuera del adaptador |
-| Entidad | Mapea la tabla | Ser la forma pública |
-| Tipo de dominio | Garantiza invariantes | Tener anotaciones de persistencia |
+| Bean Validation | Datos de una petición | Fecha no futura, valor positivo |
+| Dominio | Objetos creados internamente | Una medición no puede tener valores no positivos |
+| Base de datos | Cualquier escritura que alcance el motor | `CHECK`, `UNIQUE`, claves |
 
-El servicio, por ejemplo, no crea ni reemplaza a ciegas: primero pregunta si el día ya tiene medición y luego decide. La decisión —"un día tiene una sola medición"— vive ahí, no en la base de datos ni en el controlador.
+### 6.1 Qué es un Bean
 
-### 3.3 Transacciones: dónde y por qué
+En el contexto de Java, un **JavaBean** es una clase convencional con
+constructor accesible y propiedades expuestas mediante métodos. En Spring, el
+uso habitual de **Bean** es más amplio: es un objeto cuya creación, configuración
+y ciclo de vida administra el contenedor de Spring.
 
-La frontera transaccional está en el **adaptador de datos**. Eso trae tres consecuencias:
+No todo Bean de Spring es un JavaBean clásico. Un servicio anotado con `@Service`
+y una configuración creada con `@Bean` son objetos administrados por Spring,
+aunque no tengan getters y setters para todas sus propiedades.
 
-- **Lecturas declaradas de solo lectura.** Una lectura no puede, por accidente, quedar enganchada a una escritura; además, el motor sabe que no hace falta preparar un cambio.
-- **Escrituras que fuerzan el envío (flush).** El adaptador confirma y vacía el contexto de persistencia antes de devolver, para que quien llama observe la fila ya almacenada y no un objeto en memoria.
-- **Escrituras en lote como una unidad.** La importación de un archivo prepara todas las filas y las envía en **un solo flush**: o entra el lote completo o no entra ninguna.
+### 6.2 Qué es Bean Validation
 
-**El detalle de "comprobar y luego actuar".** El registro hace dos pasos: busca si el día existe, y crea o actualiza. Entre la comprobación y la escritura hay una ventana en la que dos peticiones simultáneas podrían coincidir. Lo que garantiza de verdad "una medición por día" no es la comprobación del servicio, sino la **restricción de unicidad** del esquema: si dos escrituras compiten, una prevalece y la otra no puede duplicar la fila. Es un buen ejemplo de que la invariante importante se protege en la capa más cercana a los datos.
+**Bean Validation** es una especificación para declarar restricciones sobre
+objetos Java mediante anotaciones y evaluarlas con un validador. Spring Boot la
+integra mediante `spring-boot-starter-validation`.
 
-### 3.4 Concurrencia: qué se comparte y qué no
-
-```mermaid
-flowchart LR
-    subgraph Proceso["Proceso del backend"]
-        Pool["Grupo de hilos"] --> C1["Controlador (sin estado)"]
-        C1 --> S1["Servicio (sin estado)"]
-        S1 --> Repo["Adaptador (sin estado)"]
-        S1 -.->|estado compartido| CS["Estado de conversación (en memoria, sincronizado)"]
-    end
-    Repo --> Pool2["Conexiones a la base de datos"]
-    Pool2 --> PG[("PostgreSQL")]
+```java
+public record MeasurementRequest(
+    @NotNull LocalDate date,
+    @Positive @DecimalMax("500") BigDecimal weightKg,
+    @Positive @DecimalMax("400") BigDecimal waistCm
+) {}
 ```
 
-- **Controladores y servicios son sin estado.** Se instancian una vez y se comparten entre todas las peticiones; como no guardan datos de una petición a otra, compartirlos es seguro.
-- **El estado mutable está aislado y protegido.** El único estado compartido relevante es el de las conversaciones del chat: un mapa en memoria con un límite de conversaciones, un tiempo de vida y un **búfer acotado de turnos recientes**. Su acceso está **sincronizado**, de modo que dos turnos simultáneos no corrompen el mapa ni la cola.
-- **Ese estado no se comparte entre instancias ni sobrevive a un reinicio.** Es deliberado: la conversación es efímera. Lo que sí sobrevive son los hechos registrados, porque su fuente de verdad está en disco.
-- **No hay caché de datos.** Cada petición consulta la base de datos, así que una fila insertada por fuera de la aplicación se ve en la siguiente petición.
+`@NotNull` y `@Positive` son restricciones declarativas. La anotación `@Valid`
+en el controlador solicita que Spring evalúe el objeto antes de llamar al
+servicio. La validación no reemplaza las invariantes del dominio ni las
+restricciones SQL: cada nivel protege una frontera diferente.
 
-**Idempotencia.** El chat identifica cada turno por `(conversación, mensaje)`. Repetir la misma petición devuelve el resultado original sin volver a ejecutar efectos secundarios. Es la forma de hacer seguro un reintento sobre una operación que no es naturalmente idempotente.
+Una regla dependiente de la operación, como “la fecha de esta solicitud no puede
+ser futura”, pertenece al DTO o al servicio de entrada. Una regla que debe ser
+cierta para toda instancia de dominio pertenece al dominio y debe permanecer
+válida aunque el objeto se cree desde una prueba o desde otro adaptador.
 
-### 3.5 El contrato de errores
+## 7. Servidores bloqueantes y reactivos
+
+Un servidor **bloqueante** mantiene ocupado el hilo que atiende una petición
+mientras espera una operación externa, como una consulta a PostgreSQL. Spring
+Web MVC usa este modelo con un grupo de hilos de trabajo.
+
+```text
+Petición A -> hilo 1 -> espera PostgreSQL -> responde
+Petición B -> hilo 2 -> procesa
+Petición C -> espera si no queda un hilo libre
+```
+
+El bloqueo no significa que el proceso esté detenido por completo: otros hilos
+pueden atender otras peticiones. Significa que el hilo asignado no puede ejecutar
+otra petición durante la espera.
+
+Un servidor **reactivo** representa operaciones asíncronas como una secuencia de
+señales o eventos. Cuando una operación espera I/O, el hilo puede atender otra
+tarea y continuar cuando llega el resultado. Spring WebFlux es la alternativa
+reactiva de Spring.
+
+```text
+Bloqueante: hilo -> espera I/O -> continúa
+Reactivo:   hilo -> registra continuación -> atiende otra tarea -> retoma
+```
+
+La ventaja reactiva aparece cuando hay mucha espera de I/O y se desea mantener
+pocos hilos. El coste es una programación más compleja: hay que razonar sobre
+flujos, backpressure, cancelación y no bloquear accidentalmente el event loop.
+
+Existen otros modelos relevantes:
+
+- **Prefork o multiproceso:** cada proceso atiende una parte de las peticiones;
+  aísla memoria, pero consume más recursos por proceso.
+- **Event-driven:** un bucle de eventos distribuye callbacks o mensajes; es
+  común en servidores con I/O no bloqueante.
+- **Actor model:** actores aislados reciben mensajes y modifican solo su estado;
+  la coordinación ocurre mediante mensajes.
+- **Híbrido:** combina hilos, eventos y procesos según el tipo de trabajo.
+
+Careme utiliza Spring Web MVC porque sus operaciones son HTTP cortas y el acceso
+actual a PostgreSQL y al filesystem es bloqueante. El modelo de un hilo por
+petición resulta directo para este tamaño y permite usar las APIs JDBC/JPA
+convencionales.
+
+## 8. Persistencia y transacciones
+
+La **persistencia** es la conservación de datos más allá de la duración de una
+petición o del proceso que los produjo. PostgreSQL persiste mediciones y el
+índice clínico; Markdown persiste los documentos clínicos que constituyen la
+fuente de verdad.
+
+### 8.1 Contexto de persistencia
+
+El **contexto de persistencia** es el conjunto de entidades que Hibernate está
+siguiendo dentro de una unidad de trabajo. Para una identidad de base de datos,
+ese contexto mantiene una única instancia administrada y puede detectar cambios
+sin que el código ejecute un `UPDATE` manual.
+
+Sus funciones principales son:
+
+- identidad: una fila cargada dos veces puede corresponder a una entidad
+  administrada única;
+- seguimiento de cambios: Hibernate compara el estado administrado y detecta
+  modificaciones;
+- operaciones diferidas: algunas escrituras se convierten en SQL durante el
+  `flush`;
+- coordinación con la transacción de la base de datos.
+
+El contexto no es la base de datos ni un caché global. Normalmente está ligado a
+una unidad de trabajo y no debe confundirse con estado compartido entre
+peticiones.
+
+### 8.2 Qué es una transacción
+
+Una **transacción** es una secuencia de operaciones que el motor trata como una
+unidad atómica. Sus propiedades clásicas se resumen como ACID:
+
+| Propiedad | Definición |
+| --- | --- |
+| Atomicidad | Todas las operaciones se confirman o ninguna se conserva |
+| Consistencia | El resultado respeta las restricciones del esquema |
+| Aislamiento | Las transacciones concurrentes no observan estados intermedios según el nivel configurado |
+| Durabilidad | Lo confirmado sobrevive al fin de la transacción y a reinicios normales |
+
+En Careme, el adaptador de persistencia delimita la interacción transaccional
+con PostgreSQL. Una importación prepara las filas y las envía como una unidad;
+si la operación falla, la transacción de base de datos se revierte.
+
+```text
+BEGIN
+  comprobar restricciones
+  insertar o actualizar filas
+  FLUSH
+COMMIT       -- todo queda visible
+ROLLBACK     -- no queda ninguna operación de la unidad
+```
+
+`flush` y `commit` no son sinónimos. `flush` envía cambios pendientes al motor;
+`commit` confirma la transacción. Un flush exitoso todavía puede ser seguido
+por un rollback.
+
+### 8.3 Fuente de verdad y dato derivado
+
+Una **fuente de verdad** es el almacenamiento canónico de un dato. Un **dato
+derivado** es una representación que puede reconstruirse a partir de la fuente.
+En Careme, los documentos Markdown son la fuente de verdad clínica y
+`clinical_event_index` es un índice derivado para búsquedas.
+
+El sistema de archivos no comparte la transacción de PostgreSQL. Por eso el
+registro clínico usa una operación compensable:
+
+```text
+1. reservar códigos
+2. escribir documentos Markdown
+3. escribir índice PostgreSQL
+4. si falla el índice, eliminar los documentos nuevos
+```
+
+Una **compensación** es una operación posterior que deshace el efecto de una
+operación anterior cuando no existe una transacción única que abarque ambos
+sistemas.
+
+## 9. Concurrencia y estado compartido
+
+La **concurrencia** es la existencia de varias operaciones activas durante un
+mismo intervalo de tiempo. No exige que se ejecuten literalmente al mismo
+instante: basta con que sus pasos se intercalen. El **paralelismo** sí implica
+ejecución simultánea en varios núcleos o hilos.
+
+```text
+Concurrencia: A1 -> B1 -> A2 -> B2
+Paralelismo:  A y B ejecutan instrucciones al mismo tiempo
+```
+
+Un backend concurrente debe proteger invariantes cuando varias peticiones
+comparten recursos. En Careme:
+
+- controladores y servicios son objetos compartidos, pero no guardan estado de
+  una petición a otra;
+- el registro de conversaciones sí mantiene un mapa mutable en memoria, con
+  límite, expiración y acceso sincronizado;
+- PostgreSQL protege reglas persistentes mediante transacciones y restricciones,
+  como `UNIQUE(date)`;
+- los hechos clínicos sobreviven a reinicios porque están en Markdown, no en el
+  estado de conversación.
+
+Una **condición de carrera** ocurre cuando el resultado depende del orden no
+controlado de operaciones concurrentes. El patrón “comprobar y después escribir”
+puede tener una ventana de carrera; una restricción única en la base de datos es
+la defensa definitiva contra duplicados.
+
+La **idempotencia** es la propiedad por la que repetir una operación produce el
+mismo efecto observable que ejecutarla una vez. El chat identifica los turnos
+por conversación y mensaje para que un reintento no vuelva a registrar efectos
+secundarios.
+
+## 10. Errores y operaciones compuestas
+
+Un **manejador global de excepciones** intercepta errores fuera de los
+controladores y los transforma en una respuesta estable:
 
 ```mermaid
 flowchart TB
-    A["Excepción"] --> B{"¿Qué tipo?"}
-    B -->|DTO inválido| C["400 VALIDATION_ERROR + campos"]
-    B -->|Cuerpo ilegible| D["400 INVALID_REQUEST"]
-    B -->|Archivo rechazado| E["400 + código estable + detalles"]
-    B -->|Archivo demasiado grande| F["413"]
-    B -->|Falta el archivo| G["400 EMPTY_FILE"]
-    B -->|Cualquier otra| H["500 INTERNAL_ERROR"]
+    Error["Excepción"] --> Kind{"Tipo"}
+    Kind -->|DTO inválido| Validation["400 VALIDATION_ERROR"]
+    Kind -->|Cuerpo ilegible| Request["400 INVALID_REQUEST"]
+    Kind -->|Archivo ausente| Empty["400 EMPTY_FILE"]
+    Kind -->|Fallo inesperado| Internal["500 INTERNAL_ERROR"]
 ```
 
-Un **manejador global** traduce excepciones a la misma envoltura de error. Dos decisiones destacan:
+El cliente recibe un código estable y detalles apropiados, no una pila, una
+consulta SQL ni credenciales. Esta separación permite cambiar la implementación
+sin cambiar la forma básica de tratar los errores en el frontend.
 
-- **Los errores de validación son de cliente (400), no de servidor.** Un payload que no cumple las reglas no es un fallo del backend.
-- **El error nombra un código, no una causa técnica.** El cliente recibe un código estable y detalles legibles; los detalles internos (pila, credenciales, SQL) no se exponen.
+Una **operación compuesta** produce efectos en más de un recurso o sistema. El
+registro clínico combina filesystem y PostgreSQL; como no existe una transacción
+distribuida entre ambos, la implementación ordena las acciones y define una
+compensación para fallos parciales.
 
-No existe la ruta de "recurso no encontrado" (404) porque, en este modelo, ningún recurso puede faltar: se registra un día y se listan mediciones; no hay identificadores que el cliente pida y puedan no existir.
+## 11. Dos formas de leer los hechos clínicos
 
-### 3.6 La operación compuesta y su compensación
+El backend tiene dos contratos de lectura distintos sobre los mismos hechos:
 
-El registro de hechos clínicos cruza dos medios: **archivos** (fuente de verdad) y **base de datos** (índice derivado). El sistema de archivos no participa de la transacción de la base de datos, así que la operación se ordena para ser compensable:
+| Necesidad | Consulta conversacional | Inspección directa |
+| --- | --- | --- |
+| Entrada | Pregunta en lenguaje natural | Filtros y orden explícitos |
+| Fuente | Índice PostgreSQL derivado | Markdown mediante adaptador read-only |
+| Resultado | Hechos relevantes para redactar una respuesta | Lista o detalle determinista |
+| Criterio | Relevancia textual | Completitud y orden estable |
 
-```text
-1. reservar los códigos del lote
-2. escribir los documentos de forma atómica
-3. escribir el índice derivado
-   └─ si algo falla: borrar los documentos recién escritos y las filas del índice
-```
-
-La lógica es: **publicar al final, compensar si algo falla**. Nada se considera registrado hasta que ambos medios están escritos; y si el segundo paso falla, el primero se deshace. Es una alternativa explícita a una transacción distribuida, que este sistema no necesita.
-
-La ruta de consulta, en cambio, es **de solo lectura**: recupera hechos del índice y redacta una respuesta, sin tocar ni los archivos ni el índice.
-
----
-
-## 4. Ideas clave
-
-- El servicio es **bloqueante y multihilo**: cada petición ocupa un hilo y la concurrencia la fija el grupo de hilos.
-- Las capas separan **transporte, reglas y datos**, con dependencia en una sola dirección.
-- La validación es **defensa en profundidad**: DTO para la petición, dominio para las invariantes, esquema para lo ineludible.
-- **La restricción del esquema, no la comprobación del servicio, es la que garantiza la unicidad** bajo concurrencia.
-- La **transacción vive en el adaptador de datos**; las lecturas son de solo lectura y las escrituras fuerzan el flush.
-- Hibernate **valida** el esquema, no lo genera; las migraciones son la única fuente de verdad.
-- El **estado compartido es mínimo y está sincronizado**; todo lo demás es sin estado.
-- El **contrato de errores es uniforme** y no filtra detalles internos.
-- Las operaciones sobre varios medios se hacen **compensables**, no distribuidas.
-- La **idempotencia** protege los reintentos del chat.
+La consulta conversacional interpreta la intención y limita los resultados a los
+hechos pertinentes. La inspección directa permite revisar, filtrar, ordenar y
+abrir un evento sin depender de interpretación lingüística ni de composición
+LLM. Ambas operaciones son de lectura, pero no comparten necesariamente el
+servicio ni el criterio de selección.

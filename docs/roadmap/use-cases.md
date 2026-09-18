@@ -1,10 +1,10 @@
 # Use Cases — MVP
 
-> **Control de avance:** 7 de 11 implementados · 3 cubiertos · 1 pendiente.
+> **Control de avance:** 8 de 11 implementados · 3 cubiertos.
 >
-> Implementación actual: **UC-001 → UC-004, UC-007, UC-008 y UC-010**.
+> Implementación actual: **UC-001 → UC-004, UC-007, UC-008, UC-010 y UC-011**.
 >
-> Sin documentar ni implementar: **UC-011**.
+> Todos los casos de uso del MVP están implementados o cubiertos.
 
 Leyenda de estados:
 
@@ -88,6 +88,8 @@ Documento: [`UC-010.md`](../use-cases/UC-010.md) · [criterios de aceptación](.
 
 ## UC-011 — Inspeccionar los eventos clínicos registrados
 
-**Estado:** ⬜ Pendiente
+**Estado:** ✅ Implementado
 
 Permite consultar los eventos almacenados para verificar o inspeccionar la información persistida.
+
+Documento: [`UC-011.md`](../use-cases/UC-011.md) · [criterios de aceptación](../use-cases/UC-011-acceptance-criteria.md).

@@ -151,6 +151,17 @@ class OpenAiClinicalAnswerComposerTest {
                 .hasMessage("LLM response does not report the answer coverage");
     }
 
+        @Test
+        void normalizesOptionalComposedAnswerValues() {
+            var answer = new ClinicalAnswerComposer.ComposedAnswer("Respuesta", null, (String) null);
+            var partial = new ClinicalAnswerComposer.ComposedAnswer("Respuesta", List.of(), "parte pendiente");
+
+            assertThat(answer.references()).isEmpty();
+            assertThat(answer.coverage()).isEqualTo(ClinicalAnswerComposer.Coverage.FULL);
+            assertThat(answer.unsupported()).isNull();
+            assertThat(partial.coverage()).isEqualTo(ClinicalAnswerComposer.Coverage.PARTIAL);
+        }
+
     private OpenAiClinicalAnswerComposer composer() {
         try {
             return new OpenAiClinicalAnswerComposer(

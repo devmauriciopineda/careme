@@ -60,6 +60,19 @@ class ClinicalEventQueryRepositoryTest extends PostgresIntegrationTest {
     }
 
     @Test
+    void fallsBackToMetadataWithEmptyTermsAndOpenDateBounds() {
+        insert("evt_001", "note", "2026-01-10", "exact", "Dolor de cabeza");
+        insert("evt_002", "note", "2026-03-10", "exact", "Fiebre");
+
+        assertThat(repository.search(List.of(), null, LocalDate.of(2026, 2, 1), null))
+                .extracting(ClinicalEvent::code)
+                .containsExactly("evt_002");
+        assertThat(repository.search(null, ClinicalEvent.ClinicalEventType.NOTE, null, null))
+                .extracting(ClinicalEvent::code)
+                .containsExactly("evt_002", "evt_001");
+    }
+
+    @Test
     void respectsTheConfiguredLimit() {
         for (int index = 1; index <= 12; index++) {
             insert(String.format("evt_%03d", index), "note", "2026-01-%02d".formatted(index), "exact",
@@ -72,8 +85,20 @@ class ClinicalEventQueryRepositoryTest extends PostgresIntegrationTest {
     @Test
     void countsNothingWhenTheHistoryHasNoEvents() {
         assertThat(repository.countAll()).isZero();
+        assertThat(repository.countByType(null)).isZero();
+        assertThat(repository.countByPeriod(null, null)).isZero();
         assertThat(repository.countByType(ClinicalEvent.ClinicalEventType.DIAGNOSIS)).isZero();
         assertThat(repository.countByPeriod(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 12, 31))).isZero();
+    }
+
+    @Test
+    void buildsSafeTsQueriesFromNullBlankAndPunctuatedTerms() {
+        assertThat(ClinicalEventQueryRepository.toTsQuery(null)).isEmpty();
+        assertThat(ClinicalEventQueryRepository.toTsQuery(
+            java.util.Arrays.asList(null, " ", "Presión arterial")))
+                .isEqualTo("presión & arterial");
+        assertThat(ClinicalEventQueryRepository.toTsQuery(List.of("dolor...fiebre")))
+                .isEqualTo("dolor & fiebre");
     }
 
     @Test

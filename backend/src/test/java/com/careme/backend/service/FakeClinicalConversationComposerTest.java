@@ -67,5 +67,15 @@ class FakeClinicalConversationComposerTest {
         assertThatThrownBy(() -> composer.compose("   ", List.of()))
                 .isInstanceOf(LlmIntegrationException.class)
                 .hasMessage("There is nothing to reply to");
+        assertThatThrownBy(() -> composer.compose(null, List.of()))
+                .isInstanceOf(LlmIntegrationException.class)
+                .hasMessage("There is nothing to reply to");
+    }
+
+    @Test
+    void fallsBackToGeneralReplyWhenConceptHasNoName() {
+        String reply = composer.compose("¿Qué es?", List.of());
+
+        assertThat(reply).contains("¿Qué es?");
     }
 }

@@ -11,6 +11,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import com.careme.backend.exception.ClinicalEventInspectionException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
@@ -60,6 +61,12 @@ public class ApiExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ErrorResponse.of(ex.getMessage(), ex.code(), ex.details()));
     }
+
+        @ExceptionHandler(ClinicalEventInspectionException.class)
+        public ResponseEntity<ErrorResponse> handleInvalidInspectionFilter(ClinicalEventInspectionException ex) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                                .body(ErrorResponse.of(ex.getMessage(), "INVALID_FILTER", List.of()));
+        }
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<ErrorResponse> handleOversizedUpload(MaxUploadSizeExceededException ex) {

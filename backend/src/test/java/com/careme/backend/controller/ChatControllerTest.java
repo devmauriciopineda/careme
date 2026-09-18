@@ -182,4 +182,15 @@ class ChatControllerTest {
                 .doesNotContain("Bearer ")
                 .doesNotContainIgnoringCase("stacktrace");
     }
+
+        @Test
+        void normalizesOptionalChatResponseCollectionsAndBlankGeneralReply() {
+                var response = new ChatMessageResponse(
+                                "conversation-1", "message-1", ChatMessageResponse.Status.FAILED,
+                                "No se pudo", null, null, null, "  ");
+
+                assertThat(response.events()).isEmpty();
+                assertThat(response.suggestedActions()).isEmpty();
+                assertThat(response.generalReply()).isNull();
+        }
 }
