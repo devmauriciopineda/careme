@@ -52,11 +52,13 @@ C4 level 1 diagram (Context):
 
 ```mermaid
 flowchart LR
-    person["Person tracking<br/>their body metrics<br/>[Person]"]
+    person["Person with their own<br/>clinical history and<br/>body metrics<br/>[Person]"]
     subgraph careme["Careme [System]"]
-        app["Body tracking:<br/>records and displays weight<br/>and abdominal circumference"]
+        chat["Clinical assistant:<br/>records clinical facts stated in<br/>natural language and answers<br/>questions grounded on them"]
+        body["Body tracking:<br/>records and displays weight<br/>and abdominal circumference"]
     end
-    person -->|"uses, HTTP<br/>browser :3000"| app
+    person -->|"uses, HTTP<br/>browser :3000"| chat
+    person -->|"uses, HTTP<br/>browser :3000"| body
 ```
 
 **External systems:** an OpenAI-compatible LLM provider (DeepSeek by default)
@@ -79,8 +81,10 @@ remaining runtime dependencies are PostgreSQL and the local filesystem.
 - OpenSpec convention — ✅ RESOLVED: `openspec/` exists with `config.yaml`,
   `openspec/specs/` (current capabilities) and `openspec/changes/archive/`
   (archived changes). It coexists with the functional documentation in
-  `docs/use-cases/` (UC-001…UC-004, UC-007, UC-008 and UC-010) and
-  `docs/roadmap/`.
+  `docs/use-cases/` (UC-001…UC-004, UC-007, UC-008, UC-010 and UC-011) and
+  `docs/roadmap/`, which records the closed MVP scope
+  (`mvp_alcance_asistente_historia_clinica.md`) and the roadmap that continues from it
+  (`roadmap_asistente_historia_clinica.md`), including the use cases of Fase 4.
 
 ---
 
@@ -327,8 +331,8 @@ careme/
 │   └── e2e/playwright/             # Reserved; no tests yet
 ├── docs/                           # Project documentation
 │   ├── standards/                  # Java/Spring and Next standards
-│   ├── use-cases/                  # UC-001…UC-004, UC-007, UC-008 and UC-010
-│   ├── roadmap/                    # Roadmap and MVP scope of the clinical assistant
+│   ├── use-cases/                  # UC-001…UC-004, UC-007, UC-008, UC-010 and UC-011
+│   ├── roadmap/                    # Roadmap, MVP scope and use-case status
 │   ├── data-model.md               # Data model
 │   └── architecture.md             # This document
 ├── openspec/                       # Current specs and archived changes (OpenSpec)
@@ -418,6 +422,9 @@ the code and the READMEs.
 | ADR-012 | User-facing text in Spanish isolated in `strings.ts`; code in English | Current | Future i18n without a refactor | Manual discipline; no automated check |
 | ADR-013 | Implicit `Patient` and clinical events in Markdown as the source of truth + derived PostgreSQL index | Current | MVP of the clinical history assistant | Markdown rules; PostgreSQL indexes and is rebuilt; the query is read-only and there is no edit or delete |
 | ADR-014 | Natural-language interpretation and composition behind separate adapters (`ClinicalIntentInterpreter` / `ClinicalAnswerComposer` / `ClinicalConversationComposer`) with `fake`/`openai` mode | Current | Separate the LLM provider from the domain and validate grounded answers | The `fake` default is deterministic; `openai` requires `CAREME_LLM_API_KEY`, classifies queries, composes answers only from retrieved facts and composes the conversational reply without reading the history |
+
+> ADR-013 describes the implemented model. The roadmap's Fase 4.4 materialises `Patient` as a patient
+> profile, which will supersede it.
 
 ---
 

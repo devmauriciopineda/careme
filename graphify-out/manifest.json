@@ -606,33 +606,33 @@
     "semantic_hash": ""
   },
   "docs/architecture.md": {
-    "mtime": 1789704437.818569,
-    "seen": 1789709857.196533,
-    "ast_hash": "690d1d4d750fb9a9a50ba9f2513e72f0",
+    "mtime": 1789799276.925575,
+    "seen": 1789799304.1524942,
+    "ast_hash": "157665b204eef095592ec8e162c3c31a",
     "semantic_hash": ""
   },
   "docs/data-model.md": {
-    "mtime": 1789624936.956244,
-    "seen": 1789624982.0569708,
-    "ast_hash": "eb8de6d9b98c4e14173bc4eb05b3b853",
+    "mtime": 1789799276.925575,
+    "seen": 1789799304.1535707,
+    "ast_hash": "3f9dae4bd4df5eb60c46f60fa7777e4a",
     "semantic_hash": ""
   },
   "docs/roadmap/mvp_alcance_asistente_historia_clinica.md": {
-    "mtime": 1789243956.1611493,
-    "seen": 1789274566.448899,
-    "ast_hash": "95322c87ce7571cdd89a5891e68c4d97",
+    "mtime": 1789799276.9225736,
+    "seen": 1789799304.1535733,
+    "ast_hash": "cfb3b88ebd769ab93108f56243714e3b",
     "semantic_hash": ""
   },
   "docs/roadmap/roadmap_asistente_historia_clinica.md": {
-    "mtime": 1789243952.7977433,
-    "seen": 1789274566.4489007,
-    "ast_hash": "9d4969668d010ba6a1ece9079be19637",
+    "mtime": 1789799276.9225736,
+    "seen": 1789799304.1535754,
+    "ast_hash": "91230aa3cd31938bf64608350c01b6a2",
     "semantic_hash": ""
   },
   "docs/roadmap/use-cases.md": {
-    "mtime": 1789703699.5740862,
-    "seen": 1789703942.970405,
-    "ast_hash": "6b9e7ee8117852a10118e245851bb90b",
+    "mtime": 1789799276.9235716,
+    "seen": 1789799304.1535773,
+    "ast_hash": "8ca4047281b49e267d60101fdb72b8e6",
     "semantic_hash": ""
   },
   "docs/use-cases/UC-004-acceptance-criteria.md": {

@@ -54,6 +54,12 @@ entity of body tracking; it coexists with the assistant's derived table
 **Relationships:** none. It is an independent entity; there is no user or owner
 in the current model.
 
+> **Superseded in Fase 4.** The `measurements` table and the "one measurement per
+> day" rule give way to the metric model of §6.2: a measurement carries a metric,
+> a value, a unit and its date precision, so blood pressure, cholesterol, weight
+> and abdominal circumference share one model. `/measurements` becomes a derived
+> view over it.
+
 ### 1.2 MeasurementDraft
 
 Represents a measurement that has no database identity yet. It is used when
@@ -134,6 +140,10 @@ Represents the owner of the clinical history. The MVP has a single history, the
 user's own, so `Patient` remains **implicit**: no entity or table is created for
 it.
 
+> **Materialised in Fase 4.** The patient profile of §6.3 materialises `Patient`.
+> It is still a single patient; what changes is that the system stops being blind
+> to who it belongs to.
+
 **Relationships:**
 
 - `events`: one-to-many relationship with the ClinicalEvent model
@@ -170,6 +180,10 @@ by UC-004 (`backend/src/main/java/com/careme/backend/entity/ClinicalEvent.java`)
 - Only medical facts are registered; questions and general conversation do not
   create events.
 - The same fact is not registered twice.
+
+> **Reviewed in Fase 4.** `measurement` leaves the catalogue, so the remaining
+> supported types are `diagnosis`, `medication` and `note`, plus the clinical
+> types Fase 4 adds. Events also reference the encounter they came from (§6.1).
 
 **Persistence notes:**
 
@@ -228,7 +242,9 @@ erDiagram
    is a UUID and for clinical events a readable `code` is added, which also names
    the file.
 2. **One measurement per day**: the date identifies the measurement within the
-   day, so registering a day again updates instead of duplicating.
+   day, so registering a day again updates instead of duplicating. The rule
+   describes the implemented model; §6.2 replaces it with a metric model where
+   several metrics and several readings per day are possible.
 3. **Domain invariants**: the domain type (`Measurement`) rejects any invalid
    value when it is constructed, so an invalid record cannot exist.
 4. **Contract separated from storage**: the API DTOs and the persistence entity
@@ -255,3 +271,120 @@ erDiagram
   `V1__create_measurements_table.sql` (the `measurements` table) and
   `V2__create_clinical_event_index.sql` (the derived index
   `clinical_event_index`); the JPA mapping is validated against them.
+- §6 records the target model of the roadmap's Fase 4. It is **not implemented**:
+  nothing in §1 to §5 depends on it, and no table or migration exists for it yet.
+
+---
+
+## 6. Fase 4 target model
+
+The model the roadmap's Fase 4 introduces. It is **not implemented**: it is
+recorded here so the implemented model above and the target one are not confused.
+
+### 6.1 Encounter (consulta)
+
+The conversation stops being in-memory state and becomes a record with an
+identifier and a life cycle. The assistant talks, asks for what is missing and
+takes notes of what the user mentions; the facts the user reports are registered
+with their **provenance**, referencing the encounter they came from, instead of
+being registered sentence by sentence.
+
+- Representation: Markdown, in a directory sibling to `data/events/`
+  (`data/encounters/`, code `enc_NNN` in parallel to `evt_NNN`), so the provenance
+  an event declares in its front matter survives the rebuild of the index.
+- PostgreSQL indexes encounters as it does events.
+- The model allows both registration moments —at the close of the conversation or
+  as it advances— and the moment is decided at implementation time.
+- An encounter may keep its own **summary**, apart from the breakdown into events.
+  If stored, it is derived information in the sense of design principle 7: marked
+  as such and rebuildable from the encounter's events, never a source of truth.
+
+**Relationships:**
+
+- `events`: one-to-many with ClinicalEvent
+- `measurements`: one-to-many with the metric model of §6.2
+
+### 6.2 Measurement (metric model)
+
+One model for weight, abdominal circumference, blood pressure, cholesterol and any
+other metric.
+
+**Fields:**
+
+- `id`: Unique identifier
+- `metric`: Which quantity was measured (`weight`, `waist`, `systolic`,
+  `diastolic`, `cholesterol`…)
+- `value`: Numeric value
+- `unit`: Unit of the value
+- `date`: Date of the measurement, with the same precision rules as an event
+- `date_precision`: `exact`, `approximate` or `unknown`
+- `date_text`: The user's original temporal expression, when there was one
+- `encounter_id`: The encounter it came from
+- `created_at`: Date and time the record was created
+
+**Validation rules:**
+
+- The value is numeric and strictly positive.
+- Both `value` and `unit` are required.
+- The temporal fidelity rules of ClinicalEvent apply unchanged.
+- Several metrics, and several readings of the same metric, may exist on the same
+  day: the uniqueness of `date` disappears.
+
+**Relationships:**
+
+- `encounter`: many-to-one with Encounter
+
+### 6.3 Patient profile
+
+Materialises `Patient`, which today is implicit (§2.1).
+
+**Fields:**
+
+- `name`: Name and surnames
+- `date_of_birth`: Date of birth. Age is derived from it and never stored
+- `sex`
+- `occupation`
+- `blood_group` and `rh`
+- `height_cm`: Height
+
+**Behaviour:**
+
+- The assistant proposes an **interview** on the first interaction. The user may
+  skip it and resume it later, and the assistant asks again for a missing datum
+  when the conversation needs it.
+- The profile is updated when the user reports a change.
+- **Only current values are kept.** The document is overwritten on update and the
+  profile values carry no history of their own: correcting a datum discards the
+  previous one. The provenance of the clinical model applies to clinical facts,
+  not to these values; record versioning is Fase 8.4.
+- A datum may be **unknown**: it is stored as absent and never invented.
+- Representation: a Markdown patient document in a directory sibling to
+  `data/events/`, under the same principle as the encounter (§6.1).
+
+It does **not** contain allergies, vaccinations, family history, conditions or
+laboratory results. Those are clinical facts, covered by the event types and the
+conditions, and they are summarised in §6.4.
+
+### 6.4 Extended profile
+
+A **derived** document composed automatically from the patient profile plus the
+main facts: active conditions, allergies, current medication, recent measurements
+and family history.
+
+In the sense of design principle 7 it is derived information: marked as such and
+rebuildable from the facts, never a source of truth.
+
+### 6.5 What changes with respect to the implemented model
+
+| Implemented | Fase 4 |
+| --- | --- |
+| `Patient` is implicit: no entity and no table | materialised as the profile of §6.3 |
+| No patient attributes to read | the assistant has the profile and the extended profile of §6.4 |
+| Family history has no category of its own | event type `family_history`, with the relative in the content |
+| `measurements` table with `weight_kg` and `waist_cm`, both required | metric model of §6.2 |
+| One row per day (`uq_measurements_date`) | several metrics and readings per day |
+| `measurement` is a clinical event type | it leaves the catalogue; the remaining types are `diagnosis`, `medication` and `note`, plus the new ones |
+| `/measurements` reads its own table | `/measurements` is a derived view over the metric model |
+| The assistant redirects weight and waist questions | it registers and queries them like any other metric |
+| The conversation lives in memory with a TTL | the encounter is a persisted record and gives provenance |
+| No numeric comparison across time | Fase 7.3 can compare values over time |

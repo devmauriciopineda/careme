@@ -1,21 +1,21 @@
-# Graph Report - careme  (2026-09-18)
+# Graph Report - careme  (2026-09-19)
 
 ## Corpus Check
-- 275 files · ~187,167 words
+- 275 files · ~191,442 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 2801 nodes · 5012 edges · 208 communities (179 shown, 29 thin omitted)
+- 2831 nodes · 5044 edges · 207 communities (181 shown, 26 thin omitted)
 - Extraction: 91% EXTRACTED · 9% INFERRED · 0% AMBIGUOUS · INFERRED: 443 edges (avg confidence: 0.81)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `34f26406`
+- Built from commit: `182bf87a`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
-- MeasurementImportControllerTest
+- MeasurementImportControllerTest.java
 - Measurement
 - measurements/lib/schema.ts
 - measurements/actions.ts
@@ -44,7 +44,7 @@
 - next.config.ts
 - postcss.config.mjs
 - com.careme:backend
-- MeasurementImport.tsx
+- measurements/lib/strings.ts
 - Estructura obligatoria del `architecture.md`
 - Especificación de alcance — MVP del asistente de historia clínica personal
 - MetricTrendChart.tsx
@@ -72,9 +72,9 @@
 - ADDED Requirements
 - 3. Alcance funcional
 - 4. Modelo de datos mínimo
-- 8. Herramientas del LLM
+- 8. Interpretación del LLM y herramientas del backend
 - 9. Responsabilidades del LLM y del backend
-- 7. Búsqueda
+- MeasurementImport.tsx
 - Requirements
 - ADDED Requirements
 - ClinicalEventInspectionService
@@ -97,10 +97,10 @@
 - @testing-library/react
 - @types/react
 - MeasurementCsvParser
-- ClinicalEventIndexControllerTest
-- ClinicalEventIndexController.java
+- ClinicalEventIndexRebuilder
+- MeasurementController.java
 - ChatWorkspace.test.tsx
-- MeasurementImportService
+- MeasurementImportServiceTest
 - Requirement: Return explicit chat outcomes
 - Decisions
 - Requirement: Return explicit chat outcomes
@@ -109,7 +109,7 @@
 - Decisions
 - Requirement: Represent clarification, success, duplicate, and failure states
 - Requirement: Produce provider-neutral clinical intents
-- .register
+- Candidate
 - Requirement: Represent clarification, success, duplicate, and failure states
 - Plan: Cerrar contratos del asistente clínico
 - 2026-09-13-assistant-chat-llm-integration/proposal.md
@@ -132,7 +132,7 @@
 - 2026-09-13-fix-clinical-event-storage/tasks.md
 - Requirement: Allow the declared origin to reach the operations a browser client uses
 - 2026-09-13-chat-server-side-transport/tasks.md
-- Candidate
+- MeasurementImportControllerTest
 - Requirement: Represent clarification, success, duplicate, and failure states
 - 03 — Backend: API, concurrencia y persistencia
 - Requirement: Return explicit chat outcomes
@@ -145,8 +145,8 @@
 - 2026-09-13-uc-007/proposal.md
 - 2026-09-16-uc-008/tasks.md
 - Backend (Java / Spring Boot) — Careme
-- ChatOrchestrator
-- 05 — IA: LLM, prompts y RAG
+- UC-010 — Consultar información que no pertenece a la historia clínica — Acceptance Criteria
+- 3. Stack tecnológico
 - Frontend (Next.js / React / TypeScript) — Careme
 - Requirement: Compose grounded answers from retrieved events
 - org.junit.jupiter.api.Test
@@ -155,10 +155,10 @@
 - frontend-tests.instructions.md
 - openspec-sdd.instructions.md
 - 2026-09-16-uc-008/proposal.md
-- Use Cases — MVP
+- Use Cases
 - UC-008 — Gestionar información clínica ausente
 - UC-010 — Consultar información que no pertenece a la historia clínica
-- ChatMessageResponse
+- Status
 - UC-007 — Consultar la historia clínica mediante lenguaje natural
 - Scenarios
 - Scenarios
@@ -190,19 +190,18 @@
 - ClinicalEventQueryRepository
 - Requirement: Listar los eventos clínicos registrados
 - ADDED Requirements
-- ClinicalAnswerResult
-- ClinicalEventIndexRebuilder
+- 5. Ejemplos del backend
+- org.slf4j.Logger
 - 8. Búsqueda full-text de PostgreSQL
 - UC-011 — Inspeccionar los eventos clínicos registrados
 - button.tsx
-- 4. Tipos de pruebas y niveles
-- ClinicalEventIntent
+- 3. Principios de arquitectura
+- 3. Cómo se construye un caso de prueba
 - Scenarios
 - Decisions
 - .event
 - ClinicalHistoryQueryFlowIntegrationTest
-- 7. Cobertura de código
-- ClinicalEventInspectionIntegrationTest
+- org.springframework.jdbc.core.JdbcTemplate
 - UC-011 — Inspeccionar los eventos clínicos registrados — Acceptance Criteria
 - 2026-09-17-raise-jacoco-coverage/proposal.md
 - 2026-09-17-uc-011/proposal.md
@@ -242,11 +241,11 @@
 - **Frontend Measurement Feature** — _github_prompts_plan_carememeasurements_prompt_measurements_dashboard, _github_prompts_plan_carememeasurements_prompt_metric_trend_chart, _github_prompts_plan_carememeasurements_prompt_measurements_table, _github_prompts_plan_carememeasurements_prompt_measurement_service, _github_prompts_plan_carememeasurements_prompt_metrics_lib [EXTRACTED 1.00]
 - **JPA Persistence Stack** — _github_prompts_plan_postgrespersistence_prompt_measurement_entity, _github_prompts_plan_postgrespersistence_prompt_measurement_jpa_dao, _github_prompts_plan_postgrespersistence_prompt_measurement_jpa_repository, _github_prompts_plan_postgrespersistence_prompt_flyway, readme_postgresql [EXTRACTED 1.00]
 
-## Communities (208 total, 29 thin omitted)
+## Communities (207 total, 26 thin omitted)
 
-### Community 0 - "MeasurementImportControllerTest"
-Cohesion: 0.17
-Nodes (7): ImportPreviewResponse, ImportPreviewRow, ImportResultResponse, MeasurementImportException, MeasurementImportControllerTest, MockMultipartFile, org.springframework.mock.web.MockMultipartFile
+### Community 0 - "MeasurementImportControllerTest.java"
+Cohesion: 0.21
+Nodes (6): ImportPreviewResponse, ImportPreviewRow, ImportResultResponse, org.junit.jupiter.api.extension.ExtendWith, org.mockito.junit.jupiter.MockitoExtension, org.springframework.mock.web.MockMultipartFile
 
 ### Community 1 - "Measurement"
 Cohesion: 0.09
@@ -254,23 +253,23 @@ Nodes (13): Measurement, Measurement, MeasurementEntity, MeasurementJpaDao, Over
 
 ### Community 2 - "measurements/lib/schema.ts"
 Cohesion: 0.09
-Nodes (25): todayIsoDate(), importErrorResponseSchema, importPreviewResponseSchema, importPreviewRowSchema, importResultResponseSchema, measurementCreatedResponseSchema, measurementFormSchema, measurementInputSchema (+17 more)
+Nodes (25): isFutureIsoDate(), importErrorResponseSchema, importPreviewResponseSchema, importPreviewRowSchema, importResultResponseSchema, measurementCreatedResponseSchema, measurementFormSchema, measurementInputSchema (+17 more)
 
 ### Community 3 - "measurements/actions.ts"
 Cohesion: 0.12
-Nodes (22): ConfirmImportResult, confirmMeasurementImport(), ImportErrorInfo, PreviewImportResult, previewMeasurementImport(), RegisterMeasurementResult, toImportError(), uploadedFile() (+14 more)
+Nodes (23): ConfirmImportResult, confirmMeasurementImport(), ImportErrorInfo, PreviewImportResult, previewMeasurementImport(), RegisterMeasurementResult, toImportError(), uploadedFile() (+15 more)
 
 ### Community 4 - "metrics.ts"
 Cohesion: 0.14
-Nodes (27): Separator(), CHART_DESCRIPTIONS, MeasurementsDashboard(), MeasurementsTable(), MetricTrendChart(), buildChartSummary(), buildSeries(), computeDateRange() (+19 more)
+Nodes (26): Separator(), CHART_DESCRIPTIONS, MeasurementsDashboard(), MeasurementsTable(), MEASUREMENTS, MetricTrendChart(), buildChartSummary(), buildSeries() (+18 more)
 
 ### Community 5 - "Requirements"
 Cohesion: 0.17
 Nodes (12): Requirement: Informar fallos sin inventar una respuesta, Requirement: Interpretar preguntas de seguimiento con la conversación activa, Requirement: Mantener la declaración de ausencia ante la insistencia, Requirement: Mostrar los hechos que sustentan la respuesta, Requirement: Responder la parte respaldada y declarar la parte ausente, Requirements, Scenario: Identificar los hechos de apoyo, Scenario: La persona insiste tras la negativa (+4 more)
 
 ### Community 6 - "ClinicalEvent"
-Cohesion: 0.11
-Nodes (11): ClinicalEvent, EventSource, PATIENT, ClinicalEventIndexWriter, PostgresIntegrationTest, ClinicalHistoryUnsupportedRetrievalIntegrationTest, org.junit.jupiter.api.BeforeEach, org.springframework.boot.test.context.SpringBootTest (+3 more)
+Cohesion: 0.12
+Nodes (10): ChatMessageResponse, value(), ClinicalEvent, PostgresIntegrationTest, com.fasterxml.jackson.annotation.JsonValue, java.util.regex.Pattern, org.junit.jupiter.api.BeforeEach, org.springframework.boot.test.context.SpringBootTest (+2 more)
 
 ### Community 7 - "dependencies"
 Cohesion: 0.09
@@ -333,20 +332,20 @@ Cohesion: 0.21
 Nodes (9): CorsConfig, CorsConfigTest, InspectableCorsRegistry, org.springframework.context.annotation.Bean, org.springframework.context.annotation.Configuration, org.springframework.web.cors.CorsConfiguration, org.springframework.web.servlet.config.annotation.CorsRegistry, org.springframework.web.servlet.config.annotation.WebMvcConfigurer (+1 more)
 
 ### Community 23 - "MeasurementForm.tsx"
-Cohesion: 0.13
-Nodes (13): metadata, Input(), Label(), registerMeasurement(), FieldErrors, MeasurementForm(), handleSubmit(), Status (+5 more)
+Cohesion: 0.14
+Nodes (13): metadata, Label(), registerMeasurement(), FieldErrors, MeasurementForm(), handleSubmit(), Status, fillValidMetrics() (+5 more)
 
-### Community 32 - "MeasurementImport.tsx"
-Cohesion: 0.15
-Nodes (17): geistMono, geistSans, metadata, Table(), TableBody(), TableCaption(), TableCell(), TableHead() (+9 more)
+### Community 32 - "measurements/lib/strings.ts"
+Cohesion: 0.24
+Nodes (8): geistMono, geistSans, metadata, describeImportError(), describeIssue(), FIELD_LABELS, rejection(), STRINGS
 
 ### Community 33 - "Estructura obligatoria del `architecture.md`"
 Cohesion: 0.12
 Nodes (15): 1. Executive summary, 2. Context and scope, 3. Technology stack, 4. Container view (C4 level 2), 5. Component view (C4 level 3), 6. Repository map, 7. Architectural patterns, 8. Architectural decisions (ADR-light) (+7 more)
 
 ### Community 34 - "Especificación de alcance — MVP del asistente de historia clínica personal"
-Cohesion: 0.14
-Nodes (13): 11. Interfaz de usuario, 12. Arquitectura, 13. Estructura de proyecto, 16. Definition of Done, 17. Criterio técnico de éxito, 18. Principios de diseño, 19. Evolución posterior, 1. Propósito (+5 more)
+Cohesion: 0.12
+Nodes (16): 11. Interfaz de usuario, 12. Arquitectura, 13. Estructura de proyecto, 16. Definition of Done, 17. Criterio técnico de éxito, 18. Principios de diseño, 19. Evolución posterior, 1. Propósito (+8 more)
 
 ### Community 35 - "MetricTrendChart.tsx"
 Cohesion: 0.11
@@ -357,8 +356,8 @@ Cohesion: 0.15
 Nodes (12): 1. Executive summary, 2. Context and scope, 3. Technology stack, 4. Container view (C4 level 2), 5.1 Backend (the most complex container), 5.2 Frontend, 5. Component view (C4 level 3), 6. Repository map (+4 more)
 
 ### Community 37 - "Data model — Careme"
-Cohesion: 0.15
-Nodes (12): 1.1 Measurement, 1.2 MeasurementDraft, 1.3 API models, 1.4 Cross-cutting import rules, 1. Implemented model, 2.1 Patient, 2.2 ClinicalEvent, 2. Clinical history assistant model (implemented) (+4 more)
+Cohesion: 0.11
+Nodes (18): 1.1 Measurement, 1.2 MeasurementDraft, 1.3 API models, 1.4 Cross-cutting import rules, 1. Implemented model, 2.1 Patient, 2.2 ClinicalEvent, 2. Clinical history assistant model (implemented) (+10 more)
 
 ### Community 38 - "Scenarios"
 Cohesion: 0.11
@@ -377,8 +376,8 @@ Cohesion: 0.18
 Nodes (11): Careme MVP (frontend-only), Server Components, Frontend Project Standards, Playwright, pnpm Workspaces, Server Components Default, Storybook, TanStack Query (+3 more)
 
 ### Community 42 - "Subfases"
-Cohesion: 0.18
-Nodes (11): 3.1. Búsqueda textual, 3.2. Índice, 3.3. Tool de búsqueda, 3.4. Retrieval controlado, 3.5. Respuestas basadas en evidencia, 3.6. Persistencia del historial de conversación (diferida), Criterio de éxito del MVP, Fase 3 — Consulta mediante lenguaje natural (+3 more)
+Cohesion: 0.17
+Nodes (12): 3.1. Búsqueda textual, 3.2. Índice, 3.3. Búsqueda de eventos, 3.4. Retrieval controlado, 3.5. Respuestas basadas en evidencia, 3.6. Persistencia del historial de conversación (diferida), Cierre del MVP, Criterio de éxito del MVP (+4 more)
 
 ### Community 43 - "Subfases"
 Cohesion: 0.20
@@ -386,7 +385,7 @@ Nodes (10): 8.1. Identidad y acceso, 8.2. Protección de datos, 8.3. Auditoría,
 
 ### Community 44 - "Subfases"
 Cohesion: 0.22
-Nodes (9): 0.1. Definir entidades mínimas, 0.2. Definir tipos de evento, 0.3. Definir metadatos, 0.4. Definir formato Markdown, 4. Roadmap, Fase 0 — Definición del modelo mínimo, Objetivo, Resultado (+1 more)
+Nodes (9): 0.1. Definir entidades mínimas, 0.2. Definir tipos de evento, 0.3. Definir metadatos, 0.4. Definir formato Markdown, 4. Roadmap, Fase 0 — Definición del modelo mínimo — ✅ completada, Objetivo, Resultado (+1 more)
 
 ### Community 45 - "2. Alcance funcional proyectado"
 Cohesion: 0.22
@@ -394,11 +393,11 @@ Nodes (9): 1. Objeto del aplicativo, 2.1. Registro de información clínica, 2.2
 
 ### Community 46 - "Subfases"
 Cohesion: 0.22
-Nodes (9): 2.1. Integración del modelo, 2.2. Function calling / tools, 2.3. Extracción de información, 2.4. Control de incertidumbre, 2.5. Validación, Fase 2 — Integración del LLM como interfaz, Objetivo, Resultado (+1 more)
+Nodes (9): 2.1. Integración del modelo, 2.2. Operaciones del LLM, 2.3. Extracción de información, 2.4. Control de incertidumbre, 2.5. Validación, Fase 2 — Integración del LLM como interfaz — ✅ completada, Objetivo, Resultado (+1 more)
 
 ### Community 47 - "Subfases"
-Cohesion: 0.22
-Nodes (9): 4.1. Nuevos tipos de evento, 4.2. Condiciones longitudinales, 4.3. Estados, 4.4. Relaciones, 4.5. Provenance, Fase 4 — Modelo clínico enriquecido, Objetivo, Resultado (+1 more)
+Cohesion: 0.13
+Nodes (15): 4.10. Perfil extendido, 4.11. Requisitos de ingeniería de la fase, 4.1. Consulta, 4.2. Agente con herramientas, 4.3. Modelo de mediciones, 4.4. Perfil del paciente, 4.5. Nuevos tipos de evento, 4.6. Condiciones longitudinales (+7 more)
 
 ### Community 48 - "Subfases"
 Cohesion: 0.22
@@ -418,7 +417,7 @@ Nodes (8): 15. Casos de prueba conversacionales, Caso 1 — Crear diagnóstico, 
 
 ### Community 52 - "Subfases"
 Cohesion: 0.25
-Nodes (8): 1.1. Backend mínimo, 1.2. Persistencia, 1.3. API, 1.4. Interfaz mínima, Fase 1 — MVP técnico de almacenamiento, Objetivo, Resultado, Subfases
+Nodes (8): 1.1. Backend mínimo, 1.2. Persistencia, 1.3. API, 1.4. Interfaz mínima, Fase 1 — MVP técnico de almacenamiento — ✅ completada, Objetivo, Resultado, Subfases
 
 ### Community 53 - "Plan: Alinear roadmap, MVP, use cases y README con el repositorio"
 Cohesion: 0.25
@@ -429,8 +428,8 @@ Cohesion: 0.29
 Nodes (7): 14. Exclusiones explícitas del MVP, Datos clínicos, Documentos y fuentes externas, IA avanzada, Infraestructura, Integración con el seguimiento corporal, Producto
 
 ### Community 55 - "roadmap_asistente_historia_clinica.md"
-Cohesion: 0.17
-Nodes (11): 3.1. Markdown como representación canónica inicial, 3.2. Los eventos son la fuente primaria, 3.3. Separación entre almacenamiento e inteligencia, 3.4. Retrieval híbrido, 3. Principios de arquitectura, 5. Arquitectura evolutiva, 6. Priorización, 7. Criterio general de evolución (+3 more)
+Cohesion: 0.25
+Nodes (6): 5. Arquitectura evolutiva, 6. Priorización, 7. Criterio general de evolución, Arquitectura avanzada, Etapa intermedia, MVP — completado el 2026-09-18
 
 ### Community 56 - "10. Reglas de comportamiento"
 Cohesion: 0.33
@@ -441,20 +440,24 @@ Cohesion: 0.07
 Nodes (29): ADDED Requirements, Purpose, Requirement: Declarar explícitamente la ausencia de registros, Requirement: Informar fallos sin inventar una respuesta, Requirement: Interpretar preguntas de seguimiento con la conversación activa, Requirement: Mantener la historia intacta, Requirement: Mostrar los hechos que sustentan la respuesta, Requirement: Pedir aclaración ante una pregunta ambigua (+21 more)
 
 ### Community 58 - "3. Alcance funcional"
-Cohesion: 0.50
-Nodes (4): 3.1 Registro de información, 3.2 Consulta de información, 3.3 Preguntas que no requieren recuperación, 3. Alcance funcional
+Cohesion: 0.40
+Nodes (5): 3.1 Registro de información, 3.2 Consulta de información, 3.3 Preguntas que no requieren recuperación, 3.4 Capacidades incorporadas durante el MVP, 3. Alcance funcional
 
 ### Community 59 - "4. Modelo de datos mínimo"
 Cohesion: 0.50
 Nodes (4): 4.1 ClinicalEvent, 4.2 Tipos de evento iniciales, 4.3 Ejemplo de evento, 4. Modelo de datos mínimo
 
-### Community 60 - "8. Herramientas del LLM"
+### Community 60 - "8. Interpretación del LLM y herramientas del backend"
 Cohesion: 0.50
-Nodes (4): 8.1 create_event, 8.2 search_events, 8.3 get_event y list_events, 8. Herramientas del LLM
+Nodes (4): 8.1 create_event, 8.2 search_events, 8.3 get_event y list_events, 8. Interpretación del LLM y herramientas del backend
 
 ### Community 61 - "9. Responsabilidades del LLM y del backend"
 Cohesion: 0.67
 Nodes (3): 9. Responsabilidades del LLM y del backend, Backend, LLM
+
+### Community 62 - "MeasurementImport.tsx"
+Cohesion: 0.31
+Nodes (9): Input(), Table(), TableBody(), TableCaption(), TableCell(), TableHead(), TableHeader(), TableRow() (+1 more)
 
 ### Community 63 - "Requirements"
 Cohesion: 0.06
@@ -473,12 +476,16 @@ Cohesion: 0.12
 Nodes (4): ClinicalEventMarkdownStore, ClinicalEvent, ClinicalEventMarkdownStoreTest, ClinicalEvent
 
 ### Community 67 - ".process"
-Cohesion: 0.25
-Nodes (3): ChatMessageRequest, ChatOrchestratorTest, ClinicalEvent
+Cohesion: 0.06
+Nodes (30): ChatMessageRequest, ClinicalEventIntent, Kind, CLARIFICATION, CONVERSATION, EVENTS, QUERY, ChatOrchestrator (+22 more)
 
 ### Community 68 - "Decisions"
 Cohesion: 0.17
 Nodes (11): Context, Contrato estructurado entre chat y registro, Decisions, Duplicación limitada a la conversación actual, Goals / Non-Goals, La aplicación valida antes de persistir, Markdown como fuente primaria y PostgreSQL como índice derivado, Migration Plan (+3 more)
+
+### Community 69 - ".interpret"
+Cohesion: 0.15
+Nodes (3): FakeClinicalIntentInterpreter, Override, FakeClinicalIntentInterpreterTest
 
 ### Community 70 - "openspec-explore/SKILL.md"
 Cohesion: 0.18
@@ -498,7 +505,7 @@ Nodes (6): Capabilities, Impact, Modified Capabilities, New Capabilities, What C
 
 ### Community 74 - "07 — Calidad y pruebas"
 Cohesion: 0.10
-Nodes (19): 07 — Calidad y pruebas, 1. Qué es calidad, 2.1 Secuencia de aplicación, 2.2 Secuencia real del repositorio, 2. La estrategia de pruebas, 3.1 De requisito a casos, 3.2 Arrange, Act, Assert, 3.3 Dobles de prueba (+11 more)
+Nodes (20): 07 — Calidad y pruebas, 1. Qué es calidad, 2.1 Secuencia de aplicación, 2.2 Secuencia real del repositorio, 2. La estrategia de pruebas, 4.1 Prueba unitaria, 4.2 Prueba de capa web, 4.3 Prueba de integración (+12 more)
 
 ### Community 75 - "Requirement: Confirmar el resultado y mantener atomicidad ante fallos"
 Cohesion: 0.10
@@ -522,23 +529,23 @@ Nodes (21): ADDED Requirements, MODIFIED Requirements, Requirement: Declarar exp
 
 ### Community 94 - "MeasurementCsvParser"
 Cohesion: 0.23
-Nodes (5): MeasurementCsvParser, ParsedCsv, jakarta.validation.ConstraintViolation, jakarta.validation.Validator, org.apache.commons.csv.CSVFormat
+Nodes (6): MeasurementRequest, MeasurementImportException, MeasurementCsvParser, jakarta.validation.ConstraintViolation, jakarta.validation.Validator, org.apache.commons.csv.CSVFormat
 
-### Community 95 - "ClinicalEventIndexControllerTest"
-Cohesion: 0.17
-Nodes (5): CaremeBackendApplicationTests, ClinicalEventIndexControllerTest, org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc, org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest, org.springframework.test.web.servlet.MockMvc
+### Community 95 - "ClinicalEventIndexRebuilder"
+Cohesion: 0.11
+Nodes (5): ClinicalEventIndexRebuilder, CaremeBackendApplicationTests, ClinicalEventIndexControllerTest, org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc, org.springframework.test.web.servlet.MockMvc
 
-### Community 96 - "ClinicalEventIndexController.java"
-Cohesion: 0.17
+### Community 96 - "MeasurementController.java"
+Cohesion: 0.18
 Nodes (10): ChatController, ClinicalEventIndexController, MeasurementController, ApiResponse, ClinicalEventInspectionException, org.springframework.web.bind.annotation.GetMapping, org.springframework.web.bind.annotation.PostMapping, org.springframework.web.bind.annotation.RequestMapping (+2 more)
 
 ### Community 97 - "ChatWorkspace.test.tsx"
 Cohesion: 0.06
-Nodes (32): metadata, sendChatMessage(), SendChatResult, chatServiceMock, RESPONSE, absenceReasonLabels, ChatWorkspace(), recordFailure() (+24 more)
+Nodes (31): metadata, sendChatMessage(), SendChatResult, chatServiceMock, RESPONSE, absenceReasonLabels, ChatWorkspace(), recordFailure() (+23 more)
 
-### Community 98 - "MeasurementImportService"
-Cohesion: 0.28
-Nodes (3): MeasurementImportService, Measurement, MeasurementImportServiceTest
+### Community 98 - "MeasurementImportServiceTest"
+Cohesion: 0.29
+Nodes (3): ParsedCsv, Measurement, MeasurementImportServiceTest
 
 ### Community 99 - "Requirement: Return explicit chat outcomes"
 Cohesion: 0.05
@@ -572,9 +579,9 @@ Nodes (21): assistant-chat-interface Specification, Purpose, Requirement: Repres
 Cohesion: 0.12
 Nodes (16): ADDED Requirements, MODIFIED Requirements, Requirement: Compose grounded answers from retrieved events, Requirement: Produce provider-neutral clinical intents, Requirement: Validate provider responses before side effects, Scenario: Compose from retrieved events, Scenario: Map a clarification, Scenario: Map a query (+8 more)
 
-### Community 107 - ".register"
-Cohesion: 0.11
-Nodes (13): DatePrecision, APPROXIMATE, EXACT, UNKNOWN, ClinicalEventConversationRegistry, ClinicalEventDateNormalizer, NormalizedDate, ClinicalEventRegistrationService (+5 more)
+### Community 107 - "Candidate"
+Cohesion: 0.07
+Nodes (23): Candidate, DatePrecision, APPROXIMATE, EXACT, UNKNOWN, ClinicalEventConversationRegistry, ClinicalEventDateNormalizer, NormalizedDate (+15 more)
 
 ### Community 108 - "Requirement: Represent clarification, success, duplicate, and failure states"
 Cohesion: 0.20
@@ -609,8 +616,8 @@ Cohesion: 0.13
 Nodes (14): 01 — Estructura y arquitectura del repositorio, 1. Sistema y arquitectura, 2. Separación de responsabilidades, 3. Zonas del repositorio, 4. Arquitectura por capas del backend, 5. Módulos por funcionalidad del frontend, 6. Dominio, transporte y persistencia, 7. Recorrido de una operación (+6 more)
 
 ### Community 118 - "org.springframework.stereotype.Service"
-Cohesion: 0.06
-Nodes (27): ClinicalAnswerComposer, ComposedAnswer, Coverage, FULL, NONE, PARTIAL, FakeClinicalAnswerComposer, Override (+19 more)
+Cohesion: 0.08
+Nodes (22): ClinicalAnswerComposer, ComposedAnswer, Coverage, FULL, NONE, PARTIAL, FakeClinicalAnswerComposer, Override (+14 more)
 
 ### Community 119 - "Decisions"
 Cohesion: 0.14
@@ -656,25 +663,21 @@ Nodes (4): ADDED Requirements, Requirement: Allow the declared origin to reach t
 Cohesion: 0.40
 Nodes (4): 1. API reachability for a browser client, 2. Server-side chat transport, 3. Interface, 4. Verification
 
-### Community 130 - "Candidate"
-Cohesion: 0.25
-Nodes (3): Candidate, ClinicalEventIntentValidator, ClinicalEventIntentValidatorTest
-
 ### Community 131 - "Requirement: Represent clarification, success, duplicate, and failure states"
 Cohesion: 0.15
 Nodes (12): ADDED Requirements, MODIFIED Requirements, Requirement: Represent clarification, success, duplicate, and failure states, Requirement: Show the events that support an answer, Scenario: Continue after clarification, Scenario: Display the supporting events, Scenario: Keep the answer verifiable without technical detail, Scenario: Retry a failed request (+4 more)
 
 ### Community 132 - "03 — Backend: API, concurrencia y persistencia"
-Cohesion: 0.08
-Nodes (26): 03 — Backend: API, concurrencia y persistencia, 10. Errores y operaciones compuestas, 11. Dos formas de leer los hechos clínicos, 1. Qué es un backend, 2. Responsabilidades del backend, 3.1 Spring Boot, 3.2 Spring Web MVC, 3.3 Hibernate y JPA (+18 more)
+Cohesion: 0.10
+Nodes (21): 03 — Backend: API, concurrencia y persistencia, 10. Errores y operaciones compuestas, 11. Dos formas de leer los hechos clínicos, 1. Qué es un backend, 2. Responsabilidades del backend, 4.1 Arquitectura por capas, 4.2 DTO y separación de modelos, 4.3 Puerto y adaptador (+13 more)
 
 ### Community 133 - "Requirement: Return explicit chat outcomes"
 Cohesion: 0.07
 Nodes (27): ADDED Requirements, MODIFIED Requirements, Requirement: Answer general conversation without consulting the clinical history, Requirement: Decline requests for diagnosis, recommendation or interpretation, Requirement: Return explicit chat outcomes, Requirement: Separate the general part of a mixed message, Scenario: Answer a greeting or a courtesy, Scenario: Answer a question that does not depend on the clinical history (+19 more)
 
 ### Community 134 - "3. Qué ocurre durante una consulta"
-Cohesion: 0.18
-Nodes (11): 3.1 Cómo genera texto un modelo, 3.2.1 Roles de los mensajes, 3.2 El prompt como contrato, 3.3 De lenguaje a estructura: la intención, 3.4 Las fechas: el modelo propone, el código normaliza, 3.5 El adaptador como frontera, 3.6 La recuperación: código, no modelo, 3.7 La composición fundamentada (+3 more)
+Cohesion: 0.11
+Nodes (18): 05 — IA: LLM, prompts y RAG, 1. Qué es un LLM, 2. Por qué se utiliza aquí, 3.1 Cómo genera texto un modelo, 3.2.1 Roles de los mensajes, 3.2 El prompt como contrato, 3.3 De lenguaje a estructura: la intención, 3.4 Las fechas: el modelo propone, el código normaliza (+10 more)
 
 ### Community 135 - "06 — Desarrollo guiado por especificaciones y OpenSpec"
 Cohesion: 0.12
@@ -704,13 +707,13 @@ Nodes (8): 1. Determinar el motivo de la ausencia, 2. Declaración y salida acci
 Cohesion: 0.33
 Nodes (5): Backend (Java / Spring Boot) — Careme, Contract, Conventions, Layering (keep it one-directional), LLM integration
 
-### Community 143 - "ChatOrchestrator"
-Cohesion: 0.14
-Nodes (7): ChatOrchestrator, Status, ClinicalConversationComposer, ClinicalIntentInterpreter, ConversationStateStore, State, Turn
-
-### Community 144 - "05 — IA: LLM, prompts y RAG"
+### Community 143 - "UC-010 — Consultar información que no pertenece a la historia clínica — Acceptance Criteria"
 Cohesion: 0.25
-Nodes (7): 05 — IA: LLM, prompts y RAG, 1. Qué es un LLM, 2. Por qué se utiliza aquí, 4. Patrones de RAG, 5. Memoria y conversaciones multiturno, 6. Límites y controles para datos clínicos, Índice
+Nodes (8): Boundary scenarios with UC-007 and UC-008, Coverage notes, Execution rules, Feature, Scenario: Distinguir la conversación general de una respuesta fundada, Scenario: Mantener el límite clínico en una explicación general, Scenario: No producir una ausencia de registros desde la conversación general, UC-010 — Consultar información que no pertenece a la historia clínica — Acceptance Criteria
+
+### Community 144 - "3. Stack tecnológico"
+Cohesion: 0.40
+Nodes (5): 3.1 Spring Boot, 3.2 Spring Web MVC, 3.3 Hibernate y JPA, 3.4 Flyway, 3. Stack tecnológico
 
 ### Community 145 - "Frontend (Next.js / React / TypeScript) — Careme"
 Cohesion: 0.40
@@ -728,9 +731,9 @@ Nodes (6): EventSummary, ChatControllerTest, ConversationStateStoreTest, FakeCli
 Cohesion: 0.29
 Nodes (6): Capabilities, Impact, Modified Capabilities, New Capabilities, What Changes, Why
 
-### Community 153 - "Use Cases — MVP"
-Cohesion: 0.17
-Nodes (12): UC-001 — Ver el seguimiento corporal, UC-002 — Registrar la medición del día, UC-003 — Cargar mediciones desde un archivo, UC-004 — Registrar un evento clínico, UC-005 — Consultar un evento clínico, UC-006 — Buscar información en la historia clínica, UC-007 — Consultar la historia clínica mediante lenguaje natural, UC-008 — Gestionar información clínica ausente (+4 more)
+### Community 153 - "Use Cases"
+Cohesion: 0.07
+Nodes (27): Fase 4 — no forman parte del MVP, Revisión prevista de los casos de uso del MVP, UC-001 — Ver el seguimiento corporal, UC-002 — Registrar la medición del día, UC-003 — Cargar mediciones desde un archivo, UC-004 — Registrar un evento clínico, UC-005 — Consultar un evento clínico, UC-006 — Buscar información en la historia clínica (+19 more)
 
 ### Community 154 - "UC-008 — Gestionar información clínica ausente"
 Cohesion: 0.17
@@ -740,9 +743,9 @@ Nodes (12): 10. Fuera de alcance, 11. Frontera con UC-007 y UC-010, 1. Identific
 Cohesion: 0.17
 Nodes (12): 10. Fuera de alcance, 11. Frontera con UC-007 y UC-008, 1. Identificación, 2. Objetivo, 3. Precondiciones, 4. Disparador, 5. Flujo principal, 6. Flujos alternos y excepciones (+4 more)
 
-### Community 156 - "ChatMessageResponse"
-Cohesion: 0.09
-Nodes (20): AbsenceReason, EMPTY_HISTORY, NO_EVENTS_IN_PERIOD, NO_EVENTS_OF_TYPE, NO_TERM_MATCH, ChatMessageResponse, Status, ANSWERED (+12 more)
+### Community 156 - "Status"
+Cohesion: 0.12
+Nodes (16): AbsenceReason, EMPTY_HISTORY, NO_EVENTS_IN_PERIOD, NO_EVENTS_OF_TYPE, NO_TERM_MATCH, Status, ANSWERED, CLARIFICATION_REQUIRED (+8 more)
 
 ### Community 158 - "UC-007 — Consultar la historia clínica mediante lenguaje natural"
 Cohesion: 0.18
@@ -753,8 +756,8 @@ Cohesion: 0.20
 Nodes (10): Scenario: Acotar la ausencia a un periodo concreto, Scenario: Declarar el estado inicial cuando la historia está vacía, Scenario: Declarar la ausencia ante términos que no coinciden con el registro, Scenario: Declarar la ausencia de registros ante una pregunta no respaldada, Scenario: Declarar que no hay registros de un tipo de hecho, Scenario: Informar un fallo en lugar de declarar una ausencia no comprobada, Scenario: Mantener la declaración ante la insistencia, Scenario: No declarar ausencia para una pregunta de carácter general (+2 more)
 
 ### Community 160 - "Scenarios"
-Cohesion: 0.11
-Nodes (18): Boundary scenarios with UC-007 and UC-008, Coverage notes, Execution rules, Feature, Scenario: Atender como consulta de la historia una pregunta coloquial sobre registros, Scenario: Declinar una petición de recomendación o diagnóstico, Scenario: Distinguir la conversación general de una respuesta fundada, Scenario: Explicar un concepto médico sin aplicarlo al caso de la persona (+10 more)
+Cohesion: 0.20
+Nodes (10): Scenario: Atender como consulta de la historia una pregunta coloquial sobre registros, Scenario: Declinar una petición de recomendación o diagnóstico, Scenario: Explicar un concepto médico sin aplicarlo al caso de la persona, Scenario: Informar un fallo al elaborar la respuesta conversacional, Scenario: Pedir aclaración cuando no puede determinarse si la pregunta depende de la historia, Scenario: Responder sin tratar como registros los hechos mencionados en la conversación, Scenario: Responder una fórmula de cortesía sin mencionar registros, Scenario: Responder una pregunta de carácter general sin consultar la historia (+2 more)
 
 ### Community 161 - "UC-008 — Gestionar información clínica ausente — Acceptance Criteria"
 Cohesion: 0.22
@@ -770,7 +773,7 @@ Nodes (13): 1. Identificar el cambio, 2. Extraer conceptos candidatos, 3. Compar
 
 ### Community 164 - "MeasurementRepository"
 Cohesion: 0.11
-Nodes (9): MeasurementRequest, MeasurementResponse, MeasurementRepository, MeasurementService, MeasurementControllerTest, Measurement, MeasurementServiceTest, org.junit.jupiter.api.extension.ExtendWith (+1 more)
+Nodes (8): MeasurementResponse, MeasurementRepository, MeasurementImportService, MeasurementService, MeasurementControllerTest, Measurement, MeasurementServiceTest, org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest
 
 ### Community 166 - "Decisions"
 Cohesion: 0.12
@@ -840,13 +843,13 @@ Nodes (23): clinical-event-inspection Specification, Purpose, Requirement: Consu
 Cohesion: 0.09
 Nodes (22): ADDED Requirements, Purpose, Requirement: Consultar el detalle de un evento, Requirement: Filtrar eventos por tipo y periodo, Requirement: Listar los eventos clínicos registrados, Requirement: Mantener la consulta de eventos como operación de solo lectura, Requirement: Presentar fechas relativas como fechas estimadas, Scenario: Colocar eventos sin fecha de ocurrencia al final (+14 more)
 
-### Community 189 - "ClinicalAnswerResult"
-Cohesion: 0.12
-Nodes (15): ClinicalAnswerResult, AbsenceReason, SuggestedAction, Kind, ANSWERED, FAILURE, NO_RECORDS, ClinicalEventRegistrationResult (+7 more)
+### Community 189 - "5. Ejemplos del backend"
+Cohesion: 0.40
+Nodes (5): 5.1 Regla pura y error, 5.2 Contrato HTTP con MockMvc, 5.3 Persistencia con PostgreSQL real, 5.4 Servicio con dependencias controladas, 5. Ejemplos del backend
 
-### Community 190 - "ClinicalEventIndexRebuilder"
-Cohesion: 0.17
-Nodes (6): ClinicalEventIndexRebuilder, ClinicalEventIndexStartupReconciler, org.slf4j.Logger, org.springframework.boot.context.event.ApplicationReadyEvent, org.springframework.context.event.EventListener, org.springframework.stereotype.Component
+### Community 190 - "org.slf4j.Logger"
+Cohesion: 0.39
+Nodes (5): ClinicalEventIndexStartupReconciler, org.slf4j.Logger, org.springframework.boot.context.event.ApplicationReadyEvent, org.springframework.context.event.EventListener, org.springframework.stereotype.Component
 
 ### Community 191 - "8. Búsqueda full-text de PostgreSQL"
 Cohesion: 0.40
@@ -857,16 +860,16 @@ Cohesion: 0.17
 Nodes (12): 10. Fuera de alcance, 11. Frontera con otros casos de uso, 1. Identificación, 2. Objetivo, 3. Precondiciones, 4. Disparador, 5. Flujo principal, 6. Flujos alternos y excepciones (+4 more)
 
 ### Community 193 - "button.tsx"
-Cohesion: 0.31
-Nodes (4): Error(), Loading(), Button(), buttonVariants
+Cohesion: 0.26
+Nodes (5): Error(), Loading(), Button(), buttonVariants, EVENT_STRINGS
 
-### Community 194 - "4. Tipos de pruebas y niveles"
+### Community 194 - "3. Principios de arquitectura"
 Cohesion: 0.40
-Nodes (5): 4.1 Prueba unitaria, 4.2 Prueba de capa web, 4.3 Prueba de integración, 4.4 Prueba de componente frontend, 4. Tipos de pruebas y niveles
+Nodes (5): 3.1. Markdown como representación canónica inicial, 3.2. Los eventos son la fuente primaria, 3.3. Separación entre almacenamiento e inteligencia, 3.4. Retrieval híbrido, 3. Principios de arquitectura
 
-### Community 195 - "ClinicalEventIntent"
-Cohesion: 0.17
-Nodes (8): ClinicalEventIntent, Kind, CLARIFICATION, CONVERSATION, EVENTS, QUERY, InterpretationContext, Override
+### Community 195 - "3. Cómo se construye un caso de prueba"
+Cohesion: 0.50
+Nodes (4): 3.1 De requisito a casos, 3.2 Arrange, Act, Assert, 3.3 Dobles de prueba, 3. Cómo se construye un caso de prueba
 
 ### Community 196 - "Scenarios"
 Cohesion: 0.18
@@ -876,9 +879,13 @@ Nodes (11): Scenario: Conservar orden y filtros al volver del detalle, Scenario:
 Cohesion: 0.18
 Nodes (10): Context, Decisions, Expose a dedicated read contract, separate from chat, Expose both temporal dimensions and default to record-date ordering, Goals / Non-Goals, Keep filters in the query state and preserve them across detail navigation, Migration Plan, Risks / Trade-offs (+2 more)
 
-### Community 200 - "7. Cobertura de código"
-Cohesion: 0.40
-Nodes (5): 7.1 Cobertura de línea, 7.2 Cobertura de rama, 7.3 JaCoCo y el umbral del backend, 7.4 Cómo se consigue cobertura útil, 7. Cobertura de código
+### Community 198 - ".event"
+Cohesion: 0.29
+Nodes (4): EventSource, PATIENT, ClinicalEventTest, ClinicalEvent
+
+### Community 201 - "org.springframework.jdbc.core.JdbcTemplate"
+Cohesion: 0.18
+Nodes (5): ClinicalEventIndexWriter, ClinicalEventInspectionIntegrationTest, ClinicalEvent, ClinicalHistoryUnsupportedRetrievalIntegrationTest, org.springframework.jdbc.core.JdbcTemplate
 
 ### Community 202 - "UC-011 — Inspeccionar los eventos clínicos registrados — Acceptance Criteria"
 Cohesion: 0.29
@@ -905,24 +912,24 @@ Cohesion: 0.50
 Nodes (3): 1. Baseline and prioritization, 2. Targeted coverage improvements, 3. Verification
 
 ## Knowledge Gaps
-- **1256 isolated node(s):** `com.careme:backend`, `REGISTERED`, `ANSWERED`, `NO_RECORDS`, `CLARIFICATION_REQUIRED` (+1251 more)
+- **1283 isolated node(s):** `com.careme:backend`, `REGISTERED`, `ANSWERED`, `NO_RECORDS`, `CLARIFICATION_REQUIRED` (+1278 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **29 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **26 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `ClinicalEvent` connect `ClinicalEvent` to `ChatOrchestrator`, `org.junit.jupiter.api.Test`, `ChatMessageResponse`, `OpenAiClinicalConversationComposerTest`, `OpenAiClinicalAnswerComposerTest`, `ClinicalConversationIntegrationTest`, `ClinicalEventQueryRepository`, `ClinicalAnswerResult`, `ClinicalEventIndexRebuilder`, `ClinicalEventInspectionService`, `ClinicalEventMarkdownStore`, `.process`, `.event`, `ClinicalHistoryQueryFlowIntegrationTest`, `ClinicalEventInspectionIntegrationTest`, `.query`, `ClinicalEventIndexController.java`, `.register`, `org.springframework.stereotype.Service`?**
-  _High betweenness centrality (0.016) - this node is a cross-community bridge._
-- **Why does `MeasurementEntity` connect `Measurement` to `ClinicalEventIndexControllerTest`?**
-  _High betweenness centrality (0.007) - this node is a cross-community bridge._
-- **Why does `ClinicalEventRegistrationResult` connect `ClinicalAnswerResult` to `.process`, `.register`, `ClinicalEvent`?**
+- **Why does `ClinicalEvent` connect `ClinicalEvent` to `MeasurementController.java`, `ClinicalEventInspectionService`, `ClinicalEventMarkdownStore`, `.process`, `OpenAiClinicalConversationComposerTest`, `.event`, `ClinicalHistoryQueryFlowIntegrationTest`, `org.springframework.jdbc.core.JdbcTemplate`, `OpenAiClinicalAnswerComposerTest`, `Candidate`, `.query`, `ClinicalConversationIntegrationTest`, `org.junit.jupiter.api.Test`, `org.springframework.stereotype.Service`, `ClinicalEventQueryRepository`, `org.slf4j.Logger`, `ClinicalEventIndexRebuilder`?**
+  _High betweenness centrality (0.014) - this node is a cross-community bridge._
+- **Why does `ClinicalEventRegistrationResult` connect `Candidate` to `.process`, `ClinicalEvent`?**
+  _High betweenness centrality (0.004) - this node is a cross-community bridge._
+- **Why does `MeasurementEntity` connect `Measurement` to `ClinicalEventIndexRebuilder`?**
   _High betweenness centrality (0.004) - this node is a cross-community bridge._
 - **Are the 4 inferred relationships involving `ClinicalEvent` (e.g. with `.attendsAColloquialQuestionAsAHistoryQuery()` and `.answeringAQuestionLeavesTheIndexAndTheDocumentsUntouched()`) actually correct?**
   _`ClinicalEvent` has 4 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 26 inferred relationships involving `ChatMessageRequest` (e.g. with `.answersWithRecentTurnsWithoutTreatingThemAsRecords()` and `.composesAConversationalReplyInsteadOfAnAcknowledgement()`) actually correct?**
   _`ChatMessageRequest` has 26 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `com.careme:backend`, `REGISTERED`, `ANSWERED` to the rest of the system?**
-  _1256 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _1283 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Measurement` be split into smaller, more focused modules?**
   _Cohesion score 0.08552188552188553 - nodes in this community are weakly interconnected._

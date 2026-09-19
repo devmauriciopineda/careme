@@ -52,6 +52,11 @@ El producto completo podrá evolucionar hacia las siguientes capacidades.
 - Notas clínicas.
 - Documentos médicos y sus fuentes.
 
+> **Precisión para la Fase 4.** Los antecedentes personales y familiares se registran como hechos del
+> paciente con el tipo dedicado `family_history` y el parentesco en el contenido («madre: diabetes tipo
+> 2»); el perfil extendido de la Fase 4.10 los resume. El perfil del paciente (Fase 4.4) no los
+> contiene: no son atributos del propio paciente.
+
 ### 2.2. Consulta de la historia
 
 - Consulta mediante lenguaje natural.
@@ -107,6 +112,8 @@ La arquitectura evolucionará progresivamente, pero se parte de los siguientes p
 
 Los hechos clínicos se almacenarán inicialmente como documentos Markdown pequeños, legibles tanto por humanos como por modelos de lenguaje. Viven en el filesystem del backend, en `data/events/`, y son la fuente de verdad; PostgreSQL mantiene un índice derivado y reconstruible para la búsqueda, nunca la verdad.
 
+La **consulta** (Fase 4.1) se representa también en Markdown, en un directorio hermano de `data/events/`, para que la procedencia que los eventos declaran en su front-matter sobreviva a la reconstrucción del índice. PostgreSQL la indexa igual que los eventos.
+
 Ejemplo conceptual:
 
 ```markdown
@@ -158,7 +165,7 @@ En lugar de permitir que el LLM manipule directamente rutas o archivos arbitrari
 - `list_events`
 - `search_events`
 
-Las herramientas se implementan en el backend (Spring Boot) y se exponen al LLM mediante *function calling* de una API compatible con OpenAI; el modelo nunca ve rutas ni ficheros. La implementación podrá cambiar de filesystem a object storage sin modificar el comportamiento conceptual del agente, y el mecanismo de recuperación podrá pasar de full-text a híbrido sin tocar las herramientas.
+Las herramientas se implementan en el backend (Spring Boot) y, desde la Fase 4.2, se exponen al LLM mediante *function calling* de una API compatible con OpenAI; el modelo nunca ve rutas ni ficheros. La implementación podrá cambiar de filesystem a object storage sin modificar el comportamiento conceptual del agente, y el mecanismo de recuperación podrá pasar de full-text a híbrido sin tocar las herramientas.
 
 ## 3.4. Retrieval híbrido
 
@@ -186,7 +193,7 @@ Cada mecanismo resolverá problemas diferentes:
 
 # 4. Roadmap
 
-## Fase 0 — Definición del modelo mínimo
+## Fase 0 — Definición del modelo mínimo — ✅ completada
 
 ### Objetivo
 
@@ -203,6 +210,9 @@ Patient
 ClinicalEvent
 ```
 
+> **Revisión prevista en la Fase 4.4.** `Patient` deja de ser implícito: se materializa como perfil del
+> paciente. `ClinicalEvent` se mantiene, con el catálogo de tipos revisado en §0.2.
+
 #### 0.2. Definir tipos de evento
 
 El MVP tendrá solamente unos pocos tipos:
@@ -213,6 +223,11 @@ El MVP tendrá solamente unos pocos tipos:
 - `note`
 
 No se intentará representar toda la historia clínica en esta fase.
+
+> **Revisión prevista en la Fase 4.3.** `measurement` sale del catálogo: la presión arterial, el peso,
+> la circunferencia abdominal y el colesterol pasan a un modelo de mediciones con dimensión de métrica.
+> El catálogo de eventos queda en `diagnosis`, `medication` y `note`, más los tipos que añade la
+> Fase 4.5.
 
 #### 0.3. Definir metadatos
 
@@ -239,13 +254,17 @@ Establecer:
 
 Regla de indexado: **todo evento escrito en Markdown queda indexado en PostgreSQL**. El índice es siempre derivado, de modo que pueda reconstruirse desde los ficheros.
 
+> **Ampliación prevista en la Fase 4.1.** La consulta se representa también en Markdown, con su propio
+> directorio y su propio código, y PostgreSQL la indexa igual que los eventos. La regla de indexado
+> cubre por tanto eventos y consultas.
+
 ### Resultado
 
 Una especificación pequeña y estable para representar hechos clínicos.
 
 ---
 
-# Fase 1 — MVP técnico de almacenamiento
+# Fase 1 — MVP técnico de almacenamiento — ✅ completada
 
 ### Objetivo
 
@@ -304,7 +323,7 @@ Primer sistema funcional de persistencia, todavía sin IA.
 
 ---
 
-# Fase 2 — Integración del LLM como interfaz
+# Fase 2 — Integración del LLM como interfaz — ✅ completada
 
 ### Objetivo
 
@@ -316,15 +335,11 @@ Permitir que el usuario registre información mediante lenguaje natural.
 
 Incorporar el LLM en el backend (Spring Boot) a través de un proveedor compatible con OpenAI y establecer el flujo conversacional en la ruta `/` del frontend. La clave del proveedor se lee de una variable de entorno del backend y nunca se expone al navegador. El prompt de sistema vive en `backend/src/main/resources/prompts/`. En el MVP la respuesta se devuelve como JSON, sin streaming.
 
-#### 2.2. Function calling / tools
+#### 2.2. Operaciones del LLM
 
-Exponer inicialmente, por *function calling* de la API compatible con OpenAI:
-
-```text
-create_event()
-get_event()
-list_events()
-```
+El diseño preveía exponer `create_event()`, `get_event()` y `list_events()` al modelo por *function
+calling*. Lo construido en el MVP fue distinto: el LLM devuelve una intención JSON y el backend ejecuta
+la operación, sin exponer herramientas al modelo. El *function calling* llega en la Fase 4.2.
 
 El backend inyecta la fecha actual en el contexto de la conversación, para que "hoy", "ayer" o "hace dos semanas" se resuelvan sin que el modelo tenga que adivinarla.
 
@@ -362,7 +377,7 @@ y el sistema puede convertirlo en un evento persistido como Markdown e indexado 
 
 ---
 
-# Fase 3 — Consulta mediante lenguaje natural
+# Fase 3 — Consulta mediante lenguaje natural — ✅ completada
 
 ### Objetivo
 
@@ -411,15 +426,11 @@ content_hash
 
 El paciente es único e implícito, así que no hay `patient_id`. El índice se deriva del Markdown y debe poder reconstruirse: el backend lo reconcilia al arrancar y expone además un reindexado explícito.
 
-#### 3.3. Tool de búsqueda
+#### 3.3. Búsqueda de eventos
 
-Implementar:
-
-```text
-search_events()
-```
-
-con filtros básicos por:
+Implementar la operación `search_events`, ejecutada por el backend a partir de la intención del modelo
+—no expuesta como herramienta al modelo; el *function calling* llega en la Fase 4.2—, con filtros
+básicos por:
 
 - Texto.
 - Tipo.
@@ -436,6 +447,10 @@ El asistente deberá responder a partir de los registros recuperados y no única
 #### 3.6. Persistencia del historial de conversación (diferida)
 
 En el MVP la conversación vive en el navegador y no se persiste: cada petición lleva consigo los turnos recientes. Persistir el historial se evaluará cuando el producto necesite recuperar conversaciones anteriores, auditar qué se preguntó o mantener el contexto entre dispositivos.
+
+La Fase 4.1 resuelve la parte que corresponde al registro clínico —la consulta como sesión con
+identificador y procedencia de los hechos—; persistir el historial completo de la conversación sigue
+pendiente de evaluación.
 
 ### Resultado
 
@@ -465,19 +480,111 @@ El producto no necesita todavía:
 
 El objetivo es demostrar que el ciclo fundamental funciona de forma fiable.
 
+### Cierre del MVP
+
+El MVP se da por terminado el **2026-09-18**. El ciclo fundamental funciona y está verificado de forma
+automatizada: 36 clases de prueba en `backend/src/test/` y 14 archivos de prueba en `frontend/src/`.
+
+El alcance cerrado está en
+[`mvp_alcance_asistente_historia_clinica.md`](./mvp_alcance_asistente_historia_clinica.md). La Fase 4
+continúa desde aquí.
+
 ---
 
 # Fase 4 — Modelo clínico enriquecido
 
 ### Objetivo
 
-Ampliar progresivamente la representación clínica sin modificar el núcleo del sistema.
+Convertir el asistente en un agente con herramientas, sostener la conversación como una consulta con
+procedencia y ampliar la representación clínica, sin romper los principios de almacenamiento.
 
 ### Subfases
 
-#### 4.1. Nuevos tipos de evento
+#### 4.1. Consulta
 
-Añadir progresivamente:
+La conversación deja de ser un estado en memoria y pasa a ser una **consulta** con identificador y
+ciclo de vida: el asistente conversa, pregunta lo que falta y **toma notas** de lo que el usuario
+menciona. Los hechos que el usuario aporta se registran **con su procedencia**, referenciando la
+consulta de la que salieron, en lugar de registrarse frase a frase.
+
+La consulta se representa en Markdown, en un directorio hermano de `data/events/` (por ejemplo
+`data/encounters/` con código `enc_NNN`, en paralelo a `evt_NNN`), de modo que la procedencia que los
+eventos declaran en su front-matter sobreviva a la reconstrucción del índice. PostgreSQL la indexa
+igual que los eventos.
+
+El modelo admite los dos momentos de registro —al cierre de la conversación o a medida que avanza— y el
+momento se decide al implementar.
+
+La consulta puede conservar además un **resumen** propio, aparte del desglose en eventos. Si se guarda,
+se trata como información derivada según §3.2: marcado como tal y regenerable desde los eventos de la
+consulta, nunca fuente de verdad.
+
+#### 4.2. Agente con herramientas
+
+El asistente pasa a decidir qué necesita hacer y a llamar herramientas para hacerlo. En el MVP el LLM
+devuelve una intención JSON y el backend decide la operación; aquí el modelo elige y llama las
+herramientas por *function calling* de la API compatible con OpenAI.
+
+El backend conserva la validación y la escritura dentro de la ruta de la llamada, de modo que ningún
+hecho se persiste sin validar. El conjunto de herramientas acota lo que el agente puede hacer, que es
+la garantía estructural de que el asistente no diagnostica ni recomienda tratamiento: solo puede
+consultar y registrar hechos.
+
+El proveedor LLM real —no el modo `fake` de desarrollo— pasa a ser el comportamiento por defecto del
+asistente.
+
+#### 4.3. Modelo de mediciones
+
+Hoy conviven dos representaciones de una medición: el evento clínico `measurement`, que guarda el valor
+como texto libre, y la tabla `measurements`, con dos columnas fijas y una fila por día. Ninguna sirve
+para comparar valores en el tiempo, y ni la presión arterial ni el colesterol caben como dato numérico.
+
+Esta subfase introduce un modelo de mediciones con **dimensión de métrica** —métrica, valor, unidad y
+fecha con su precisión— que cubre peso, circunferencia abdominal, presión arterial, colesterol y
+cualquier otra métrica que aparezca. Cada medición referencia la consulta de la que procede.
+
+Las mediciones no se convierten en eventos clínicos: tienen su propio almacén, y `measurement` sale del
+catálogo de tipos de evento de §0.2. La vista `/measurements` pasa a ser una vista derivada de ese
+modelo, y el asistente deja de redirigir las preguntas sobre peso y circunferencia.
+
+Con las mediciones en un modelo numérico, la comparación de valores que prevé la Fase 7.3 pasa a ser
+posible.
+
+#### 4.4. Perfil del paciente
+
+Materializa `Patient`, que el MVP dejó implícito (§0.1). El perfil reúne los atributos del paciente que
+no son hechos fechados:
+
+- Nombre y apellidos.
+- Fecha de nacimiento. La edad se deriva de ella y nunca se almacena.
+- Sexo.
+- Ocupación.
+- Grupo sanguíneo y Rh.
+- Estatura.
+
+**Entrevista inicial.** La primera vez que el usuario interactúa con el asistente, este propone la
+entrevista. El usuario puede saltarla y retomarla más adelante, y el asistente vuelve a pedir el dato
+que falta cuando la conversación lo necesita. No es un muro de entrada.
+
+**Actualización.** Cuando el usuario reporta un cambio, el perfil se actualiza.
+
+**Solo valores vigentes.** El perfil conserva únicamente el valor actual de cada dato: el documento se
+sobrescribe al actualizar y los valores del perfil no llevan historial propio. Corregir un dato descarta
+el anterior, y la procedencia de §4.9 y §2.4 aplica a los hechos clínicos, no a los valores del perfil.
+El versionado de registros de la Fase 8.4 es el sitio natural si más adelante se quiere conservar.
+
+**Representación.** Un documento Markdown del paciente en un directorio hermano de `data/events/`, con
+el mismo principio que la consulta (§4.1) y la regla de indexado de §0.4.
+
+**Un dato puede ser desconocido.** Se registra como ausente y nunca se inventa.
+
+**Lo que el perfil no contiene.** Alergias, vacunas, antecedentes, condiciones y resultados de
+laboratorio son hechos clínicos: viven en los tipos de evento de §4.5 y en las condiciones de §4.6, y se
+resumen en el perfil extendido de §4.10. Duplicarlos aquí crearía dos fuentes de verdad para lo mismo.
+
+#### 4.5. Nuevos tipos de evento
+
+Añadir progresivamente, junto a `diagnosis`, `medication` y `note`:
 
 - `symptom`
 - `procedure`
@@ -485,8 +592,9 @@ Añadir progresivamente:
 - `hospitalization`
 - `vaccination`
 - `allergy`
+- `family_history`
 
-#### 4.2. Condiciones longitudinales
+#### 4.6. Condiciones longitudinales
 
 Introducir el concepto de `Condition`.
 
@@ -501,7 +609,7 @@ Condition: Hypertension
     +-- Follow-up
 ```
 
-#### 4.3. Estados
+#### 4.7. Estados
 
 Incorporar estados como:
 
@@ -512,7 +620,7 @@ Incorporar estados como:
 - Recurrent.
 - Unknown.
 
-#### 4.4. Relaciones
+#### 4.8. Relaciones
 
 Permitir relaciones entre:
 
@@ -522,20 +630,46 @@ Permitir relaciones entre:
 - Estudios.
 - Procedimientos.
 
-#### 4.5. Provenance
+#### 4.9. Provenance
 
 Añadir:
 
 - Quién proporcionó la información.
 - Cuándo fue registrada.
+- De qué consulta procede (§4.1).
 - De qué documento procede.
 - Si fue extraída automáticamente.
 - Si fue confirmada.
 - Nivel de confianza.
 
+#### 4.10. Perfil extendido
+
+Composición automática de un documento derivado: el perfil del paciente más sus hechos principales,
+entre ellos las condiciones activas, las alergias, la medicación vigente, las últimas mediciones y los
+antecedentes familiares.
+
+Es información derivada en el sentido de §3.2: marcada como tal y reconstruible desde los hechos, nunca
+una fuente de verdad. Se apoya en las condiciones de §4.6 y en las relaciones de §4.8, así que la
+riqueza que añade esta misma fase es la que le da contenido.
+
+#### 4.11. Requisitos de ingeniería de la fase
+
+No son casos de uso: son condiciones de calidad que la fase debe cumplir.
+
+- **Suite de extremo a extremo.** Recorrer con Playwright los siete casos conversacionales del alcance
+  §15 a través de la interfaz real, con backend, PostgreSQL y proveedor LLM en ejecución.
+- **Corpus de evaluación.** Un conjunto de 20 a 100 hechos clínicos ficticios, suficientemente variado,
+  con un conjunto independiente de preguntas de prueba, para medir que los hechos se almacenan, se
+  recuperan, que las consultas temporales funcionan y que la información inexistente no produce
+  invenciones.
+
+El cómo de ambas cosas está en `docs/standards/next-standards.md` y
+`docs/standards/java-springboot-standards.md`.
+
 ### Resultado
 
-El sistema comienza a representar una historia clínica longitudinal más rica.
+El asistente es un agente que sostiene consultas, registra hechos clínicos y mediciones con procedencia,
+y el sistema representa una historia clínica longitudinal más rica.
 
 ---
 
@@ -748,7 +882,10 @@ Sistema preparado para una operación controlada en producción.
 
 La arquitectura no debe introducir toda la infraestructura desde el primer día.
 
-## MVP
+## MVP — completado el 2026-09-18
+
+El alcance cerrado está en
+[`mvp_alcance_asistente_historia_clinica.md`](./mvp_alcance_asistente_historia_clinica.md).
 
 ```text
            User
@@ -756,17 +893,23 @@ La arquitectura no debe introducir toda la infraestructura desde el primer día.
              v
    frontend (Next.js)
      |              |
-     |              +--> /measurements --> backend --> measurements (PostgreSQL)
+     |              +--> /measurements ------> backend --> measurements (PostgreSQL)
+     |              |
+     |              +--> /clinical-events ---> backend --> índice clínico (solo lectura)
      |
      +--> / (chat)
             |
             v
-   backend (Spring Boot) --> LLM (compatible con OpenAI)
+   backend (Spring Boot) --> LLM (compatible con OpenAI, modo JSON)
+            |                          |
+            |                          v
+            |                  intención: events | query |
+            |                  clarification | conversation
             |
     +-------+--------+
     |                |
     v                v
-create_event    search_events        (function calling)
+create_event    search_events     (ejecutadas por el backend)
     |                |
     v                v
  Markdown   <->  índice full-text
@@ -799,7 +942,7 @@ Markdown es la fuente de verdad; el índice de PostgreSQL se deriva de él y pue
   Object Storage
 ```
 
-PostgreSQL ya está presente desde el MVP como índice; en esta etapa incorpora además la búsqueda vectorial.
+PostgreSQL ya está presente desde el MVP como índice; en esta etapa incorpora además la búsqueda vectorial. Las herramientas clínicas y el agente no son novedad de esta etapa: llegan en la Fase 4.
 
 ## Arquitectura avanzada
 
@@ -827,7 +970,7 @@ PostgreSQL ya está presente desde el MVP como índice; en esta etapa incorpora 
                   MD / PDFs / Images
 ```
 
-El almacenamiento de objetos pasa a alojar también los documentos Markdown, que siguen siendo la fuente de verdad de los hechos clínicos.
+El almacenamiento de objetos pasa a alojar también los documentos Markdown, que siguen siendo la fuente de verdad de los hechos clínicos. El agente y las herramientas clínicas ya existen desde la Fase 4; lo propio de esta etapa es la recuperación híbrida y el almacenamiento de objetos.
 
 ---
 
@@ -836,24 +979,26 @@ El almacenamiento de objetos pasa a alojar también los documentos Markdown, que
 La prioridad de desarrollo será:
 
 ```text
-P0 — Imprescindible para MVP
+P0 — Imprescindible para MVP (completado)
     - ClinicalEvent (paciente único e implícito)
     - Markdown en data/events/
     - Índice full-text derivado en PostgreSQL
-    - create_event
-    - get_event
-    - list_events
+    - Operaciones create_event, get_event, list_events y search_events,
+      ejecutadas por el backend (no expuestas al modelo como herramientas)
     - LLM (proveedor compatible con OpenAI, desde el backend)
-    - search_events
-    - Vista anexa de peso y circunferencia abdominal (ya implementada)
+    - Vista de peso y circunferencia abdominal sobre su propia tabla
 
-P1 — Primeras mejoras
-    - Más tipos de eventos
-    - Provenance
-    - Condition
-    - Persistencia del historial de conversación
-    - Documentos
-    - Object storage
+P1 — Primeras mejoras (Fase 4 y Fase 5)
+    - Fase 4: agente con herramientas y proveedor LLM real por defecto
+    - Fase 4: consulta con identificador y procedencia de los hechos
+    - Fase 4: modelo de mediciones con dimensión de métrica
+    - Fase 4: perfil del paciente y perfil extendido
+    - Fase 4: más tipos de eventos
+    - Fase 4: Condition, estados y relaciones
+    - Fase 4: provenance
+    - Fase 4: requisitos de ingeniería de la fase (suite e2e y corpus de evaluación)
+    - Fase 5: documentos
+    - Fase 5: object storage
 
 P2 — Inteligencia avanzada
     - Embeddings
