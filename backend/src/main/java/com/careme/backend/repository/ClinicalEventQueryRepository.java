@@ -25,7 +25,7 @@ import org.springframework.stereotype.Repository;
 public class ClinicalEventQueryRepository {
 
     private static final String COLUMNS =
-            "id, code, type, event_date, date_precision, date_text, content, source, created_at";
+            "id, code, type, event_date, date_precision, date_text, content, source, created_at, encounter_code";
 
     private static final RowMapper<ClinicalEvent> ROW_MAPPER = (resultSet, rowNumber) -> mapEvent(resultSet);
 
@@ -181,6 +181,7 @@ public class ClinicalEventQueryRepository {
                 resultSet.getString("date_text"),
                 resultSet.getString("content"),
                 ClinicalEvent.EventSource.valueOf(resultSet.getString("source").toUpperCase()),
-                resultSet.getObject("created_at", OffsetDateTime.class));
+                resultSet.getObject("created_at", OffsetDateTime.class),
+                resultSet.getString("encounter_code"));
     }
 }

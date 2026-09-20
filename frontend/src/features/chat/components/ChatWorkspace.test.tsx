@@ -1,16 +1,17 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import { sendChatMessage } from "@/features/chat/actions";
+import { closeConsultation, sendChatMessage } from "@/features/chat/actions";
 import { ChatWorkspace } from "./ChatWorkspace";
 
-import type { SendChatResult } from "@/features/chat/actions";
+import type { CloseConsultationResult, SendChatResult } from "@/features/chat/actions";
 import type { ChatMessageInput } from "@/features/chat/lib/schema";
-import type { ChatStatus } from "@/features/chat/types";
+import type { ChatResponse, ChatStatus } from "@/features/chat/types";
 
 vi.mock("@/features/chat/actions");
 
 const sendChatMessageMock = vi.mocked(sendChatMessage);
+const closeConsultationMock = vi.mocked(closeConsultation);
 
 /** A turn the backend completed, carrying the given status. */
 function succeeds(status: ChatStatus, message = "Respuesta del asistente"): SendChatResult {
@@ -35,6 +36,7 @@ async function send(user: ReturnType<typeof userEvent.setup>, text: string) {
 
 beforeEach(() => {
   sendChatMessageMock.mockReset();
+  closeConsultationMock.mockReset();
 });
 
 describe("ChatWorkspace", () => {
@@ -320,5 +322,165 @@ describe("ChatWorkspace", () => {
     await user.click(screen.getByRole("button", { name: "Enviar mensaje" }));
 
     expect(sendChatMessageMock).toHaveBeenCalledTimes(1);
+  });
+
+  /** A close outcome the backend produced, rendered as the surface receives it. */
+  function closes(overrides: Partial<ChatResponse> = {}): CloseConsultationResult {
+    return {
+      ok: true,
+      response: {
+        conversationId: "conversation-1",
+        messageId: null,
+        status: "registered",
+        message: "He registrado en tu historia clínica el hecho que hablamos.",
+        events: [],
+        ...overrides,
+      },
+    };
+  }
+
+  /** Ends the consultation once the end button is actionable. */
+  async function endConsultation(user: ReturnType<typeof userEvent.setup>) {
+    const button = await screen.findByRole("button", { name: "Terminar consulta" });
+    await waitFor(() => expect(button).toBeEnabled());
+    await user.click(button);
+  }
+
+  it("ends the consultation and shows the close outcome", async () => {
+    const user = userEvent.setup();
+    closeConsultationMock.mockResolvedValue(
+      closes({
+        events: [
+          {
+            code: "evt_001",
+            type: "diagnosis",
+            date: "2026-01-10",
+            datePrecision: "exact",
+            content: "Hipertensión",
+          },
+        ],
+      })
+    );
+    sendChatMessageMock.mockResolvedValue(succeeds("noted", "Lo he anotado."));
+
+    render(<ChatWorkspace />);
+    await send(user, "Ayer tuve fiebre");
+    await endConsultation(user);
+
+    expect(
+      await screen.findByText("He registrado en tu historia clínica el hecho que hablamos.")
+    ).toBeInTheDocument();
+    expect(closeConsultationMock).toHaveBeenCalledWith("conversation-1");
+  });
+
+  it("exposes a busy state while closing and prevents a second close request", async () => {
+    const user = userEvent.setup();
+    closeConsultationMock.mockReturnValue(new Promise<CloseConsultationResult>(() => {}));
+    sendChatMessageMock.mockResolvedValue(succeeds("noted", "Lo he anotado."));
+
+    render(<ChatWorkspace />);
+    await send(user, "Ayer tuve fiebre");
+    await endConsultation(user);
+
+    expect(await screen.findByText("Cerrando la consulta...")).toBeInTheDocument();
+    const busy = screen.getByRole("button", { name: "Terminando..." });
+    expect(busy).toBeDisabled();
+    await user.click(busy);
+
+    expect(closeConsultationMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows the registered facts apart from the one that could not be registered", async () => {
+    const user = userEvent.setup();
+    const registeredEvent = {
+      code: "evt_001",
+      type: "diagnosis",
+      date: "2026-01-10",
+      datePrecision: "exact",
+      content: "Hipertensión",
+    };
+    closeConsultationMock.mockResolvedValue(
+      closes({
+        message: "He registrado un hecho. No he podido registrar esto: algo.",
+        events: [registeredEvent],
+        operations: [
+          { status: "registered", events: [registeredEvent] },
+          { status: "failed", events: [] },
+        ],
+      })
+    );
+    sendChatMessageMock.mockResolvedValue(succeeds("noted", "Lo he anotado."));
+
+    render(<ChatWorkspace />);
+    await send(user, "Ayer tuve fiebre");
+    await endConsultation(user);
+
+    const operations = await screen.findByRole("list", { name: "Operaciones del turno" });
+    expect(within(operations).getByText("Registrado")).toBeInTheDocument();
+    expect(within(operations).getByText("Sin completar · No se pudo completar")).toBeInTheDocument();
+  });
+
+  it("does not offer to continue a closed consultation and lets starting a new one", async () => {
+    const user = userEvent.setup();
+    closeConsultationMock.mockResolvedValue(
+      closes({
+        status: "nothing_to_register",
+        message: "Hemos cerrado la consulta. No había hechos médicos que registrar.",
+      })
+    );
+    sendChatMessageMock.mockResolvedValue(succeeds("noted", "Lo he anotado."));
+
+    render(<ChatWorkspace />);
+    await send(user, "Ayer tuve fiebre");
+    await endConsultation(user);
+
+    expect(await screen.findByText("La consulta está cerrada.")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Mensaje para el asistente")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Terminar consulta" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Empezar una nueva consulta" }));
+
+    expect(screen.getByLabelText("Mensaje para el asistente")).toBeInTheDocument();
+    expect(screen.queryByText("La consulta está cerrada.")).not.toBeInTheDocument();
+  });
+
+  it("keeps the consultation internals out of the closed surface", async () => {
+    const user = userEvent.setup();
+    closeConsultationMock.mockResolvedValue(
+      closes({ status: "nothing_to_register", message: "Hemos cerrado la consulta." })
+    );
+    sendChatMessageMock.mockResolvedValue(succeeds("noted", "Lo he anotado."));
+
+    render(<ChatWorkspace />);
+    await send(user, "Ayer tuve fiebre");
+    await endConsultation(user);
+
+    expect(await screen.findByText("La consulta está cerrada.")).toBeInTheDocument();
+    expect(screen.queryByText(/enc_\d+/)).not.toBeInTheDocument();
+    expect(screen.queryByText("conversation-1")).not.toBeInTheDocument();
+    expect(screen.queryByText(/prompt|stack trace|credential/i)).not.toBeInTheDocument();
+  });
+
+  it("keeps a failed close retryable without leaking transport detail", async () => {
+    const user = userEvent.setup();
+    closeConsultationMock
+      .mockResolvedValueOnce({ ok: false, errorCode: "UPSTREAM_FAILED" })
+      .mockResolvedValueOnce(
+        closes({ status: "nothing_to_register", message: "Hemos cerrado la consulta." })
+      );
+    sendChatMessageMock.mockResolvedValue(succeeds("noted", "Lo he anotado."));
+
+    render(<ChatWorkspace />);
+    await send(user, "Ayer tuve fiebre");
+    await endConsultation(user);
+
+    expect(
+      await screen.findByText("No se pudo cerrar la consulta. Inténtalo de nuevo.")
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Reintentar" }));
+
+    expect(await screen.findByText("La consulta está cerrada.")).toBeInTheDocument();
+    expect(closeConsultationMock).toHaveBeenCalledTimes(2);
+    expect(screen.queryByText(/Failed to fetch/)).not.toBeInTheDocument();
   });
 });

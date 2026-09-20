@@ -33,10 +33,14 @@ import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
  * changes or removes anything in the clinical history.
  */
 @SpringBootTest
-@TestPropertySource(properties = "careme.events.directory=target/test-events-conversation")
+@TestPropertySource(properties = {
+        "careme.events.directory=target/test-events-conversation",
+        "careme.encounters.directory=target/test-encounters-conversation"
+})
 class ClinicalConversationIntegrationTest extends PostgresIntegrationTest {
 
     private static final Path EVENTS_DIRECTORY = Path.of("target/test-events-conversation");
+    private static final Path ENCOUNTERS_DIRECTORY = Path.of("target/test-encounters-conversation");
 
     @Autowired
     private ChatOrchestrator orchestrator;
@@ -59,15 +63,22 @@ class ClinicalConversationIntegrationTest extends PostgresIntegrationTest {
     @BeforeEach
     void cleanIndexAndDocuments() throws IOException {
         jdbcTemplate.update("DELETE FROM clinical_event_index");
-        if (Files.exists(EVENTS_DIRECTORY)) {
-            try (var paths = Files.walk(EVENTS_DIRECTORY)) {
-                paths.sorted(Comparator.reverseOrder()).forEach(path -> {
-                    try {
-                        Files.deleteIfExists(path);
-                    } catch (IOException ignored) {
-                    }
-                });
-            }
+        jdbcTemplate.update("DELETE FROM encounter_index");
+        deleteDirectoryContents(EVENTS_DIRECTORY);
+        deleteDirectoryContents(ENCOUNTERS_DIRECTORY);
+    }
+
+    private static void deleteDirectoryContents(Path directory) throws IOException {
+        if (!Files.exists(directory)) {
+            return;
+        }
+        try (var paths = Files.walk(directory)) {
+            paths.sorted(Comparator.reverseOrder()).forEach(path -> {
+                try {
+                    Files.deleteIfExists(path);
+                } catch (IOException ignored) {
+                }
+            });
         }
     }
 
@@ -127,7 +138,7 @@ class ClinicalConversationIntegrationTest extends PostgresIntegrationTest {
                 UUID.randomUUID(), "evt_001", ClinicalEvent.ClinicalEventType.DIAGNOSIS,
                 LocalDate.of(2026, 1, 10), ClinicalEvent.DatePrecision.EXACT, "el 10 de enero",
                 "Hipertensión diagnosticada", ClinicalEvent.EventSource.PATIENT,
-                OffsetDateTime.now(ZoneOffset.UTC));
+                OffsetDateTime.now(ZoneOffset.UTC), null);
         markdownStore.write(event);
         indexWriter.write(event);
         String indexBefore = indexSnapshot();

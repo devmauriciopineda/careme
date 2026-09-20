@@ -27,7 +27,7 @@ public class AgentOperationExecutor {
 
     private static final String OUT_OF_REACH =
             "Esa operación no está a mi alcance: solo puedo consultar tu historia clínica"
-                    + " y registrar hechos médicos.";
+                    + " y anotar hechos médicos.";
 
     private static final String NOT_ADMISSIBLE =
             "No he podido completar esa operación con lo que me has dicho.";
@@ -41,15 +41,15 @@ public class AgentOperationExecutor {
                     + " y no forman parte de la historia clínica que consulto aquí.";
 
     private final ClinicalHistoryQueryService historyQueryService;
-    private final ClinicalEventRegistrationService registrationService;
+    private final EncounterService encounterService;
     private final ClinicalEventIntentValidator intentValidator;
 
     public AgentOperationExecutor(
             ClinicalHistoryQueryService historyQueryService,
-            ClinicalEventRegistrationService registrationService,
+            EncounterService encounterService,
             ClinicalEventIntentValidator intentValidator) {
         this.historyQueryService = historyQueryService;
-        this.registrationService = registrationService;
+        this.encounterService = encounterService;
         this.intentValidator = intentValidator;
     }
 
@@ -67,7 +67,7 @@ public class AgentOperationExecutor {
         }
         return switch (call.operation()) {
             case CONSULT_HISTORY -> consult(conversationId, call.arguments());
-            case REGISTER_EVENT -> register(conversationId, call.arguments(), referenceDate);
+            case RECORD_NOTE -> collect(conversationId, call.arguments(), referenceDate);
         };
     }
 
@@ -91,18 +91,19 @@ public class AgentOperationExecutor {
         return AgentOperationResult.of(AgentOperation.CONSULT_HISTORY, historyQueryService.answer(intent));
     }
 
-    private AgentOperationResult register(String conversationId, JsonNode arguments, LocalDate referenceDate) {
+    private AgentOperationResult collect(String conversationId, JsonNode arguments, LocalDate referenceDate) {
         ClinicalEventIntent intent;
         try {
             intent = registrationIntent(arguments);
             intentValidator.validate(intent);
         } catch (RuntimeException exception) {
-            log.warn(
-                    "Rejected a registration that does not pass validation conversationId={}", conversationId);
+            log.warn("Rejected a note that does not pass validation conversationId={}", conversationId);
             return AgentOperationResult.rejected(AgentOperationResult.Rejection.NOT_ADMISSIBLE, NOT_ADMISSIBLE);
         }
         return AgentOperationResult.of(
-                AgentOperation.REGISTER_EVENT, registrationService.register(conversationId, intent, referenceDate));
+                AgentOperation.RECORD_NOTE,
+                encounterService.collect(
+                        conversationId, intent.events().getFirst(), referenceDate));
     }
 
     private static ClinicalEventIntent consultationIntent(JsonNode arguments) {

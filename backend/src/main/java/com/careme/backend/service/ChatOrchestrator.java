@@ -27,10 +27,25 @@ public class ChatOrchestrator {
 
     private final ClinicalAgent agent;
     private final ConversationStateStore stateStore;
+    private final EncounterService encounterService;
 
-    public ChatOrchestrator(ClinicalAgent agent, ConversationStateStore stateStore) {
+    public ChatOrchestrator(
+            ClinicalAgent agent, ConversationStateStore stateStore, EncounterService encounterService) {
         this.agent = agent;
         this.stateStore = stateStore;
+        this.encounterService = encounterService;
+    }
+
+    /**
+     * Closes the consultation of a conversation.
+     *
+     * <p>Ending the consultation is the person's decision, so it is its own
+     * operation instead of being inferred from a message. It is idempotent: a
+     * repeated close returns the outcome it already produced and registers nothing
+     * new.
+     */
+    public ChatMessageResponse closeConsultation(String conversationId) {
+        return encounterService.close(conversationId);
     }
 
     public ChatMessageResponse process(ChatMessageRequest request) {
@@ -43,6 +58,22 @@ public class ChatOrchestrator {
             // A repeated message is answered with the outcome it already produced, so
             // no operation runs a second time.
             return previous.get();
+        }
+
+        // The consultation opens with the conversation and survives an interruption
+        // with the notes it has collected; only the close writes clinical events.
+        try {
+            encounterService.current(conversationId);
+        } catch (RuntimeException exception) {
+            log.warn("Could not open the consultation conversationId={}", conversationId, exception);
+            ChatMessageResponse failure = ChatMessageResponse.of(
+                    conversationId,
+                    request.messageId(),
+                    ChatMessageResponse.Status.FAILED,
+                    RETRYABLE_FAILURE,
+                    null);
+            state.remember(request.messageId(), failure);
+            return failure;
         }
 
         // A message that answers a pending question travels with it, so an operation

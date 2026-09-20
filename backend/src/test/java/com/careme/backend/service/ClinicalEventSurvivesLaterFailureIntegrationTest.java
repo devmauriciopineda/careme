@@ -7,6 +7,7 @@ import static org.mockito.Mockito.doReturn;
 import com.careme.backend.PostgresIntegrationTest;
 import com.careme.backend.dto.AgentOperation;
 import com.careme.backend.entity.ClinicalEvent;
+import com.careme.backend.entity.Encounter;
 import com.careme.backend.repository.ClinicalEventQueryRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -29,22 +30,22 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 /**
- * UC-012 `E2` end to end against real PostgreSQL and a real events directory: a
- * turn that publishes a fact and then fails on a later operation leaves the
- * published fact exactly as it was.
+ * UC-013 end to end against real PostgreSQL and a real encounters directory: a
+ * turn that notes a fact and then fails on a later operation leaves the note
+ * exactly as it was, so the close can still register it.
  *
  * <p>It drives the loop with a scripted provider and the real executor, so the
- * registration goes through the real markdown store and the real index.
+ * collection goes through the real markdown store and the real derived index.
  */
 @SpringBootTest
-@TestPropertySource(properties = "careme.events.directory=target/test-events-turn-failure")
+@TestPropertySource(properties = "careme.encounters.directory=target/test-encounters-turn-failure")
 class ClinicalEventSurvivesLaterFailureIntegrationTest extends PostgresIntegrationTest {
 
-    private static final Path EVENTS_DIRECTORY = Path.of("target/test-events-turn-failure");
+    private static final Path ENCOUNTERS_DIRECTORY = Path.of("target/test-encounters-turn-failure");
     private static final String CONVERSATION_ID = "conversation-1";
     private static final LocalDate TODAY = LocalDate.of(2026, 9, 19);
 
-    private static final String REGISTRATION = "{\"type\":\"diagnosis\","
+    private static final String NOTE = "{\"type\":\"diagnosis\","
             + "\"content\":\"Hipertensión diagnosticada.\",\"date\":\"2026-01-10\","
             + "\"date_precision\":\"exact\"}";
     private static final String CONSULTATION = "{\"question\":\"¿qué diagnósticos tengo?\","
@@ -54,7 +55,7 @@ class ClinicalEventSurvivesLaterFailureIntegrationTest extends PostgresIntegrati
     private AgentOperationExecutor executor;
 
     @Autowired
-    private ClinicalEventQueryRepository queryRepository;
+    private EncounterMarkdownStore markdownStore;
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -64,9 +65,9 @@ class ClinicalEventSurvivesLaterFailureIntegrationTest extends PostgresIntegrati
 
     @BeforeEach
     void cleanIndexAndDocuments() throws IOException {
-        jdbcTemplate.update("DELETE FROM clinical_event_index");
-        if (Files.exists(EVENTS_DIRECTORY)) {
-            try (var paths = Files.walk(EVENTS_DIRECTORY)) {
+        jdbcTemplate.update("DELETE FROM encounter_index");
+        if (Files.exists(ENCOUNTERS_DIRECTORY)) {
+            try (var paths = Files.walk(ENCOUNTERS_DIRECTORY)) {
                 paths.sorted(Comparator.reverseOrder()).forEach(path -> {
                     try {
                         Files.deleteIfExists(path);
@@ -78,14 +79,14 @@ class ClinicalEventSurvivesLaterFailureIntegrationTest extends PostgresIntegrati
     }
 
     @Test
-    void keepsAPublishedEventWhenALaterOperationOfTheSameTurnFails() throws IOException {
+    void keepsANotedFactWhenALaterOperationOfTheSameTurnFails() throws IOException {
         // The consultation of the same turn cannot be completed, so the turn fails
-        // after the registration has already reached the clinical history.
+        // after the fact has already been noted in the open consultation.
         doReturn(ClinicalAnswerResult.failure("No pude buscar en tu historia."))
                 .when(historyQueryService).answer(any());
 
         ScriptedProvider provider = new ScriptedProvider()
-                .then(asks(operation(AgentOperation.REGISTER_EVENT, REGISTRATION)))
+                .then(asks(operation(AgentOperation.RECORD_NOTE, NOTE)))
                 .then(asks(operation(AgentOperation.CONSULT_HISTORY, CONSULTATION)));
         AgentTurnRunner runner = new AgentTurnRunner(provider, executor, 4);
 
@@ -96,41 +97,27 @@ class ClinicalEventSurvivesLaterFailureIntegrationTest extends PostgresIntegrati
         assertThat(turn.failed()).isTrue();
         assertThat(turn.message()).isEqualTo("No pude buscar en tu historia.");
         assertThat(turn.completedOperations()).singleElement()
-                .satisfies(result -> assertThat(result.operation()).isEqualTo(AgentOperation.REGISTER_EVENT));
+                .satisfies(result -> assertThat(result.operation()).isEqualTo(AgentOperation.RECORD_NOTE));
 
-        // The published fact survives: its document is there and its code is still
-        // consultable through the derived index.
-        Path document = EVENTS_DIRECTORY.resolve("evt_001.md");
+        // The noted fact survives in the open consultation: its document is there
+        // and the note is still consultable through the derived index.
+        Path document = ENCOUNTERS_DIRECTORY.resolve("enc_001.md");
         assertThat(document).exists();
-        String published = Files.readString(document);
-        assertThat(published).contains("Hipertensión diagnosticada.");
+        assertThat(Files.readString(document)).contains("Hipertensión diagnosticada.");
 
         assertThat(countIndexRows()).isEqualTo(1);
-        assertThat(queryRepository.search(List.of("hipertensión"), null, null, null))
-                .singleElement()
-                .satisfies(event -> {
-                    assertThat(event.code()).isEqualTo("evt_001");
-                    assertThat(event.content()).isEqualTo("Hipertensión diagnosticada.");
-                    assertThat(event.datePrecision()).isEqualTo(ClinicalEvent.DatePrecision.EXACT);
+        Encounter open = markdownStore.findOpenByConversation(CONVERSATION_ID).orElseThrow();
+        assertThat(open.notes()).singleElement()
+                .satisfies(note -> {
+                    assertThat(note.type()).isEqualTo(ClinicalEvent.ClinicalEventType.DIAGNOSIS);
+                    assertThat(note.content()).isEqualTo("Hipertensión diagnosticada.");
+                    assertThat(note.datePrecision()).isEqualTo(ClinicalEvent.DatePrecision.EXACT);
                 });
-
-        // And it is left alone: the next registration takes the following code and
-        // does not touch the document that was already published.
-        AgentOperationResult next = executor.execute("conversation-2", registration(), TODAY);
-
-        assertThat(next.registration().events()).singleElement()
-                .satisfies(event -> assertThat(event.code()).isEqualTo("evt_002"));
-        assertThat(Files.readString(document)).as("el documento publicado no se reescribe").isEqualTo(published);
-        assertThat(countIndexRows()).isEqualTo(2);
     }
 
     private long countIndexRows() {
-        Long count = jdbcTemplate.queryForObject("SELECT count(*) FROM clinical_event_index", Long.class);
+        Long count = jdbcTemplate.queryForObject("SELECT count(*) FROM encounter_index", Long.class);
         return count == null ? 0L : count;
-    }
-
-    private static AgentOperationCall registration() {
-        return operation(AgentOperation.REGISTER_EVENT, REGISTRATION);
     }
 
     private static AgentOperationCall operation(AgentOperation operation, String json) {

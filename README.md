@@ -3,11 +3,13 @@
 ## Project description
 
 Careme is a full-stack personal clinical assistant and body-tracking
-application. Its chat entry point records the clinical facts a person tells it
-in Spanish —diagnoses, medications, measurements and notes— into a personal
-clinical history, preserving the temporal precision they expressed. It also
-records two daily body metrics —weight and abdominal circumference— and presents
-them as trend charts and a daily table.
+application. Its chat entry point collects the clinical facts a person tells it
+in Spanish —diagnoses, medications, measurements and notes— as notes of the open
+consultation, and registers them into a personal clinical history when the person
+ends the consultation, preserving the temporal precision they expressed and
+declaring the consultation they came from. It also records two daily body metrics
+—weight and abdominal circumference— and presents them as trend charts and a
+daily table.
 
 The project exists to replace a manual spreadsheet: a single place to log body
 measurements day by day and see the trend without doing the math by hand. It is
@@ -22,9 +24,15 @@ facts only and never diagnoses or recommends treatment.
 
 ## General functionality
 
-- A Spanish-language chat entry point that turns natural-language messages into
-  clinical events (diagnosis, medication, measurement or note), preserving the
-  original wording and the temporal precision (exact, approximate or unknown).
+- A Spanish-language chat entry point that collects the clinical facts a message
+  mentions (diagnosis, medication, measurement or note) as notes of the open
+  consultation, preserving the original wording and the temporal precision
+  (exact, approximate or unknown). The facts are registered as clinical events —
+  with their provenance — when the consultation is closed.
+- The conversation is a consultation with identity and life cycle: it opens with
+  the conversation, is the only one in progress, and closes when the person ends
+  it — or when another conversation starts or the process stops — registering the
+  facts it collected.
 - The same chat answers general conversation that does not depend on the clinical
   history, without reading it, and declines requests for a diagnosis, a
   recommendation or an interpretation of the case.
@@ -58,9 +66,10 @@ browser ──▶ frontend (Next.js, port 3000)
             backend (Spring Boot, port 8080)
                 │  Spring Data JPA                 │  filesystem
                 ▼                                  ▼
-      PostgreSQL (measurements +          data/events/ (Markdown source
-      clinical_event_index,                of truth for clinical events)
-      Flyway-managed)
+      PostgreSQL (measurements +          data/events/ (Markdown source of
+      clinical_event_index +               truth for clinical events) and
+      encounter_index,                     data/encounters/ (Markdown source
+      Flyway-managed)                      of truth for consultations)
 ```
 
 - The **frontend** is a Next.js App Router application. The chat workspace is the
@@ -73,14 +82,16 @@ browser ──▶ frontend (Next.js, port 3000)
   on their own. Recharts, the registration/import forms and the chat workspace
   are the client-side islands.
 - The **backend** is a Spring Boot REST service with measurement read, write and
-  import endpoints, a chat endpoint, read-only clinical-event inspection
-  endpoints and a clinical-event reindex endpoint. It follows a layered
-  structure (controller → service → repository) and is the source of truth for
-  the API contract.
+  import endpoints, a chat endpoint, a consultation-close endpoint, read-only
+  clinical-event inspection endpoints and a clinical-event reindex endpoint. It
+  follows a layered structure (controller → service → repository) and is the
+  source of truth for the API contract.
 - **Storage** is PostgreSQL, behind a repository interface, plus the Markdown
-  files in `data/events/` as the source of truth for clinical events. Flyway owns
-  the schema, so the tables exist from the first start without manual DDL; the
-  PostgreSQL index of clinical events is derived and rebuildable.
+  files in `data/events/` as the source of truth for clinical events and
+  `data/encounters/` as the source of truth for consultations. Flyway owns the
+  schema, so the tables exist from the first start without manual DDL; the
+  PostgreSQL indexes of clinical events and consultations are derived and
+  rebuildable.
 
 Each service is documented in its own README:
 
@@ -110,12 +121,14 @@ Each service is documented in its own README:
   reaches the browser; see [`backend/README.md`](./backend/README.md).
 - The frontend consumes the backend's own HTTP API
   (`GET` and `POST /api/v1/measurements`, the CSV import endpoints,
-  `POST /api/v1/chat/messages` and the read-only clinical-event inspection
-  endpoints). The contract is documented in
+  `POST /api/v1/chat/messages`,
+  `POST /api/v1/chat/conversations/{conversationId}/consultation/close` and the
+  read-only clinical-event inspection endpoints). The contract is documented in
   [`backend/README.md`](./backend/README.md).
 - Measurements live in a **PostgreSQL** table owned by the backend, created and
   versioned by Flyway migrations. Clinical events live as Markdown documents in
-  `data/events/` (source of truth) with a derived, rebuildable PostgreSQL index.
+  `data/events/` (source of truth) with a derived, rebuildable PostgreSQL index;
+  consultations live the same way in `data/encounters/`.
 - There is **no authentication or authorization** in this MVP.
 - Images and fonts: no image CDN. The only third-party asset source is
   `next/font/google` (Geist and Geist Mono), which Next.js downloads at build
@@ -281,11 +294,13 @@ lsof -iTCP:3000 -iTCP:8080 -iTCP:5432 -sTCP:LISTEN
 
 1. Start the backend and the frontend (either mode above).
 2. Open http://localhost:3000. The chat workspace is the entry point: tell it a
-  clinical fact ("me diagnosticaron hipertensión el mes pasado") to record it,
-  or ask about your clinical history to receive an answer with supporting
-  records. It may ask for clarification or answer as general conversation. If
-  the LLM is not configured it runs the `fake` interpreter, safe for local
-  development.
+  clinical fact ("me diagnosticaron hipertensión el mes pasado") and it collects
+  it as a note of the open consultation — the turn does not write to the history;
+  use the **Terminar consulta** action to end the consultation and register the
+  collected facts with their provenance. Or ask about your clinical history to
+  receive an answer with supporting records. It may ask for clarification or
+  answer as general conversation. If the LLM is not configured it runs the `fake`
+  interpreter, safe for local development.
 3. Open http://localhost:3000/measurements for the body-tracking dashboard. It
    shows the date range, the record count, one trend chart per metric and the
    daily table. Hover or focus a chart to read individual values: with the chart
@@ -307,6 +322,10 @@ lsof -iTCP:3000 -iTCP:8080 -iTCP:5432 -sTCP:LISTEN
   The chat answers history questions from the PostgreSQL index and the index can
   be rebuilt from the Markdown documents; edit and delete use cases remain on the
   roadmap.
+- **A conversation is a consultation.** What a message mentions is collected as a
+  note and is not part of the clinical history while the consultation is open;
+  ending the consultation registers the admissible notes with their provenance.
+  Consultations live as Markdown in `data/encounters/`.
 - **One measurement per day.** The table has a unique constraint on `date`.
 - **CORS is not required today** because the frontend fetches on the server. It is
   configured explicitly so a future client-side call cannot open the API to every

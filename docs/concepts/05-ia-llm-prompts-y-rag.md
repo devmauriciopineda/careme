@@ -47,7 +47,7 @@ Una distinción importante de vocabulario: este sistema **sí** es un **agente c
 
 **Por qué salida estructurada en lugar de texto libre.** Si el modelo devolviera prosa, habría que adivinar qué quiso decir. Pidiéndole que elija entre operaciones declaradas y devuelva sus argumentos con una forma fija, el resultado se convierte en un dato que el programa puede **validar y rechazar**. El modelo nunca escribe directamente en la persistencia: la operación pasa por validación antes de tocar nada.
 
-**Por qué el modelo decide y el código ejecuta.** El sistema no clasifica el mensaje por su cuenta para después redactar: publica un conjunto **cerrado** de operaciones —consultar la historia, registrar un hecho— y deja que el modelo elija. Eso traslada al modelo la parte que hace bien, entender lenguaje natural variado, y deja en el código la parte que debe ser predecible: resolver los argumentos, validarlos, recuperar y escribir. Cada ejecución recibe únicamente el material que le corresponde, y lo que una ejecución no recibe no lo puede afirmar.
+**Por qué el modelo decide y el código ejecuta.** El sistema no clasifica el mensaje por su cuenta para después redactar: publica un conjunto **cerrado** de operaciones —consultar la historia, tomar nota de un hecho dentro de la consulta— y deja que el modelo elija. Eso traslada al modelo la parte que hace bien, entender lenguaje natural variado, y deja en el código la parte que debe ser predecible: resolver los argumentos, validarlos, recuperar y registrar al cerrar la consulta. Cada ejecución recibe únicamente el material que le corresponde, y lo que una ejecución no recibe no lo puede afirmar.
 
 **Por qué RAG con recuperación léxica.** El modelo no conoce la historia clínica de la persona, y no debe inventarla. La recuperación aporta los hechos reales, y el modelo solo los redacta. La búsqueda es **léxica** (sobre las palabras de la persona), no semántica: es predecible, no requiere almacenar vectores y respeta el vocabulario original.
 
@@ -122,13 +122,15 @@ El turno empieza cuando el modelo convierte el mensaje en una o más **operacion
 | Operación | Significado |
 | --- | --- |
 | `consult_history` | El mensaje pregunta por la historia clínica |
-| `register_event` | El mensaje describe hechos clínicos que la persona afirma y deben registrarse |
+| `record_note` | El mensaje menciona hechos clínicos que la persona afirma y deben quedar recogidos en la consulta |
 
-Una operación de consulta lleva la pregunta, un **ámbito** (historia o seguimiento corporal), los **términos de búsqueda** y, cuando la persona los mencionó, filtros de tipo y de fecha. Una operación de registro lleva los hechos candidatos con su tipo, su contenido y su precisión temporal. Ni una ni otra expone rutas, archivos ni almacenamiento: el modelo nombra una capacidad, no un recurso.
+Una operación de consulta lleva la pregunta, un **ámbito** (historia o seguimiento corporal), los **términos de búsqueda** y, cuando la persona los mencionó, filtros de tipo y de fecha. Una operación de nota lleva los hechos candidatos con su tipo, su contenido y su precisión temporal. Ni una ni otra expone rutas, archivos ni almacenamiento: el modelo nombra una capacidad, no un recurso.
 
-**Qué decide el turno.** El modelo elige cuántas operaciones necesita y en qué orden: un mensaje que registra un hecho y además pregunta por lo ya registrado produce **dos operaciones en un mismo turno**, y las dos se atienden. Lo que el modelo no puede hacer es declarar una operación que la aplicación no haya publicado, ni ejecutar nada por su cuenta.
+**Registrar no es una operación del turno.** Un hecho mencionado durante la conversación se recoge como **nota** de la consulta; la incorporación a la historia clínica ocurre al **cerrar** la consulta. Mientras la consulta está en curso, ninguna operación del turno escribe: el turno y el cierre son dos momentos distintos, y el resultado del turno declara lo recogido, no lo registrado.
 
-Cuando falta un dato —no se sabe qué hecho registrar o con qué precisión—, el sistema **pregunta** en lugar de adivinar, y no registra nada hasta tenerlo. Y cuando el mensaje ni registra un hecho ni depende de la historia, el turno es **conversación general**: no se solicita ninguna operación y la respuesta queda fuera de la historia clínica.
+**Qué decide el turno.** El modelo elige cuántas operaciones necesita y en qué orden: un mensaje que menciona un hecho y además pregunta por lo ya registrado produce **dos operaciones en un mismo turno**, y las dos se atienden. Lo que el modelo no puede hacer es declarar una operación que la aplicación no haya publicado, ni ejecutar nada por su cuenta.
+
+Cuando falta un dato —no se sabe qué hecho recoger o con qué precisión—, el sistema **pregunta** en lugar de adivinar, y no lo deja recogido hasta tenerlo. Y cuando el mensaje ni menciona un hecho ni depende de la historia, el turno es **conversación general**: no se solicita ninguna operación y la respuesta queda fuera de la historia clínica.
 
 Antes de ejecutar nada, el código **valida** la operación solicitada:
 
@@ -137,7 +139,7 @@ Antes de ejecutar nada, el código **valida** la operación solicitada:
 - una consulta sobre el seguimiento corporal —peso y circunferencia— no se atiende por este cauce, que es la historia clínica, y se responde con la indicación de dónde sí consta;
 - un hecho con precisión exacta **necesita** una fecha.
 
-Si la respuesta del proveedor no se puede interpretar o no cumple estas reglas, el turno termina en un **fallo controlado** —sin inventar— y **sin escribir nada**. La validación y la escritura ocurren **dentro** de la ejecución de la operación, antes de devolver el resultado al modelo: cuando el modelo ve el resultado, el hecho ya está escrito, y no puede describir como hecho algo que no llegó a registrarse.
+Si la respuesta del proveedor no se puede interpretar o no cumple estas reglas, el turno termina en un **fallo controlado** —sin inventar— y **sin escribir nada**. La validación ocurre **dentro** de la ejecución de la operación, antes de devolver el resultado al modelo; la escritura clínica, en cambio, ocurre en el **cierre de la consulta**. Por eso el turno nunca presenta como registrado lo que solo quedó recogido.
 
 ### 3.4 Las fechas: el modelo propone, el código normaliza
 
@@ -216,7 +218,7 @@ De esta redacción no se encarga el turno por su cuenta: la convoca la operació
 
 ### 3.8 Una sola respuesta para todo el turno
 
-Un turno con varias operaciones produce **una sola respuesta**. El modelo redacta un único texto que cubre lo que hizo —la confirmación del hecho que registró y la respuesta a lo que preguntó— sin partir el turno en dos ni repetir dos veces la misma cosa.
+Un turno con varias operaciones produce **una sola respuesta**. El modelo redacta un único texto que cubre lo que hizo —el acuse de lo que quedó recogido y la respuesta a lo que preguntó— sin partir el turno en dos ni repetir dos veces la misma cosa.
 
 Eso no significa que el turno oculte lo que pasó. La respuesta viaja acompañada de **la lista de operaciones por las que pasó el turno**, cada una con su estado, de modo que la interfaz puede presentar por separado lo que se completó y lo que no. La respuesta es para la persona; el detalle de lo ocurrido es para poder verificarlo.
 
@@ -327,6 +329,28 @@ El agente recibe los turnos recientes en cada llamada para resolver referencias
 clínicos **no** viajan en esos turnos: llegan como resultado de la operación de
 consulta, y solo si esa operación se ejecuta. La memoria conversacional nunca es
 la fuente de una afirmación sobre la historia.
+
+### 5.1 La consulta: estado persistido que no es historia clínica
+
+Junto a esa memoria efímera, cada conversación mantiene una **consulta**
+(`Encounter`): un registro con identidad propia, persistido como Markdown en
+`data/encounters/`, que va recogiendo en **notas** los hechos clínicos que la
+persona menciona. Se diferencia del búfer de turnos en dos propiedades que
+importan:
+
+- **Sobrevive al reinicio.** Es un registro persistido, no memoria del proceso:
+  una interrupción de la conversación no pierde lo que la persona ya contó.
+- **No es historia clínica.** Una nota **no** es un hecho registrado: no aparece
+  en las consultas a la historia mientras la consulta está abierta y no tiene
+  código de evento.
+
+Solo hay una consulta en curso: abrir una conversación nueva cierra la anterior,
+que se cierra también cuando la persona la da por terminada o cuando el proceso
+se detiene. El **cierre** es el momento en que las notas admisibles se registran
+como hechos clínicos, declarando de qué consulta proceden, y en que la consulta
+guarda un resumen derivado de lo tratado. Distinguir «recogido» de «registrado»
+es lo que permite que el turno no escriba y que la escritura siga siendo
+determinista y gobernable. Ver [`UC-013`](../use-cases/UC-013.md).
 
 - **Idempotencia.** Repetir un turno con los mismos identificadores devuelve el resultado original sin repetir efectos.
 - **Límite de tamaño del mensaje**, además de los tiempos de espera de conexión y lectura.

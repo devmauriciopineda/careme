@@ -2,7 +2,7 @@
 
 > **MVP cerrado el 2026-09-18.** 8 de 11 implementados · 3 cubiertos.
 >
-> Implementación actual: **UC-001 → UC-004, UC-007, UC-008, UC-010, UC-011 y UC-012**.
+> Implementación actual: **UC-001 → UC-004, UC-007, UC-008, UC-010, UC-011, UC-012, UC-013 y UC-013b**.
 >
 > Todos los casos de uso del MVP están implementados o cubiertos.
 >
@@ -111,8 +111,8 @@ Casos de uso previstos para la Fase 4 del
 —agente con herramientas, consulta y modelo de mediciones—, el perfil del paciente y la ampliación del
 modelo clínico.
 
-Se enuncian aquí para fijar el alcance de la fase. **UC-012 ya está implementado; los demás siguen
-pendientes de escribir.**
+Se enuncian aquí para fijar el alcance de la fase. **UC-012, UC-013 y UC-013b ya están
+implementados; los demás siguen pendientes de escribir.**
 
 ## UC-012 — Operar el asistente como agente con herramientas y proveedor LLM real por defecto
 
@@ -124,9 +124,22 @@ Documento: [`UC-012.md`](../use-cases/UC-012.md) — «Atender un mensaje que re
 
 ## UC-013 — Sostener una consulta y registrar con procedencia los hechos que el usuario menciona
 
-**Estado:** ⬜ Pendiente
+**Estado:** ✅ Implementado
 
-La conversación es una consulta con identificador; el asistente pregunta lo que falta y los hechos quedan registrados con procedencia hacia ella.
+La conversación es una consulta con identidad y ciclo de vida; el asistente pregunta lo que falta y
+toma notas de lo que la persona menciona. El registro de lo recogido con su procedencia hacia la
+consulta, al cerrarse esta, se documenta como UC-013b.
+
+Documento: [`UC-013.md`](../use-cases/UC-013.md) — «Sostener una consulta» · [criterios de aceptación](../use-cases/UC-013-acceptance-criteria.md).
+
+## UC-013b — Registrar con procedencia los hechos de la consulta
+
+**Estado:** ✅ Implementado
+
+Al cerrar la consulta, los hechos recogidos se registran con la información disponible declarando de
+dónde proceden, y la consulta conserva un resumen de lo tratado. Formaliza `RN-031`.
+
+Documento: [`UC-013b.md`](../use-cases/UC-013b.md) · [criterios de aceptación](../use-cases/UC-013b-acceptance-criteria.md).
 
 ## UC-014 — Registrar y consultar mediciones por lenguaje natural
 

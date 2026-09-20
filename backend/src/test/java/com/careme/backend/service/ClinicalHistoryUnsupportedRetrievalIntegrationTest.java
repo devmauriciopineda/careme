@@ -70,7 +70,7 @@ class ClinicalHistoryUnsupportedRetrievalIntegrationTest extends PostgresIntegra
                 UUID.randomUUID(), "evt_001", ClinicalEvent.ClinicalEventType.DIAGNOSIS,
                 LocalDate.of(2026, 1, 10), ClinicalEvent.DatePrecision.EXACT, "el 10 de enero",
                 "Hipertensión diagnosticada", ClinicalEvent.EventSource.PATIENT,
-                OffsetDateTime.now(ZoneOffset.UTC));
+                OffsetDateTime.now(ZoneOffset.UTC), null);
         markdownStore.write(event);
         indexWriter.write(event);
         String indexBefore = indexSnapshot();

@@ -79,14 +79,14 @@ referencia en su sección 8 los identificadores `RN-` que le aplican y conserva 
 | ID | Regla | Alcance | Origen |
 | --- | --- | --- | --- |
 | RN-030 | Toda la información pertenece a la historia de la propia persona; la fuente de lo que ella aporta es el paciente. | UC-004, UC-007, UC-011, UC-012 | UC-004 §8; UC-007 §8 |
-| RN-031 | Todo hecho registrado declara de dónde procede. *(Prevista — Fase 4.1)* | UC-013 | `roadmap` §4.1, §4.9 |
-| RN-032 | La información derivada se marca como tal y se reconstruye desde los hechos; nunca es fuente de verdad. *(Prevista — Fase 4.1)* | UC-024 | `roadmap` §3.2, §4.10 |
+| RN-031 | Todo hecho registrado declara de dónde procede: quién lo aportó, cuándo se registró y de qué consulta procede. | UC-013b | UC-013b §8; `roadmap` §4.1, §4.9 |
+| RN-032 | La información derivada se marca como tal y se reconstruye desde los hechos; nunca es fuente de verdad. | UC-013b, UC-024 | UC-013b §8; `roadmap` §3.2, §4.10 |
 
 ## Trazabilidad
 
 - Reglas derivadas de las reglas de comportamiento del alcance cerrado del MVP:
   `mvp_alcance_asistente_historia_clinica.md` §10.
 - Reglas derivadas de casos de uso ya redactados: `UC-001`, `UC-002`, `UC-003`, `UC-004`, `UC-007`,
-  `UC-008`, `UC-010` y `UC-011`, cuya sección 8 pasó a referenciar este catálogo.
-- Reglas previstas para subfases posteriores: `RN-031` y `RN-032`
-  (`roadmap_asistente_historia_clinica.md` §3.2, §4.1, §4.9, §4.10).
+  `UC-008`, `UC-010`, `UC-011` y `UC-013b`, cuya sección 8 pasó a referenciar este catálogo.
+- Reglas previstas para subfases posteriores: `RN-032` para `UC-024`
+  (`roadmap_asistente_historia_clinica.md` §3.2, §4.10).

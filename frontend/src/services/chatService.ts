@@ -6,6 +6,11 @@ import type { ChatResponse } from "@/features/chat/types";
 
 const CHAT_PATH = "/api/v1/chat/messages";
 
+/** The close operation ends the consultation of one conversation. */
+function consultationClosePath(conversationId: string): string {
+  return `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/consultation/close`;
+}
+
 /**
  * The API could not be reached, or answered something this app cannot read.
  *
@@ -35,6 +40,38 @@ export const chatService = {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
+        cache: "no-store",
+      });
+    } catch (error) {
+      console.error("Failed to reach the chat API:", error);
+      throw new ChatUnavailableError(error);
+    }
+
+    if (!response.ok) {
+      console.error(`Chat API responded with ${response.status}`);
+      throw new ChatUnavailableError();
+    }
+
+    try {
+      return chatResponseSchema.parse(await response.json());
+    } catch (error) {
+      console.error("Chat API response does not match the contract:", error);
+      throw new ChatUnavailableError(error);
+    }
+  },
+
+  /**
+   * Ends the consultation in progress and returns the close outcome.
+   *
+   * The close is idempotent on the backend, so a retry never registers the same
+   * facts twice.
+   */
+  async closeConsultation(conversationId: string): Promise<ChatResponse> {
+    let response: Response;
+
+    try {
+      response = await fetch(`${API_BASE_URL}${consultationClosePath(conversationId)}`, {
+        method: "POST",
         cache: "no-store",
       });
     } catch (error) {

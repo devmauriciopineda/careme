@@ -14,6 +14,7 @@ import com.careme.backend.dto.AgentOperation;
 import com.careme.backend.dto.ChatMessageResponse;
 import com.careme.backend.dto.ClinicalEventIntent;
 import com.careme.backend.entity.ClinicalEvent;
+import com.careme.backend.entity.EncounterNote;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDate;
@@ -34,11 +35,10 @@ class AgentOperationExecutorTest {
             "{\"question\":\"¿qué diagnósticos tengo?\",\"search_terms\":[\"diagnostico\"]}";
 
     private final ClinicalHistoryQueryService historyQueryService = mock(ClinicalHistoryQueryService.class);
-    private final ClinicalEventRegistrationService registrationService =
-            mock(ClinicalEventRegistrationService.class);
+    private final EncounterService encounterService = mock(EncounterService.class);
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final AgentOperationExecutor executor = new AgentOperationExecutor(
-            historyQueryService, registrationService, new ClinicalEventIntentValidator());
+            historyQueryService, encounterService, new ClinicalEventIntentValidator());
 
     @Test
     void runsTheConsultationThroughTheHistoryQueryService() {
@@ -95,39 +95,32 @@ class AgentOperationExecutorTest {
     }
 
     @Test
-    void returnsTheRegisteredEventOnlyAfterTheRegistrationReturnedIt() {
-        ClinicalEvent registered = event();
-        when(registrationService.register(anyString(), any(), any()))
-                .thenReturn(new ClinicalEventRegistrationResult(
-                        ClinicalEventRegistrationResult.Kind.REGISTERED,
-                        List.of(registered),
-                        "He registrado el hecho."));
+    void returnsTheNoteOnlyAfterTheEncounterServiceCollectedIt() {
+        EncounterNote collected = note();
+        when(encounterService.collect(anyString(), any(), any()))
+                .thenReturn(new EncounterNoteResult(
+                        EncounterNoteResult.Kind.COLLECTED, collected, "Lo he anotado."));
 
         AgentOperationResult result = executor.execute(CONVERSATION_ID, registration(), TODAY);
 
         assertThat(result.kind()).isEqualTo(AgentOperationResult.Kind.COMPLETED);
-        assertThat(result.payload().get("registered")).isEqualTo(true);
-        assertThat(result.registration().events()).containsExactly(registered);
+        assertThat(result.payload().get("noted")).isEqualTo(true);
+        assertThat(result.note().note()).isEqualTo(collected);
     }
 
     @Test
-    void validatesTheRegistrationBeforeItReachesTheRegistrationService() {
-        when(registrationService.register(anyString(), any(), any()))
-                .thenReturn(new ClinicalEventRegistrationResult(
-                        ClinicalEventRegistrationResult.Kind.REGISTERED, List.of(event()), "He registrado el hecho."));
+    void validatesTheNoteBeforeItReachesTheEncounterService() {
+        when(encounterService.collect(anyString(), any(), any()))
+                .thenReturn(new EncounterNoteResult(EncounterNoteResult.Kind.COLLECTED, note(), "Lo he anotado."));
 
         executor.execute(CONVERSATION_ID, registration(), TODAY);
 
-        ArgumentCaptor<ClinicalEventIntent> intent = ArgumentCaptor.forClass(ClinicalEventIntent.class);
-        verify(registrationService).register(eq(CONVERSATION_ID), intent.capture(), eq(TODAY));
-        assertThat(intent.getValue().kind()).isEqualTo(ClinicalEventIntent.Kind.EVENTS);
-        assertThat(intent.getValue().events())
-                .singleElement()
-                .satisfies(candidate -> {
-                    assertThat(candidate.type()).isEqualTo(ClinicalEvent.ClinicalEventType.DIAGNOSIS);
-                    assertThat(candidate.date()).isEqualTo(LocalDate.of(2024, 3, 1));
-                    assertThat(candidate.datePrecision()).isEqualTo(ClinicalEvent.DatePrecision.EXACT);
-                });
+        ArgumentCaptor<ClinicalEventIntent.Candidate> candidate =
+                ArgumentCaptor.forClass(ClinicalEventIntent.Candidate.class);
+        verify(encounterService).collect(eq(CONVERSATION_ID), candidate.capture(), eq(TODAY));
+        assertThat(candidate.getValue().type()).isEqualTo(ClinicalEvent.ClinicalEventType.DIAGNOSIS);
+        assertThat(candidate.getValue().date()).isEqualTo(LocalDate.of(2024, 3, 1));
+        assertThat(candidate.getValue().datePrecision()).isEqualTo(ClinicalEvent.DatePrecision.EXACT);
     }
 
     @Test
@@ -139,8 +132,8 @@ class AgentOperationExecutorTest {
 
         assertThat(result.kind()).isEqualTo(AgentOperationResult.Kind.REJECTED);
         assertThat(result.completed()).isFalse();
-        assertThat(result.registration()).isNull();
-        verify(registrationService, never()).register(anyString(), any(), any());
+        assertThat(result.note()).isNull();
+        verify(encounterService, never()).collect(anyString(), any(), any());
     }
 
     @Test
@@ -149,7 +142,7 @@ class AgentOperationExecutorTest {
                 CONVERSATION_ID, registration("{\"type\":\"diagnosis\",\"date_precision\":\"exact\"}"), TODAY);
 
         assertThat(result.kind()).isEqualTo(AgentOperationResult.Kind.REJECTED);
-        verify(registrationService, never()).register(anyString(), any(), any());
+        verify(encounterService, never()).collect(anyString(), any(), any());
     }
 
     @Test
@@ -161,7 +154,7 @@ class AgentOperationExecutorTest {
                 TODAY);
 
         assertThat(result.kind()).isEqualTo(AgentOperationResult.Kind.REJECTED);
-        verify(registrationService, never()).register(anyString(), any(), any());
+        verify(encounterService, never()).collect(anyString(), any(), any());
     }
 
     @Test
@@ -178,7 +171,7 @@ class AgentOperationExecutorTest {
     void neverRunsAnOperationThatIsNotInTheAvailableSet() {
         assertThat(AgentOperationCall.of("delete_event", arguments("{}"))).isEmpty();
         assertThat(AgentOperationCall.of("register_measurement", arguments("{}"))).isEmpty();
-        verifyNoInteractions(historyQueryService, registrationService);
+        verifyNoInteractions(historyQueryService, encounterService);
     }
 
     @Test
@@ -188,7 +181,7 @@ class AgentOperationExecutorTest {
         assertThat(result.kind()).isEqualTo(AgentOperationResult.Kind.REJECTED);
         assertThat(result.operation()).isNull();
         assertThat(result.payload()).isEmpty();
-        verifyNoInteractions(historyQueryService, registrationService);
+        verifyNoInteractions(historyQueryService, encounterService);
     }
 
     private AgentOperationCall consultation(String json) {
@@ -201,7 +194,16 @@ class AgentOperationExecutorTest {
     }
 
     private AgentOperationCall registration(String json) {
-        return new AgentOperationCall(AgentOperation.REGISTER_EVENT, arguments(json));
+        return new AgentOperationCall(AgentOperation.RECORD_NOTE, arguments(json));
+    }
+
+    private static EncounterNote note() {
+        return new EncounterNote(
+                ClinicalEvent.ClinicalEventType.DIAGNOSIS,
+                "Hipertensión.",
+                LocalDate.of(2024, 3, 1),
+                ClinicalEvent.DatePrecision.EXACT,
+                "en marzo");
     }
 
     private JsonNode arguments(String json) {
@@ -222,6 +224,7 @@ class AgentOperationExecutorTest {
                 "hace unos dos años",
                 "Hipertensión diagnosticada.",
                 ClinicalEvent.EventSource.PATIENT,
-                OffsetDateTime.now(ZoneOffset.UTC));
+                OffsetDateTime.now(ZoneOffset.UTC),
+                null);
     }
 }

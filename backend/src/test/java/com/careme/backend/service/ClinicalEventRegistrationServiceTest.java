@@ -54,7 +54,8 @@ class ClinicalEventRegistrationServiceTest {
                 "el 1 de septiembre",
                 "Nota previa",
                 ClinicalEvent.EventSource.PATIENT,
-                OffsetDateTime.parse("2026-09-01T10:00:00Z"));
+                OffsetDateTime.parse("2026-09-01T10:00:00Z"),
+                null);
     }
 
     private static ClinicalEventIntent noteIntent() {

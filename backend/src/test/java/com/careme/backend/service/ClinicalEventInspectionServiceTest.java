@@ -165,6 +165,7 @@ class ClinicalEventInspectionServiceTest {
                 UUID.randomUUID(), code, type, occurrenceDate,
                 ClinicalEvent.DatePrecision.valueOf(precision.toUpperCase()), dateText,
                 "Evento de prueba", ClinicalEvent.EventSource.PATIENT,
-                recordDate.atStartOfDay().atOffset(ZoneOffset.UTC));
+                recordDate.atStartOfDay().atOffset(ZoneOffset.UTC),
+                null);
     }
 }

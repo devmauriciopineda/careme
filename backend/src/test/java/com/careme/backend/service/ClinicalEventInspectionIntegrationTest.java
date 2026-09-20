@@ -147,6 +147,7 @@ class ClinicalEventInspectionIntegrationTest extends PostgresIntegrationTest {
                 UUID.randomUUID(), code, ClinicalEvent.ClinicalEventType.DIAGNOSIS,
                 occurrenceDate, ClinicalEvent.DatePrecision.valueOf(precision.toUpperCase()), dateText,
                 "Evento de prueba", ClinicalEvent.EventSource.PATIENT,
-                recordDate.atStartOfDay().atOffset(ZoneOffset.UTC));
+                recordDate.atStartOfDay().atOffset(ZoneOffset.UTC),
+                null);
     }
 }

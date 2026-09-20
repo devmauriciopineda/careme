@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ArrowUp, HeartPulse, LoaderCircle, RotateCcw, Scale } from "lucide-react";
 import { FormEvent, useState, useTransition } from "react";
 
-import { sendChatMessage } from "../actions";
+import { closeConsultation, sendChatMessage } from "../actions";
 import type { ChatResponse } from "../types";
 
 type Message = {
@@ -17,11 +17,15 @@ type Message = {
   suggestedActions?: ChatResponse["suggestedActions"];
   operations?: ChatResponse["operations"];
   retryText?: string;
+  /** The message stands for a close that could not be completed. */
+  retryClose?: boolean;
 };
 
 /** The operations that produced a result the person can be told about. */
 const completedStatuses = new Set<NonNullable<ChatResponse["status"]>>([
+  "noted",
   "registered",
+  "nothing_to_register",
   "answered",
   "no_records",
   "duplicate",
@@ -29,7 +33,9 @@ const completedStatuses = new Set<NonNullable<ChatResponse["status"]>>([
 ]);
 
 const statusLabels: Record<NonNullable<Message["status"]>, string> = {
+  noted: "Anotado",
   registered: "Registrado",
+  nothing_to_register: "Sin hechos que registrar",
   answered: "Respuesta",
   no_records: "Sin registros",
   clarification_required: "Necesita aclaración",
@@ -79,10 +85,15 @@ function eventSummary(event: ChatResponse["events"][number]): string {
  */
 const SEND_FAILED_MESSAGE = "No se pudo completar el envío. Inténtalo de nuevo.";
 
+/** Shown when the consultation could not be closed, without naming a cause. */
+const CLOSE_FAILED_MESSAGE = "No se pudo cerrar la consulta. Inténtalo de nuevo.";
+
 export function ChatWorkspace() {
   const [conversationId, setConversationId] = useState<string>();
   const [draft, setDraft] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
+  const [closed, setClosed] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   /** Keeps the failed turn available so the retry can send it again. */
@@ -102,7 +113,7 @@ export function ChatWorkspace() {
   function submit(event: FormEvent, text = draft) {
     event.preventDefault();
     const message = text.trim();
-    if (!message || isPending) return;
+    if (!message || isPending || closed || isClosing) return;
 
     const messageId = crypto.randomUUID();
     setDraft("");
@@ -140,6 +151,53 @@ export function ChatWorkspace() {
         },
       ]);
     });
+  }
+
+  /**
+   * Ends the consultation in progress. The button is disabled while the request
+   * is pending, so a second close is never created from here.
+   */
+  async function endConsultation() {
+    if (!conversationId || closed || isClosing) return;
+    setIsClosing(true);
+    try {
+      const outcome = await closeConsultation(conversationId);
+      if (!outcome.ok) {
+        console.error(`The consultation was not closed: ${outcome.errorCode}`);
+        setMessages((current) => [
+          ...current,
+          {
+            id: `${crypto.randomUUID()}-close`,
+            role: "assistant",
+            text: CLOSE_FAILED_MESSAGE,
+            status: "failed",
+            retryClose: true,
+          },
+        ]);
+        return;
+      }
+      setClosed(true);
+      setMessages((current) => [
+        ...current,
+        {
+          id: `${crypto.randomUUID()}-closed`,
+          role: "assistant",
+          text: outcome.response.message,
+          status: outcome.response.status,
+          events: outcome.response.events,
+          operations: outcome.response.operations,
+        },
+      ]);
+    } finally {
+      setIsClosing(false);
+    }
+  }
+
+  /** Starts a new consultation once the previous one is closed. */
+  function startNewConsultation() {
+    setConversationId(undefined);
+    setClosed(false);
+    setDraft("");
   }
 
   return (
@@ -217,23 +275,74 @@ export function ChatWorkspace() {
                     )}
                   </div>
                 )}
-                {message.status === "failed" && message.retryText && (
-                  <button className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-destructive hover:underline" onClick={(event) => submit(event, message.retryText)} type="button">
+                {message.status === "failed" && (message.retryText || message.retryClose) && (
+                  <button
+                    className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-destructive hover:underline disabled:cursor-not-allowed disabled:opacity-40"
+                    disabled={isClosing}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      if (message.retryClose) {
+                        void endConsultation();
+                        return;
+                      }
+                      submit(event, message.retryText);
+                    }}
+                    type="button"
+                  >
                     <RotateCcw aria-hidden="true" className="size-3" /> Reintentar
                   </button>
                 )}
               </div>
             ))}
-            {isPending && <div className="flex items-center gap-2 text-sm text-muted-foreground" role="status"><LoaderCircle aria-hidden="true" className="size-4 animate-spin" /> Procesando tu mensaje...</div>}
+            {(isPending || isClosing) && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
+                <LoaderCircle aria-hidden="true" className="size-4 animate-spin" />
+                {isClosing ? "Cerrando la consulta..." : "Procesando tu mensaje..."}
+              </div>
+            )}
           </div>
 
-          <form className="mt-4 flex items-end gap-2 rounded-2xl border border-border bg-card p-2 shadow-sm" onSubmit={submit}>
-            <label className="sr-only" htmlFor="chat-message">Mensaje para el asistente</label>
-            <textarea className="min-h-12 flex-1 resize-none border-0 bg-transparent px-3 py-3 text-sm outline-none placeholder:text-muted-foreground" disabled={isPending} id="chat-message" onChange={(event) => setDraft(event.target.value)} placeholder="Escribe un hecho médico..." value={draft} />
-            <button aria-label="Enviar mensaje" className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40" disabled={!draft.trim() || isPending} title="Enviar mensaje" type="submit">
-              <ArrowUp aria-hidden="true" className="size-5" />
-            </button>
-          </form>
+          {conversationId && !closed && (
+            <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-border bg-card px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-muted-foreground">
+                Cuando termines, cierra la consulta para registrar lo que hemos hablado.
+              </p>
+              <button
+                className="inline-flex shrink-0 items-center justify-center rounded-xl border border-border px-4 py-2 text-sm font-medium transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
+                disabled={isClosing}
+                onClick={() => {
+                  void endConsultation();
+                }}
+                type="button"
+              >
+                {isClosing ? "Terminando..." : "Terminar consulta"}
+              </button>
+            </div>
+          )}
+
+          {closed ? (
+            <div className="mt-4 rounded-2xl border border-border bg-card p-4 shadow-sm" role="status">
+              <p className="text-sm font-semibold text-foreground">La consulta está cerrada.</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Ya no se añaden hechos a esta consulta. Puedes empezar una nueva cuando quieras.
+              </p>
+              <button
+                className="mt-3 inline-flex items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90"
+                onClick={startNewConsultation}
+                type="button"
+              >
+                Empezar una nueva consulta
+              </button>
+            </div>
+          ) : (
+            <form className="mt-4 flex items-end gap-2 rounded-2xl border border-border bg-card p-2 shadow-sm" onSubmit={submit}>
+              <label className="sr-only" htmlFor="chat-message">Mensaje para el asistente</label>
+              <textarea className="min-h-12 flex-1 resize-none border-0 bg-transparent px-3 py-3 text-sm outline-none placeholder:text-muted-foreground" disabled={isPending} id="chat-message" onChange={(event) => setDraft(event.target.value)} placeholder="Escribe un hecho médico..." value={draft} />
+              <button aria-label="Enviar mensaje" className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40" disabled={!draft.trim() || isPending} title="Enviar mensaje" type="submit">
+                <ArrowUp aria-hidden="true" className="size-5" />
+              </button>
+            </form>
+          )}
         </div>
 
         <aside className="hidden border-l border-border/70 pl-6 lg:block">

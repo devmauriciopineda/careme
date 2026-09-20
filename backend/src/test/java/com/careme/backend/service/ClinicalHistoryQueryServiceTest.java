@@ -92,7 +92,7 @@ class ClinicalHistoryQueryServiceTest {
         return new ClinicalEvent(
                 UUID.randomUUID(), code, ClinicalEvent.ClinicalEventType.DIAGNOSIS,
                 LocalDate.of(2026, 1, 10), ClinicalEvent.DatePrecision.EXACT, "el 10 de enero",
-                content, ClinicalEvent.EventSource.PATIENT, OffsetDateTime.now(ZoneOffset.UTC));
+                content, ClinicalEvent.EventSource.PATIENT, OffsetDateTime.now(ZoneOffset.UTC), null);
     }
 
     @Test

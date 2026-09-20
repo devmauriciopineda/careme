@@ -21,6 +21,12 @@ export const chatMessageInputSchema = z.object({
 /** The payload of one turn, as validated by `chatMessageInputSchema`. */
 export type ChatMessageInput = z.infer<typeof chatMessageInputSchema>;
 
+/**
+ * The conversation whose consultation is being closed. It mirrors the backend
+ * path variable, so a blank identifier never leaves the server.
+ */
+export const conversationIdSchema = z.string().trim().min(1);
+
 const chatEventSchema = z.object({
   code: z.string(),
   type: z.string(),
@@ -45,7 +51,9 @@ const suggestedActionSchema = z.enum(["reformulate", "register"]);
 
 /** The outcome of one turn. */
 const chatStatusSchema = z.enum([
+  "noted",
   "registered",
+  "nothing_to_register",
   "answered",
   "no_records",
   "clarification_required",
@@ -69,7 +77,7 @@ const operationSummarySchema = z.object({
 /** One turn as the backend returns it. */
 export const chatResponseSchema = z.object({
   conversationId: z.string(),
-  messageId: z.string(),
+  messageId: z.string().nullable(),
   status: chatStatusSchema,
   message: z.string(),
   events: z.array(chatEventSchema),

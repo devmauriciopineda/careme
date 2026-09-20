@@ -36,9 +36,11 @@ varias operaciones ocurren al mismo tiempo.
 
 Careme usa dos medios:
 
-- PostgreSQL 17 para mediciones y para un índice consultable de hechos clínicos.
-- Archivos Markdown en `data/events/` para conservar los hechos clínicos como
-  documentos legibles y canónicos.
+- PostgreSQL 17 para mediciones y para los índices consultables de hechos
+  clínicos y de consultas.
+- Archivos Markdown en `data/events/` para conservar los hechos clínicos, y en
+  `data/encounters/` para conservar las consultas, como documentos legibles y
+  canónicos.
 
 La elección depende de la forma del dato. Las mediciones tienen columnas,
 tipos, rangos y unicidad por fecha. Un hecho clínico conserva texto y metadatos
@@ -51,7 +53,9 @@ flowchart LR
     App --> Files["Markdown"]
     Rel --> Measurements["measurements<br/>fuente de verdad"]
     Rel --> Index["clinical_event_index<br/>índice derivado"]
+    Rel --> EncIndex["encounter_index<br/>índice derivado"]
     Files --> Events["data/events/*.md<br/>fuente de verdad"]
+    Files --> Encounters["data/encounters/*.md<br/>fuente de verdad"]
 ```
 
 ## 2. Qué es una base de datos relacional
@@ -158,6 +162,9 @@ migraciones aplicadas y ejecuta las pendientes en orden. En Careme:
 
 - `V1__create_measurements_table.sql` crea la tabla de mediciones y sus reglas.
 - `V2__create_clinical_event_index.sql` crea el índice derivado y su `tsvector`.
+- `V3__create_encounter_index.sql` crea el índice derivado de las consultas.
+- `V4__add_provenance_to_clinical_event_index.sql` añade al índice de hechos la
+  consulta de la que procede cada uno.
 - Hibernate usa `ddl-auto: validate`, por lo que comprueba el esquema pero no lo
   crea ni lo modifica.
 
@@ -332,6 +339,36 @@ flowchart LR
 
 El índice PostgreSQL no inventa el texto clínico. Se rellena a partir de los
 documentos y puede borrarse y reconstruirse sin perder la fuente original.
+
+### 7.1 Dos fuentes de verdad y dos índices
+
+Careme tiene dos documentos canónicos distintos, no uno: los hechos clínicos en
+`data/events/` y las **consultas** en `data/encounters/`. Cada uno se indexa en
+su propia tabla derivada:
+
+| Documento | Tabla derivada | Uso |
+| --- | --- | --- |
+| `data/events/evt_NNN.md` | `clinical_event_index` | Recuperar hechos clínicos para responder |
+| `data/encounters/enc_NNN.md` | `encounter_index` | Conservar el ciclo de vida de la conversación |
+
+Las dos tablas son descartables: se reconstruyen desde los documentos. Pero la
+consulta añade una propiedad que el hecho no tiene: se **republica** mientras
+está abierta, porque va acumulando notas, de modo que su fila de índice se
+**actualiza** en cada cambio en lugar de insertarse una sola vez.
+
+**La procedencia se conserva en la fuente.** Cada hecho registrado declara de qué
+consulta procede, y ese dato vive en el *front matter* del documento Markdown
+—no solo en PostgreSQL—. Esa es la razón de que la procedencia **sobreviva a la
+reconstrucción**: si el índice se borra y se vuelve a construir, cada hecho
+recupera su origen desde el documento. Si la procedencia viviera solo en la tabla
+derivada, se perdería al reconstruirla.
+
+**El resumen de la consulta es información derivada.** Al cerrarse, la consulta
+guarda un resumen —con un motivo a modo de título— elaborado a partir de sus
+hechos. Se marca como información derivada dentro del propio documento
+(`## Resumen (información derivada)`) para que nunca se confunda con la fuente:
+puede reconstruirse desde los hechos y no se presenta como la verdad de lo
+ocurrido.
 
 El sistema de archivos y PostgreSQL no comparten una transacción distribuida. La
 escritura compuesta sigue una estrategia de compensación: se escriben los
@@ -558,7 +595,8 @@ puede reconstruirse.
 La reconstrucción lee los documentos clínicos, recalcula sus filas y vuelve a
 crear el índice derivado. Es una operación **idempotente**: ejecutarla dos veces
 produce el mismo estado lógico que ejecutarla una vez, suponiendo que la fuente
-no cambió entre ambas ejecuciones.
+no cambió entre ambas ejecuciones. Se aplica a los dos índices: el de hechos
+(`clinical_event_index`) y el de consultas (`encounter_index`).
 
 El flujo conceptual es:
 
@@ -573,7 +611,9 @@ El flujo conceptual es:
 
 Esta estrategia separa recuperación de datos y optimización de consultas. Si se
 pierde `clinical_event_index`, no se pierde el texto clínico: se pierde una
-representación derivada que puede volver a producirse.
+representación derivada que puede volver a producirse. Lo mismo vale para
+`encounter_index`, y como la procedencia de cada hecho viaja en el *front matter*
+del documento, la reconstrucción del índice de hechos **no la pierde**.
 
 La operación también debe distinguir dos preguntas diferentes:
 

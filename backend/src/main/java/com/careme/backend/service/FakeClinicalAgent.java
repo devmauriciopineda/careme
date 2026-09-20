@@ -164,7 +164,7 @@ public class FakeClinicalAgent implements ClinicalAgent {
         } else {
             arguments.put("date_precision", ClinicalEvent.DatePrecision.UNKNOWN.name().toLowerCase(Locale.ROOT));
         }
-        return new AgentOperationCall(AgentOperation.REGISTER_EVENT, arguments);
+        return new AgentOperationCall(AgentOperation.RECORD_NOTE, arguments);
     }
 
     /**

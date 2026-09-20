@@ -84,6 +84,7 @@ class FakeClinicalAnswerComposerTest {
                 "el 10 de enero",
                 content,
                 ClinicalEvent.EventSource.PATIENT,
-                OffsetDateTime.now(ZoneOffset.UTC));
+                OffsetDateTime.now(ZoneOffset.UTC),
+                null);
     }
 }

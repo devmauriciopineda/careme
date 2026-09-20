@@ -10,6 +10,8 @@ There is no authentication yet. Measurements come from
 `GET /api/v1/measurements`, and the registration form sends
 `POST /api/v1/measurements`, through a service layer that validates the payload
 before it reaches the backend. The chat posts to `POST /api/v1/chat/messages`
+and closes the consultation with
+`POST /api/v1/chat/conversations/{conversationId}/consultation/close`, both
 through `chatService`. The clinical-events route reads the inspection endpoints
 through `clinicalEventService`.
 
@@ -96,9 +98,14 @@ frontend/
 **Chat entry point.** `src/app/page.tsx` renders `ChatWorkspace`, a client island
 that submits a turn through the `sendChatMessage` Server Action; the action calls
 `chatService` and revalidates the path so the conversation refreshes. The chat
-renders registration, clarification, general conversation, failure, answered
-history queries with supporting events, and no-records outcomes distinctly, with
-the absence reason the backend reported and the continuation it offered. The
+renders the facts collected as notes for the close, clarification, general
+conversation, failure, answered history queries with supporting events, and
+no-records outcomes distinctly, with the absence reason the backend reported and
+the continuation it offered. It also offers the **Terminar consulta** action,
+which closes the consultation through a Server Action, exposes a busy state
+without creating a second request, and shows the close outcome — the facts
+registered, none registered, or a retryable failure — while keeping the
+consultation identifier, its summary and its motive out of the surface. The
 clinical-event inspection lives at `src/app/clinical-events/page.tsx`, and the
 body-tracking view lives at `src/app/measurements/page.tsx`.
 
@@ -123,8 +130,9 @@ places that know where data comes from. The measurement service calls
 `GET /api/v1/measurements` with
 `cache: "no-store"`, unwraps the response envelope, validates `data` with Zod and
 returns chronologically sorted measurements; the chat service posts to
-`/api/v1/chat/messages` and validates the turn with Zod. The base URL is read
-once in `src/services/apiConfig.ts`.
+`/api/v1/chat/messages`, closes the consultation through
+`/api/v1/chat/conversations/{conversationId}/consultation/close` and validates
+both with Zod. The base URL is read once in `src/services/apiConfig.ts`.
 
 **Failure handling.** When that call fails, the Server Component throws and
 `src/app/error.tsx` renders a localized message with a retry button instead of the
@@ -183,10 +191,11 @@ history that is already seeded (or an empty one, which it seeds itself) and
 `E2E_API_BASE_URL` when the backend is not on `http://localhost:8080`. It reports a
 scorecard instead of stopping at the first finding.
 
-134 test cases across the measurements and chat features, including validation
-and rendering of the answered, no-records and general-conversation chat outcomes
-with supporting events, the absence reason, the offered continuation and the
-operations a turn went through.
+140 test cases across the measurements and chat features, including validation
+and rendering of the collected-for-close, answered, no-records and
+general-conversation chat outcomes with supporting events, the absence reason,
+the offered continuation and the operations a turn went through, and the
+end-consultation action with its close outcome.
 Unit tests cover the pure helpers in `measurements/lib/metrics.ts` (sorting,
 series building, axis domain, localization, local-day helpers), the Zod schemas
 (measurement API payloads, the registration form and the chat turn) and both

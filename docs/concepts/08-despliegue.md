@@ -263,9 +263,13 @@ Compose usa el healthcheck de PostgreSQL para ordenar el arranque. En plataforma
 más completas, el backend podría exponer endpoints separados de liveness y
 readiness, y el orquestador retiraría una instancia no preparada del tráfico.
 
-La **reconstrucción del índice derivado** también es parte del arranque lógico:
-los documentos Markdown son la fuente de verdad y `clinical_event_index` puede
-recrearse. Un despliegue correcto no trata ese índice como un dato irremplazable.
+La **reconstrucción de los índices derivados** también es parte del arranque
+lógico: los documentos Markdown son la fuente de verdad y `clinical_event_index`
+y `encounter_index` pueden recrearse. Un despliegue correcto no trata esos
+índices como datos irremplazables. Antes de reindexar, el arranque **cierra las
+consultas que quedaron abiertas** por una interrupción, registrando lo
+determinista que hubieran recogido: sin ese paso, una consulta quedaría abierta
+fuera de la conversación que la originó.
 
 ## 7. Persistencia y continuidad de datos
 
@@ -277,9 +281,9 @@ Careme declara dos volúmenes:
 | Volumen | Montaje | Contenido | Consecuencia |
 | --- | --- | --- | --- |
 | `careme-pgdata` | `/var/lib/postgresql/data` | Datos PostgreSQL | Conserva mediciones y estado del motor |
-| `careme-events` | `/app/data` | Documentos Markdown | Conserva la fuente de verdad clínica |
+| `careme-events` | `/app/data` | Documentos Markdown: hechos y consultas | Conserva las fuentes de verdad clínicas |
 
-El índice clínico es derivado y puede reconstruirse desde `careme-events`. Los
+Los índices son derivados y pueden reconstruirse desde `careme-events`. Los
 documentos, en cambio, deben sobrevivir a la recreación del backend. El usuario
 del proceso debe tener permisos de escritura sobre el volumen montado.
 

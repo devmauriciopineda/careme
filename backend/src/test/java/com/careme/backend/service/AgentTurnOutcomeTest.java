@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.careme.backend.dto.AgentOperation;
 import com.careme.backend.dto.ChatMessageResponse;
 import com.careme.backend.entity.ClinicalEvent;
+import com.careme.backend.entity.EncounterNote;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -19,29 +20,29 @@ import org.junit.jupiter.api.Test;
 class AgentTurnOutcomeTest {
 
     @Test
-    void reportsAnAnswerWhenTheTurnRegisteredAFactAndAnsweredAQuestion() {
-        AgentTurn turn = AgentTurn.completed("He registrado el diagnóstico y esto es lo que consta.",
-                List.of(registered(), answered()));
+    void reportsAnAnswerWhenTheTurnNotedAFactAndAnsweredAQuestion() {
+        AgentTurn turn = AgentTurn.completed("He anotado el diagnóstico y esto es lo que consta.",
+                List.of(noted(), answered()));
 
         assertThat(AgentTurnOutcome.status(turn)).isEqualTo(ChatMessageResponse.Status.ANSWERED);
     }
 
     @Test
     void reportsTheOutcomeOfTheOnlyOperationWhenTheTurnRanOne() {
-        assertThat(AgentTurnOutcome.status(AgentTurn.completed("Listo.", List.of(registered()))))
-                .isEqualTo(ChatMessageResponse.Status.REGISTERED);
+        assertThat(AgentTurnOutcome.status(AgentTurn.completed("Listo.", List.of(noted()))))
+                .isEqualTo(ChatMessageResponse.Status.NOTED);
         assertThat(AgentTurnOutcome.status(AgentTurn.completed("Ya estaba.", List.of(duplicate()))))
                 .isEqualTo(ChatMessageResponse.Status.DUPLICATE);
         assertThat(AgentTurnOutcome.status(AgentTurn.completed("No consta.", List.of(noRecords()))))
                 .isEqualTo(ChatMessageResponse.Status.NO_RECORDS);
-        assertThat(AgentTurnOutcome.status(AgentTurn.completed("Vale.", List.of(notRegistrable()))))
+        assertThat(AgentTurnOutcome.status(AgentTurn.completed("Vale.", List.of(rejectedOutOfReach()))))
                 .isEqualTo(ChatMessageResponse.Status.GENERAL_CONVERSATION);
     }
 
     @Test
     void reportsAFailureWhenAnyOperationDidNotComplete() {
         AgentTurn turn = AgentTurn.failed("No pude buscar en tu historia.",
-                List.of(registered(), failedAnswer()));
+                List.of(noted(), failedAnswer()));
 
         assertThat(AgentTurnOutcome.status(turn)).isEqualTo(ChatMessageResponse.Status.FAILED);
         assertThat(AgentTurnOutcome.primary(turn)).isNotNull();
@@ -75,12 +76,12 @@ class AgentTurnOutcomeTest {
     @Test
     void reportsEveryOperationTheTurnWentThroughInOrder() {
         AgentTurn turn = AgentTurn.completed(
-                "Listo.", List.of(registered(), answered(), rejectedOutOfReach()));
+                "Listo.", List.of(noted(), answered(), rejectedOutOfReach()));
 
         List<ChatMessageResponse.OperationSummary> operations = AgentTurnOutcome.operations(turn);
 
         assertThat(operations).hasSize(3);
-        assertThat(operations.get(0).status()).isEqualTo(ChatMessageResponse.Status.REGISTERED);
+        assertThat(operations.get(0).status()).isEqualTo(ChatMessageResponse.Status.NOTED);
         assertThat(operations.get(1).status()).isEqualTo(ChatMessageResponse.Status.ANSWERED);
         assertThat(operations.get(2).status()).isEqualTo(ChatMessageResponse.Status.GENERAL_CONVERSATION);
     }
@@ -104,7 +105,7 @@ class AgentTurnOutcomeTest {
 
     @Test
     void identifiesTheOperationThatCarriesTheTurnOutcome() {
-        AgentTurn turn = AgentTurn.completed("Listo.", List.of(registered(), answered()));
+        AgentTurn turn = AgentTurn.completed("Listo.", List.of(noted(), answered()));
 
         assertThat(AgentTurnOutcome.primary(turn)).isNotNull();
         assertThat(AgentTurnOutcome.primary(turn).operation()).isEqualTo(AgentOperation.CONSULT_HISTORY);
@@ -115,29 +116,26 @@ class AgentTurnOutcomeTest {
         assertThat(AgentTurnOutcome.primary(AgentTurn.completed("Hola.", List.of()))).isNull();
     }
 
-    private static AgentOperationResult registered() {
+    private static AgentOperationResult noted() {
         return AgentOperationResult.of(
-                AgentOperation.REGISTER_EVENT,
-                new ClinicalEventRegistrationResult(
-                        ClinicalEventRegistrationResult.Kind.REGISTERED, List.of(event()), "He registrado el hecho."));
+                AgentOperation.RECORD_NOTE,
+                new EncounterNoteResult(EncounterNoteResult.Kind.COLLECTED, note(), "Lo he anotado."));
     }
 
     private static AgentOperationResult duplicate() {
         return AgentOperationResult.of(
-                AgentOperation.REGISTER_EVENT,
-                new ClinicalEventRegistrationResult(
-                        ClinicalEventRegistrationResult.Kind.DUPLICATE,
-                        List.of(event()),
-                        "Ese hecho ya estaba registrado."));
+                AgentOperation.RECORD_NOTE,
+                new EncounterNoteResult(
+                        EncounterNoteResult.Kind.DUPLICATE, note(), "Ese hecho ya estaba anotado."));
     }
 
-    private static AgentOperationResult notRegistrable() {
-        return AgentOperationResult.of(
-                AgentOperation.REGISTER_EVENT,
-                new ClinicalEventRegistrationResult(
-                        ClinicalEventRegistrationResult.Kind.CONVERSATION,
-                        List.of(),
-                        "No he registrado nada: eso no es un hecho médico."));
+    private static EncounterNote note() {
+        return new EncounterNote(
+                ClinicalEvent.ClinicalEventType.DIAGNOSIS,
+                "Hipertensión diagnosticada.",
+                LocalDate.of(2024, 3, 1),
+                ClinicalEvent.DatePrecision.EXACT,
+                null);
     }
 
     private static AgentOperationResult answered() {
@@ -180,6 +178,7 @@ class AgentTurnOutcomeTest {
                 null,
                 "Hipertensión diagnosticada.",
                 ClinicalEvent.EventSource.PATIENT,
-                OffsetDateTime.now(ZoneOffset.UTC));
+                OffsetDateTime.now(ZoneOffset.UTC),
+                null);
     }
 }

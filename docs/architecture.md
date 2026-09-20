@@ -41,7 +41,11 @@ user accounts, one measurement per day and data precision owned by the domain
 | **ClinicalEventIntent** | The structured contract an operation produces — event candidates or a query — which the application validates before any effect; the chat's own result is the turn together with the operations it went through | `backend/src/main/java/com/careme/backend/dto/ClinicalEventIntent.java` |
 | **Temporal precision** (date_precision) | `exact`, `approximate` or `unknown`; never more precise than what was given | `backend/src/main/java/com/careme/backend/entity/ClinicalEvent.java` |
 | **Markdown source of truth** | The `evt_NNN.md` documents in `data/events/` where the facts live | `backend/src/main/java/com/careme/backend/service/ClinicalEventMarkdownStore.java` |
-| **Derived index** | The PostgreSQL table `clinical_event_index`, rebuildable from the Markdown | `backend/src/main/resources/db/migration/V2__create_clinical_event_index.sql` |
+| **Derived index** | The PostgreSQL tables `clinical_event_index` and `encounter_index`, rebuildable from the Markdown | `backend/src/main/resources/db/migration/V2__create_clinical_event_index.sql`, `V3__create_encounter_index.sql` |
+| **Consultation** (Encounter) | The conversation as a record with its own identity and life cycle: it opens with the conversation, collects notes and closes when the person decides | `backend/src/main/java/com/careme/backend/entity/Encounter.java` |
+| **Note** (EncounterNote) | A clinical fact the person mentioned, collected while the consultation is open; it is not a registered fact and never part of the clinical history | `backend/src/main/java/com/careme/backend/entity/EncounterNote.java` |
+| **Provenance** | The origin a registered fact declares: who contributed it, when it was registered and from which consultation it came | `backend/src/main/java/com/careme/backend/entity/ClinicalEvent.java` |
+| **Consultation close** | The explicit, idempotent operation that registers the collected notes with their provenance and keeps the derived summary | `backend/src/main/java/com/careme/backend/service/EncounterService.java` |
 | **Chat turn** (ChatMessageResponse) | The assistant response: status, message, supporting events when they apply and, when there are no records, the reason for the absence and the actions offered | `backend/src/main/java/com/careme/backend/dto/ChatMessageResponse.java` |
 
 ---
@@ -82,7 +86,7 @@ remaining runtime dependencies are PostgreSQL and the local filesystem.
 - OpenSpec convention — ✅ RESOLVED: `openspec/` exists with `config.yaml`,
   `openspec/specs/` (current capabilities) and `openspec/changes/archive/`
   (archived changes). It coexists with the functional documentation in
-  `docs/use-cases/` (UC-001…UC-004, UC-007, UC-008, UC-010 and UC-011) and
+  `docs/use-cases/` (UC-001…UC-004, UC-007, UC-008, UC-010…UC-013b) and
   `docs/roadmap/`, which records the closed MVP scope
   (`mvp_alcance_asistente_historia_clinica.md`) and the roadmap that continues from it
   (`roadmap_asistente_historia_clinica.md`), including the use cases of Fase 4.
@@ -125,7 +129,7 @@ flowchart TB
     subgraph careme["Careme [System]"]
         fe["Frontend<br/>[Container: Next.js 16 / Node]<br/>Server Components + Server Action<br/>:3000"]
         be["Backend<br/>[Container: Spring Boot 3.5 / Java 21]<br/>REST JSON API :8080"]
-        db[("Database<br/>[Container: PostgreSQL 17]<br/>measurements + clinical_event_index :5432")]
+        db[("Database<br/>[Container: PostgreSQL 17]<br/>measurements + clinical_event_index + encounter_index :5432")]
     end
     person -->|"HTTP, browser"| fe
     fe -->|"server-side fetch, JSON<br/>API_BASE_URL"| be
@@ -136,7 +140,7 @@ flowchart TB
 | --- | --- | --- |
 | **Frontend** | Render the trend and the daily detail; validate payloads before sending them; refresh the view after registering | Node server: server-side `fetch` to the API (`frontend/src/services/measurementService.ts`). Serves HTML/JS to the browser |
 | **Backend** | Own the HTTP contract, validate, apply invariants, persist and sort | Exposes HTTP/JSON under `/api/v1/**` (`backend/.../controller/MeasurementController.java`); speaks JDBC to PostgreSQL |
-| **PostgreSQL** | Store one measurement row per day (`UNIQUE(date)`, `CHECK > 0`) and the derived index `clinical_event_index` | Volume `careme-pgdata`; `pg_isready` healthcheck (`docker-compose.yml`) |
+| **PostgreSQL** | Store one measurement row per day (`UNIQUE(date)`, `CHECK > 0`) and the derived indexes `clinical_event_index` and `encounter_index` | Volume `careme-pgdata`; `pg_isready` healthcheck (`docker-compose.yml`) |
 
 **Protocols:** everything is synchronous, with no queues or events. The frontend
 consumes the API from the server (not from the browser), so CORS is not strictly
@@ -180,13 +184,17 @@ flowchart TB
         idxWriter["ClinicalEventIndexWriter<br/>derived index"]
         evtCtrl["ClinicalEventIndexController<br/>GET list/detail + POST /reindex"]
         inspSvc["ClinicalEventInspectionService<br/>read-only Markdown reads"]
-        evtDomain["ClinicalEvent / ClinicalEventIntent<br/>domain records, invariants"]
+        encSvc["EncounterService<br/>consultation life cycle: open, collect, close"]
+        encStore["EncounterMarkdownStore<br/>data/encounters/"]
+        encIdxWriter["EncounterIndexWriter<br/>derived index, upsert"]
+        evtDomain["ClinicalEvent / ClinicalEventIntent / Encounter / EncounterNote<br/>domain records, invariants"]
         dtos["dto/*<br/>Measurement* · Import* · ChatMessage*<br/>ClinicalEventIntent · ApiResponse · ErrorResponse"]
         exc["ApiExceptionHandler<br/>@RestControllerAdvice"]
         cors["CorsConfig"]
     end
     pg[("PostgreSQL")]
     fs[("data/events/<br/>Markdown")]
+    encFs[("data/encounters/<br/>Markdown")]
     ctrl --> svc
     ctrl --> imp
     ctrl --> dtos
@@ -201,9 +209,16 @@ flowchart TB
     dao --> pg
     chatCtrl --> orchestrator
     orchestrator --> agent
+    orchestrator --> encSvc
     agent --> executor
     executor --> regSvc
+    executor --> encSvc
     executor --> histSvc
+    encSvc --> regSvc
+    encSvc --> encStore
+    encSvc --> encIdxWriter
+    encStore --> encFs
+    encIdxWriter --> pg
     histSvc --> composer
     histSvc --> queryRepo
     queryRepo --> pg
@@ -226,12 +241,28 @@ flowchart TB
 | --- | --- | --- |
 | `controller/` | Inbound adapter: translates HTTP ↔ DTO. It decides nothing | `backend/.../controller/MeasurementController.java`, `ChatController.java`, `ClinicalEventIndexController.java` |
 | `service/` | Use cases: sort, decide create vs. replace, preview and load | `backend/.../service/MeasurementService.java`, `MeasurementImportService.java`, `MeasurementCsvParser.java` |
-| `service/` (clinical) | Chat and registration: the agent decides among a closed set of declared operations — consult the history, register a fact — and each operation validates its arguments and writes inside its own path; the turn ends in one single reply | `backend/.../service/ChatOrchestrator.java`, `ClinicalAgent.java`, `AgentOperation*.java`, `AgentToolContract.java`, `ClinicalHistoryQueryService.java`, `ClinicalEvent*.java` |
+| `service/` (clinical) | Chat and registration: the agent decides among a closed set of declared operations — consult the history, take note of a fact — and each operation validates its arguments and writes inside its own path; the turn ends in one single reply | `backend/.../service/ChatOrchestrator.java`, `ClinicalAgent.java`, `AgentOperation*.java`, `AgentToolContract.java`, `ClinicalHistoryQueryService.java`, `ClinicalEvent*.java` |
+| `service/` (consultation) | The consultation life cycle: it opens with the conversation, collects the facts the person mentions as notes without touching the history, and only the close registers the admissible notes as clinical events with their provenance | `backend/.../service/EncounterService.java`, `EncounterMarkdownStore.java`, `EncounterIndexWriter.java` |
 | `repository/` | Port (`MeasurementRepository`) + JPA adapters. Isolates the persistence engine | `backend/.../repository/` |
 | `entity/` | Domain/mapping separation: `MeasurementEntity` (mapping), `Measurement` and `MeasurementDraft` (annotation-free domain), `ClinicalEvent` (assistant domain) | `backend/.../entity/` |
 | `dto/` | HTTP contract, independent of the schema | `backend/.../dto/` |
 | `config/` | Explicit CORS, bounded by origin | `backend/.../config/CorsConfig.java` |
 | `exception/` | Global handler: uniform 400/500 | `backend/.../exception/ApiExceptionHandler.java` |
+
+**Consultation life cycle (UC-013).** A chat turn never writes to the clinical
+history: the fact the person mentions is collected as a *note* of the open
+consultation and the turn reports `noted`. The consultation is a persisted record
+with its own identity (`Encounter`, code `enc_NNN`), opened with the conversation
+by `EncounterService`, stored as Markdown in `data/encounters/` and indexed in the
+upsert-only `encounter_index`. Only one consultation is open per conversation:
+opening a conversation closes the previous one. `EncounterService.close` validates
+each note, delegates the admissible ones to `ClinicalEventRegistrationService` —
+which declares the consultation as their provenance — and keeps a derived summary
+marked as such in the document. The close is an explicit, idempotent operation
+(`POST /api/v1/chat/conversations/{conversationId}/consultation/close`): repeating
+it registers nothing new, and a close that cannot complete leaves the consultation
+open so it can be retried. `ClinicalEventIndexStartupReconciler` closes the
+consultations left open by an interruption before rebuilding the derived indexes.
 
 ### 5.2 Frontend
 
@@ -329,10 +360,10 @@ careme/
 │   ├── src/features/measurements/  # Body-tracking module
 │   ├── src/services/               # Data boundary (fetch + Zod)
 │   ├── src/test/                   # Test setup
-│   └── e2e/playwright/             # Reserved; no tests yet
+│   ├── e2e/playwright/             # End-to-end scenarios (UC-012, UC-013)
 ├── docs/                           # Project documentation
 │   ├── standards/                  # Java/Spring and Next standards
-│   ├── use-cases/                  # UC-001…UC-004, UC-007, UC-008, UC-010 and UC-011
+│   ├── use-cases/                  # UC-001…UC-004, UC-007, UC-008, UC-010…UC-013b
 │   ├── roadmap/                    # Roadmap, MVP scope and use-case status
 │   ├── data-model.md               # Data model
 │   └── architecture.md             # This document
@@ -422,7 +453,7 @@ the code and the READMEs.
 | ADR-011 | Java 21 pinned by `maven-enforcer-plugin` and a committed Maven wrapper | Current | Reproducible build | Builds with another JDK fail explicitly |
 | ADR-012 | User-facing text in Spanish isolated in `strings.ts`; code in English | Current | Future i18n without a refactor | Manual discipline; no automated check |
 | ADR-013 | Implicit `Patient` and clinical events in Markdown as the source of truth + derived PostgreSQL index | Current | MVP of the clinical history assistant | Markdown rules; PostgreSQL indexes and is rebuilt; the query is read-only and there is no edit or delete |
-| ADR-014 | The assistant is an agent with tools behind a port (`ClinicalAgent`): the model chooses from a **closed** set of declared operations (`consult_history`, `register_event`), which the backend validates and executes — writing inside the operation — until one single reply closes the turn; adapters with `fake`/`openai` mode | Current | Keep the LLM provider out of the domain while letting the model handle language variation instead of classifying it in code | Supersedes the intent-interpreter/conversational-composer split. `openai` is the default and requires `CAREME_LLM_API_KEY`, otherwise the backend refuses to start; `fake` is a test double that also chooses operations. The model never reaches the filesystem and cannot invoke an undeclared operation |
+| ADR-014 | The assistant is an agent with tools behind a port (`ClinicalAgent`): the model chooses from a **closed** set of declared operations (`consult_history`, `record_note`), which the backend validates and executes — writing inside the operation — until one single reply closes the turn; adapters with `fake`/`openai` mode | Current | Keep the LLM provider out of the domain while letting the model handle language variation instead of classifying it in code | Supersedes the intent-interpreter/conversational-composer split. `openai` is the default and requires `CAREME_LLM_API_KEY`, otherwise the backend refuses to start; `fake` is a test double that also chooses operations. The model never reaches the filesystem and cannot invoke an undeclared operation. Registering is not a turn operation: the turn collects notes and only the consultation close writes (`openspec/specs/assistant-agent-turn/spec.md`, *Acotar las operaciones disponibles*) |
 
 > ADR-013 describes the implemented model. The roadmap's Fase 4.4 materialises `Patient` as a patient
 > profile, which will supersede it.

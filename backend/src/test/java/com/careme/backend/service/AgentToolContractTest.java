@@ -23,7 +23,7 @@ class AgentToolContractTest {
         assertThat(AgentToolContract.tools()).hasSameSizeAs(AgentOperation.values());
         assertThat(AgentToolContract.tools())
                 .allSatisfy(tool -> assertThat(tool.get("type")).isEqualTo("function"));
-        assertThat(names()).containsExactlyInAnyOrder("consult_history", "register_event");
+        assertThat(names()).containsExactlyInAnyOrder("consult_history", "record_note");
     }
 
     @Test
@@ -63,7 +63,7 @@ class AgentToolContractTest {
     void readsTheOperationsTheAssistantAskedForInOrder() throws Exception {
         JsonNode message = objectMapper.readTree("""
                 {"role":"assistant","content":null,"tool_calls":[
-                  {"id":"1","type":"function","function":{"name":"register_event",
+                  {"id":"1","type":"function","function":{"name":"record_note",
                    "arguments":"{\\"type\\":\\"diagnosis\\",\\"content\\":\\"Hipertensión.\\",\\"date_precision\\":\\"exact\\",\\"date\\":\\"2024-03-01\\"}"}},
                   {"id":"2","type":"function","function":{"name":"consult_history",
                    "arguments":"{\\"question\\":\\"¿qué medicación tomo?\\",\\"search_terms\\":[\\"medicacion\\"]}"}}
@@ -73,7 +73,7 @@ class AgentToolContractTest {
         List<AgentOperationCall> calls = AgentToolContract.toolCalls(message);
 
         assertThat(calls).hasSize(2);
-        assertThat(calls.get(0).operation()).isEqualTo(AgentOperation.REGISTER_EVENT);
+        assertThat(calls.get(0).operation()).isEqualTo(AgentOperation.RECORD_NOTE);
         assertThat(calls.get(1).operation()).isEqualTo(AgentOperation.CONSULT_HISTORY);
         assertThat(calls.get(0).arguments().path("content").asText()).isEqualTo("Hipertensión.");
     }

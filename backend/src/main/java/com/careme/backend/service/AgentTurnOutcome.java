@@ -21,7 +21,7 @@ public final class AgentTurnOutcome {
      */
     private static final List<ChatMessageResponse.Status> PRECEDENCE = List.of(
             ChatMessageResponse.Status.ANSWERED,
-            ChatMessageResponse.Status.REGISTERED,
+            ChatMessageResponse.Status.NOTED,
             ChatMessageResponse.Status.DUPLICATE,
             ChatMessageResponse.Status.NO_RECORDS,
             ChatMessageResponse.Status.GENERAL_CONVERSATION);
@@ -78,6 +78,13 @@ public final class AgentTurnOutcome {
                 case DUPLICATE -> ChatMessageResponse.Status.DUPLICATE;
                 case CLARIFICATION -> ChatMessageResponse.Status.CLARIFICATION_REQUIRED;
                 case CONVERSATION -> ChatMessageResponse.Status.GENERAL_CONVERSATION;
+                case FAILURE -> ChatMessageResponse.Status.FAILED;
+            };
+        }
+        if (result.note() != null) {
+            return switch (result.note().kind()) {
+                case COLLECTED -> ChatMessageResponse.Status.NOTED;
+                case DUPLICATE -> ChatMessageResponse.Status.DUPLICATE;
                 case FAILURE -> ChatMessageResponse.Status.FAILED;
             };
         }

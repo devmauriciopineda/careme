@@ -97,9 +97,13 @@ They are not persisted; they describe the HTTP contract.
 - **ChatMessageRequest**: `message` (max. 4000 characters), `conversationId`
   (optional), `messageId`. Message sent to the chat.
 - **ChatMessageResponse**: `conversationId`, `messageId`, `status`
-  (`registered`, `answered`, `no_records`, `clarification_required`,
-  `general_conversation`, `duplicate`, `failed`), `message` and `events`. In an
-  `answered` response, `events` holds the facts that support it; in `no_records`
+  (`noted`, `answered`, `no_records`, `clarification_required`,
+  `general_conversation`, `duplicate`, `failed`), `message` and `events`. `noted`
+  means the turn collected one or more clinical facts as notes of the open
+  consultation without registering them; `registered` is not a turn status and
+  appears only in the consultation close outcome, which reports the facts that
+  were registered or that there was nothing to register. In an `answered`
+  response, `events` holds the facts that support it; in `no_records`
   it holds no facts and, instead, the response reports the reason for the absence
   (`absenceReason`: `empty_history`, `no_events_of_type`,
   `no_events_in_period` or `no_term_match`) and the actions offered
@@ -108,8 +112,9 @@ They are not persisted; they describe the HTTP contract.
   support, so a client can tell what was completed from what was not. Those fields
   are optional and additive.
 - **AgentOperation**: the closed set of operations the assistant may ask for —
-  `consult_history` and `register_event` — declared to the provider and executed
-  by the application, which validates before writing.
+  `consult_history` and `record_note` — declared to the provider and executed by
+  the application, which validates before writing. Registering is not a turn
+  operation: the turn collects notes and only the consultation close registers.
 - **ClinicalEventIntent**: the structured contract the application builds for a
   registration or a query; `kind` (`events`, `query`, `clarification`,
   `conversation`), with the search criteria in the query. It is what the
@@ -201,6 +206,67 @@ by UC-004 (`backend/src/main/java/com/careme/backend/entity/ClinicalEvent.java`)
 
 - `patient`: many-to-one relationship with the Patient model (implicit in the
   MVP)
+- `encounter`: the consultation the close registered the event in, declared as
+  provenance in the event's front matter and in the derived index (UC-013).
+
+### 2.3 Encounter (consulta)
+
+The conversation as a record with its own identity and life cycle, implemented by
+UC-013 (`backend/src/main/java/com/careme/backend/entity/Encounter.java`). It opens
+with the conversation, collects in **notes** what the person mentions, and at its
+close registers the admissible notes as clinical events with their provenance.
+
+**Fields:**
+
+- `id`: Unique identifier of the consultation (Primary Key, UUID)
+- `code`: Readable and stable identifier (`enc_NNN`, file-name Primary Key)
+- `conversation_id`: The conversation the consultation belongs to, so it survives a restart
+- `status`: `open` or `closed`
+- `notes`: The clinical facts collected while it is open
+- `motive`: The title the close derives from the registered facts
+- `summary`: The close's **derived** summary of the registered facts; it may be absent
+- `created_at`: Date and time the consultation opened
+- `closed_at`: Date and time the consultation closed; required when, and only when, it is closed
+
+**EncounterNote** carries `type`, `content`, `date`, `date_precision` and
+`date_text`. It is not a registered fact: it carries the temporal fidelity the
+person gave so the close can register it, but it never reaches the clinical
+history on its own and never carries an event code.
+
+**Life cycle:**
+
+- A consultation opens with the conversation and is persisted from that moment, so
+  an interruption keeps what the person already narrated.
+- Only one consultation is open at a time: opening a conversation closes the previous one.
+- The close validates each note, registers the admissible ones as clinical events with
+  their provenance and keeps the derived summary. A close that cannot complete leaves
+  the consultation open so it can be retried; a repeated close registers nothing new.
+- An interruption or a process shutdown closes the consultations left open and
+  registers what they collected.
+
+**Validation rules:**
+
+- The code matches `enc_NNN`, the conversation is not blank and the status is one of the two.
+- A closed consultation always records when it was closed; an open one never does.
+- A note needs a type, content and date precision; an exact date needs a date.
+- A closed consultation is never reopened: it accepts neither more notes nor another close.
+
+**Persistence notes:**
+
+- The source of truth is Markdown documents in `data/encounters/`
+  (`EncounterMarkdownStore.java`), with versioned front matter including the
+  conversation, the motive and the summary, and a file name of `enc_NNN.md`.
+- The summary is marked as derived information in the document
+  (`## Resumen (información derivada)`) so it is never mistaken for the source of truth.
+- PostgreSQL keeps a derived, rebuildable index (the `encounter_index` table), defined
+  in `V3__create_encounter_index.sql` and rebuilt with
+  `POST /api/v1/clinical-events/reindex`.
+
+**Relationships:**
+
+- `conversation`: the conversation the consultation belongs to
+- `events`: the clinical events registered at the close, which declare the consultation
+  they came from as their provenance
 
 ---
 
@@ -225,16 +291,40 @@ erDiagram
         String content
         String source
         DATETIME created_at
+        String encounter_code FK
+    }
+
+    Encounter {
+        UUID id PK
+        String code UK
+        String conversation_id
+        String status
+        String motive
+        String summary
+        DATETIME created_at
+        DATETIME closed_at
+    }
+
+    EncounterNote {
+        String type
+        String content
+        DATE date
+        String date_precision
+        String date_text
     }
 
     Patient ||--o{ ClinicalEvent : "owns"
+    Encounter ||--o{ EncounterNote : "collects"
+    Encounter ||--o{ ClinicalEvent : "registers"
 ```
 
 > The `Measurement` block corresponds to the implemented body tracking. The
 > `Patient` / `ClinicalEvent` block corresponds to the clinical history
 > assistant, implemented for fact registration (UC-004) and its query (UC-007);
-> `Patient` remains implicit and in PostgreSQL only the derived index
-> `clinical_event_index` exists.
+> `Patient` remains implicit. The `Encounter` block is implemented by UC-013 —the
+> provenance its close registers is UC-013b— and its notes are never events. In
+> PostgreSQL only the derived indexes `clinical_event_index` and
+> `encounter_index` exist, never as the source of truth.
 
 ---
 
@@ -270,9 +360,12 @@ erDiagram
 - Required fields guarantee the core information, and optional fields allow
   flexible input without losing that core.
 - The schemas are defined by the Flyway migrations:
-  `V1__create_measurements_table.sql` (the `measurements` table) and
+  `V1__create_measurements_table.sql` (the `measurements` table),
   `V2__create_clinical_event_index.sql` (the derived index
-  `clinical_event_index`); the JPA mapping is validated against them.
+  `clinical_event_index`), `V3__create_encounter_index.sql` (the derived index
+  `encounter_index`) and `V4__add_provenance_to_clinical_event_index.sql` (the
+  consultation a registered fact came from); the JPA mapping is validated against
+  them.
 - §6 records the target model of the roadmap's Fase 4. It is **not implemented**:
   nothing in §1 to §5 depends on it, and no table or migration exists for it yet.
 
@@ -280,26 +373,20 @@ erDiagram
 
 ## 6. Fase 4 target model
 
-The model the roadmap's Fase 4 introduces. It is **not implemented**: it is
+The model the roadmap's Fase 4 introduces. Most of it is **not implemented**: it is
 recorded here so the implemented model above and the target one are not confused.
+The exception is the encounter (§6.1): UC-013 implemented it, and it now lives in
+§2.3 with its own life cycle.
 
 ### 6.1 Encounter (consulta)
 
-The conversation stops being in-memory state and becomes a record with an
-identifier and a life cycle. The assistant talks, asks for what is missing and
-takes notes of what the user mentions; the facts the user reports are registered
-with their **provenance**, referencing the encounter they came from, instead of
-being registered sentence by sentence.
+**Implemented by UC-013**, and documented in §2.3: the conversation stopped being
+in-memory state and became a record with an identifier and a life cycle. The facts
+the person reports are registered with their **provenance**, referencing the
+consultation they came from, and the registration happens at the close.
 
-- Representation: Markdown, in a directory sibling to `data/events/`
-  (`data/encounters/`, code `enc_NNN` in parallel to `evt_NNN`), so the provenance
-  an event declares in its front matter survives the rebuild of the index.
-- PostgreSQL indexes encounters as it does events.
-- The model allows both registration moments —at the close of the conversation or
-  as it advances— and the moment is decided at implementation time.
-- An encounter may keep its own **summary**, apart from the breakdown into events.
-  If stored, it is derived information in the sense of design principle 7: marked
-  as such and rebuildable from the encounter's events, never a source of truth.
+What remains target-only is the link between the consultation and the metric model
+of §6.2.
 
 **Relationships:**
 
@@ -388,5 +475,5 @@ rebuildable from the facts, never a source of truth.
 | `measurement` is a clinical event type | it leaves the catalogue; the remaining types are `diagnosis`, `medication` and `note`, plus the new ones |
 | `/measurements` reads its own table | `/measurements` is a derived view over the metric model |
 | The assistant redirects weight and waist questions | it registers and queries them like any other metric |
-| The conversation lives in memory with a TTL | the encounter is a persisted record and gives provenance |
+| The conversation lives in memory with a TTL | **implemented by UC-013**: the consultation is a persisted record and gives provenance |
 | No numeric comparison across time | Fase 7.3 can compare values over time |

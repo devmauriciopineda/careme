@@ -11,11 +11,12 @@ import java.util.Optional;
  * The closed set of operations the assistant may ask the application to run.
  *
  * <p>The set has exactly two members —consulting the clinical history and
- * registering a clinical fact— and that is the structural guarantee that the
+taking note of a clinical fact— and that is the structural guarantee that the
  * assistant never diagnoses and never recommends treatment: there is no third
  * operation it could ask for. Neither member names a path, a file or any other
  * storage detail, because the assistant is never told how the clinical history
- * is stored.
+ * is stored. Registering is not an operation of the turn: the notes are
+ * registered when the consultation is closed.
  */
 public enum AgentOperation {
 
@@ -48,9 +49,9 @@ public enum AgentOperation {
                                     "description", "Ámbito consultado: la historia clínica o el seguimiento corporal.")),
                     "required", List.of("question"))),
 
-    REGISTER_EVENT(
-            "register_event",
-            "Registra un hecho médico que la persona cuenta, conservando sus palabras y su precisión temporal.",
+    RECORD_NOTE(
+            "record_note",
+            "Anota un hecho médico que la persona menciona, conservando sus palabras y su precisión temporal, para que quede registrado al cerrar la consulta.",
             Map.of(
                     "type", "object",
                     "properties", Map.of(

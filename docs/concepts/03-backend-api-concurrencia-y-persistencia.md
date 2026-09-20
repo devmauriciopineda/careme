@@ -452,8 +452,9 @@ por un rollback.
 
 Una **fuente de verdad** es el almacenamiento canónico de un dato. Un **dato
 derivado** es una representación que puede reconstruirse a partir de la fuente.
-En Careme, los documentos Markdown son la fuente de verdad clínica y
-`clinical_event_index` es un índice derivado para búsquedas.
+En Careme, los documentos Markdown son la fuente de verdad —los hechos clínicos
+en `data/events/` y las consultas en `data/encounters/`— y las tablas
+`clinical_event_index` y `encounter_index` son índices derivados para búsquedas.
 
 El sistema de archivos no comparte la transacción de PostgreSQL. Por eso el
 registro clínico usa una operación compensable:
@@ -488,6 +489,8 @@ comparten recursos. En Careme:
   una petición a otra;
 - el registro de conversaciones sí mantiene un mapa mutable en memoria, con
   límite, expiración y acceso sincronizado;
+- la **consulta** se persiste en Markdown desde que se abre, así que las notas
+  recogidas sobreviven a un reinicio aunque el búfer de turnos no;
 - PostgreSQL protege reglas persistentes mediante transacciones y restricciones,
   como `UNIQUE(date)`;
 - los hechos clínicos sobreviven a reinicios porque están en Markdown, no en el
@@ -501,7 +504,13 @@ la defensa definitiva contra duplicados.
 La **idempotencia** es la propiedad por la que repetir una operación produce el
 mismo efecto observable que ejecutarla una vez. El chat identifica los turnos
 por conversación y mensaje para que un reintento no vuelva a registrar efectos
-secundarios.
+secundarios. El **cierre de la consulta** también es idempotente por sí mismo:
+repetirlo devuelve el mismo resultado de cierre y no registra nada nuevo.
+
+Ese cierre es, además, **reintentable**. Si una parte no se completa, la consulta
+no se da por cerrada: conserva sus notas, sigue abierta y el cierre puede
+repetirse sin dejar trabajo a medias. Cada hecho mantiene su propia atomicidad,
+así que un fallo no revierte los hechos ya registrados.
 
 ## 10. Errores y operaciones compuestas
 

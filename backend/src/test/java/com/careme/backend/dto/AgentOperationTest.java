@@ -10,7 +10,7 @@ class AgentOperationTest {
     @Test
     void offersExactlyTheTwoOperationsTheAssistantMayAskFor() {
         assertThat(AgentOperation.values())
-                .containsExactlyInAnyOrder(AgentOperation.CONSULT_HISTORY, AgentOperation.REGISTER_EVENT);
+                .containsExactlyInAnyOrder(AgentOperation.CONSULT_HISTORY, AgentOperation.RECORD_NOTE);
     }
 
     @Test
@@ -22,7 +22,7 @@ class AgentOperationTest {
     @Test
     void resolvesADeclaredOperationByItsName() {
         assertThat(AgentOperation.byName("consult_history")).contains(AgentOperation.CONSULT_HISTORY);
-        assertThat(AgentOperation.byName(" register_event ")).contains(AgentOperation.REGISTER_EVENT);
+        assertThat(AgentOperation.byName(" record_note ")).contains(AgentOperation.RECORD_NOTE);
     }
 
     @Test

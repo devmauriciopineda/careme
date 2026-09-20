@@ -1,6 +1,7 @@
 package com.careme.backend.controller;
 
 import com.careme.backend.service.ClinicalEventIndexRebuilder;
+import com.careme.backend.service.EncounterIndexRebuilder;
 import com.careme.backend.dto.ApiResponse;
 import com.careme.backend.dto.ClinicalEventInspectionResponse;
 import com.careme.backend.dto.ErrorResponse;
@@ -26,12 +27,15 @@ import org.springframework.web.bind.annotation.RestController;
 public class ClinicalEventIndexController {
 
     private final ClinicalEventIndexRebuilder rebuilder;
+    private final EncounterIndexRebuilder encounterRebuilder;
     private final ClinicalEventInspectionService inspectionService;
 
     public ClinicalEventIndexController(
             ClinicalEventIndexRebuilder rebuilder,
+            EncounterIndexRebuilder encounterRebuilder,
             ClinicalEventInspectionService inspectionService) {
         this.rebuilder = rebuilder;
+        this.encounterRebuilder = encounterRebuilder;
         this.inspectionService = inspectionService;
     }
 
@@ -61,7 +65,9 @@ public class ClinicalEventIndexController {
 
     @PostMapping("/reindex")
     public ResponseEntity<Map<String, Integer>> reindex() throws IOException {
-        return ResponseEntity.ok(Map.of("indexedEvents", rebuilder.rebuild()));
+        return ResponseEntity.ok(Map.of(
+                "indexedEvents", rebuilder.rebuild(),
+                "indexedEncounters", encounterRebuilder.rebuild()));
     }
 
     private static ClinicalEvent.ClinicalEventType parseType(String value) {

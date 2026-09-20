@@ -23,7 +23,8 @@ public record AgentOperationResult(
         String message,
         Map<String, Object> payload,
         ClinicalAnswerResult answer,
-        ClinicalEventRegistrationResult registration) {
+        ClinicalEventRegistrationResult registration,
+        EncounterNoteResult note) {
 
     public AgentOperationResult {
         payload = payload == null ? Map.of() : Collections.unmodifiableMap(payload);
@@ -66,7 +67,17 @@ public record AgentOperationResult(
         payload.put("answer", answer.message() == null ? "" : answer.message());
         payload.put("events", events(answer.events()));
         payload.put("absence_reason", answer.absenceReason() == null ? "" : answer.absenceReason().value());
-        return new AgentOperationResult(operation, kind, null, answer.message(), payload, answer, null);
+        return new AgentOperationResult(operation, kind, null, answer.message(), payload, answer, null, null);
+    }
+
+    /** The outcome of collecting a fact in the open consultation's notes. */
+    static AgentOperationResult of(AgentOperation operation, EncounterNoteResult note) {
+        Kind kind = note.kind() == EncounterNoteResult.Kind.FAILURE ? Kind.FAILED : Kind.COMPLETED;
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("noted", note.kind() == EncounterNoteResult.Kind.COLLECTED);
+        payload.put("duplicate", note.kind() == EncounterNoteResult.Kind.DUPLICATE);
+        payload.put("content", note.note() == null ? "" : note.note().content());
+        return new AgentOperationResult(operation, kind, null, note.message(), payload, null, null, note);
     }
 
     /** The outcome of a registration of clinical facts. */
@@ -78,7 +89,7 @@ public record AgentOperationResult(
         payload.put("registered", !registration.events().isEmpty());
         payload.put("events", events(registration.events()));
         return new AgentOperationResult(
-                operation, kind, null, registration.message(), payload, null, registration);
+                operation, kind, null, registration.message(), payload, null, registration, null);
     }
 
     /**
@@ -86,7 +97,7 @@ public record AgentOperationResult(
      * because nothing was executed.
      */
     static AgentOperationResult rejected(Rejection rejection, String message) {
-        return new AgentOperationResult(null, Kind.REJECTED, rejection, message, Map.of(), null, null);
+        return new AgentOperationResult(null, Kind.REJECTED, rejection, message, Map.of(), null, null, null);
     }
 
     private static List<Map<String, Object>> events(List<ClinicalEvent> events) {

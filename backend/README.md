@@ -43,6 +43,16 @@ contract.
   recorded fact. A request for a diagnosis, a recommendation or an interpretation
   of the user's own case is declined in the reply, which states that the assistant
   does not diagnose and does not recommend treatment.
+- **A turn never writes to the clinical history.** The clinical fact a message
+  mentions is collected as a *note* of the open consultation and reported as
+  `noted`; the consultation is persisted from the moment it opens, so an
+  interruption keeps what the person narrated. A consultation holds at most one
+  open consultation per conversation: opening a new conversation closes the
+  previous one. The admissible notes are registered as clinical events, with their
+  provenance, only when the consultation is closed with
+  `POST /api/v1/chat/conversations/{conversationId}/consultation/close`.
+- Consultations are Markdown files under `data/encounters/`, configurable with
+  `careme.encounters.directory`, with a derived, rebuildable PostgreSQL index.
 - Clinical events are Markdown files under `data/events/`, configurable with
   `careme.events.directory`; PostgreSQL stores only the derived index. The index is
   rebuilt at startup and with `POST /api/v1/clinical-events/reindex`.
@@ -136,11 +146,16 @@ Domain       Measurement (record)       identity + invariants
 ### `POST /api/v1/chat/messages`
 
 Accepts `{ "message": "...", "messageId": "...", "conversationId": "..." }`.
-`conversationId` is optional on the first turn. The response contains a generated
-conversation id, the message id, a status (`registered`, `answered`, `no_records`,
-`clarification_required`, `general_conversation`, `duplicate` or `failed`) and a
-Spanish user-facing message. An `answered` response includes supporting clinical
-events in `events`; `no_records` includes none, and instead reports:
+`conversationId` is optional on the first turn: when it is absent the backend
+creates one and opens the consultation for that conversation. The response contains
+a generated conversation id, the message id, a status (`noted`, `registered`,
+`nothing_to_register`, `answered`, `no_records`, `clarification_required`,
+`general_conversation`, `duplicate` or `failed`) and a Spanish user-facing message.
+A turn reports `noted` when it collected one or more clinical facts as notes: the
+facts are **not** part of the clinical history yet, and `message` says the note will
+be registered when the consultation is closed. `registered` only appears in the
+close outcome, never in a message turn. An `answered` response includes supporting
+clinical events in `events`; `no_records` includes none, and instead reports:
 
 | Field              | Present when  | Value                                                                                  |
 | ------------------ | ------------- | -------------------------------------------------------------------------------------- |
@@ -160,8 +175,21 @@ complete — even when another operation of the same turn did. A search that can
 verified. When the retrieved events support only part of a question, the answer is
 `answered`: it answers the supported part and its Spanish message declares the part
 that has no records.
-Conversation state is in memory and is not persisted; successfully registered events
-survive because their Markdown documents are the source of truth.
+Conversation state is in memory and is not persisted; clinical facts survive as notes
+of the persisted consultation, and registered events survive because their Markdown
+documents are the source of truth.
+
+### `POST /api/v1/chat/conversations/{conversationId}/consultation/close`
+
+Ends the consultation of a conversation and returns the same outcome envelope as a
+message turn. The close registers the admissible notes as clinical events with their
+provenance, keeps the consultation's derived summary and never exposes the
+consultation's identifier, summary or motive through the API. The operation is
+idempotent for the same consultation: repeating it returns the outcome it already
+produced and registers nothing new. Closing a consultation that collected no
+clinical facts reports `nothing_to_register` and leaves the clinical history exactly
+as it was. A close that cannot complete reports `failed` and leaves the consultation
+open, so it can be retried.
 
 ## API
 
@@ -258,6 +286,14 @@ Receives a Spanish natural-language message and returns a non-streaming
 structured outcome. See *Use of APIs or external services* above for the request
 shape, the statuses and the LLM configuration.
 
+### `POST /api/v1/chat/conversations/{conversationId}/consultation/close`
+
+Ends the consultation in progress and returns the close outcome: the registered
+facts with their provenance, or that there were no facts to register. Every note
+the consultation collected had already passed the same deterministic checks when
+it was taken, so the close registers all of them. It is idempotent and registers
+nothing when the consultation is already closed.
+
 ### `POST /api/v1/clinical-events/reindex`
 
 Rebuilds the derived clinical-event index from the Markdown documents in
@@ -322,13 +358,13 @@ backend/
 │   ├── exception/                      # global handler
 │   └── CaremeBackendApplication.java   # entry point
 ├── src/main/resources/
-│   ├── application.yml                 # port, datasource, JPA, CORS, LLM, events dir
+│   ├── application.yml                 # port, datasource, JPA, CORS, LLM, events + encounters dir
 │   ├── application-{dev,pre,prd}.yml   # per-environment overrides
 │   ├── prompts/clinical-agent-v1.txt   # in use: the agent with the declared operations
 │   ├── prompts/clinical-answer-v1.txt  # grounded answer composition prompt
 │   ├── prompts/clinical-answer-v2.txt  # adds the unsupported part of the question
 │   ├── prompts/clinical-answer-v3.txt  # in use: adds the reported answer coverage
-│   └── db/migration/                   # Flyway migrations (V1 measurements, V2 event index)
+│   └── db/migration/                   # Flyway migrations (V1 measurements, V2 event index, V3 encounter index, V4 event provenance)
 ├── src/test/java/com/careme/backend/   # mirrors the package structure
 ├── .mvn/wrapper/                       # Maven wrapper configuration
 ├── Dockerfile
@@ -427,25 +463,32 @@ running.
 ./mvnw verify      # tests + JaCoCo report + coverage gate
 ```
 
-The suite is 31 test classes (232 test methods), organized by layer:
+The suite is 44 test classes (343 test methods), organized by layer:
 
 | Class                                      | Covers                                                     |
 | ------------------------------------------ | ---------------------------------------------------------- |
 | `CaremeBackendApplicationTests`            | Full stack: real database, envelope, ordering, CORS preflight |
+| `CorsConfigTest`                           | The CORS verbs the interface uses stay listed                |
+| `ApiExceptionHandlerTest`                  | Upload-limit error contract, enforced before the controller  |
 | `MeasurementControllerTest`                | `@WebMvcTest`: envelope shape, success and error mappings   |
 | `MeasurementImportControllerTest`          | `@WebMvcTest`: preview and import endpoints                 |
+| `ClinicalEventIndexControllerTest`         | `@WebMvcTest`: inspection list/detail and the reindex endpoint |
 | `MeasurementServiceTest`                   | Ordering, mapping, empty dataset, error pass-through        |
 | `MeasurementImportServiceTest`             | All-or-nothing import, preview counts                       |
 | `MeasurementCsvParserTest`                 | CSV parsing, headers, per-row validation                    |
 | `MeasurementJpaRepositoryTest`             | Mapping, empty table, unique `date`, `CHECK` constraints     |
 | `MeasurementTest` / `MeasurementDraftTest` | Domain invariants                                           |
-| `ChatControllerTest`                       | `@WebMvcTest`: chat endpoint contract, absence reason and offered actions |
+| `ChatControllerTest`                       | `@WebMvcTest`: chat contract, absence reason and offered actions, close endpoint |
 | `ChatOrchestratorTest`                     | Operation → status mapping, idempotency by message id       |
 | `ClinicalEventTest`                        | Clinical-event domain invariants                            |
+| `ClinicalEventIntentTest`                  | Intent variants, query payload and rejected combinations    |
+| `EncounterTest`                            | Consultation life cycle invariants: notes, close, no reopening |
 | `ClinicalEventDateNormalizerTest`          | Exact, relative, approximate and unknown dates              |
 | `ClinicalEventIntentValidatorTest`         | Rejection of non-registrable or invalid intents             |
 | `ClinicalEventMarkdownStoreTest`           | Markdown round-trip, code reservation, atomic publish       |
-| `ClinicalEventRegistrationServiceTest`     | Registration, dedup within conversation, rollback on failure |
+| `EncounterMarkdownStoreTest`               | Encounter round-trip: notes, motive and derived summary     |
+| `ClinicalEventRegistrationServiceTest`     | Registration at the close, dedup within conversation, rollback on failure |
+| `EncounterServiceTest`                     | Open, collect notes without writing, close, retry and interruption |
 | `AgentOperationTest`                       | Declared operation set and name resolution                  |
 | `AgentOperationExecutorTest`               | Argument validation and per-operation execution              |
 | `AgentToolContractTest`                    | Wire shape of the declared tools and tool calls              |
@@ -453,10 +496,17 @@ The suite is 31 test classes (232 test methods), organized by layer:
 | `AgentTurnOutcomeTest`                     | Operation list and turn status precedence                    |
 | `FakeClinicalAgentTest`                    | Deterministic offline agent that also chooses operations     |
 | `OpenAiAgentProviderTest`                  | Startup guard on the credential and prompt loading           |
+| `ClinicalAnswerResultTest`                 | Answer-kind normalization and collection null-safety         |
 | `ClinicalEventQueryRepositoryTest`         | Lexical and metadata retrieval, absence counts on a real index |
 | `ClinicalHistoryQueryServiceTest`          | Absence reason ladder, partial answers, failure vs absence  |
+| `ClinicalEventInspectionServiceTest`       | Inspection ordering, filters and read-failure mapping       |
+| `ConversationStateStoreTest`               | Recent-turn buffer bounds, eviction and expiry              |
 | `ClinicalHistoryQueryFlowIntegrationTest`  | Register → ask cycle, every absence reason leaves the history untouched |
 | `ClinicalHistoryUnsupportedRetrievalIntegrationTest` | A retrieved event that does not answer the question declares the absence |
+| `ClinicalEventInspectionIntegrationTest`   | Inspection reads leave Markdown and the derived index untouched |
+| `ClinicalEventProvenanceIntegrationTest`   | The consultation of origin survives the index rebuild from Markdown |
+| `ClinicalEventSurvivesLaterFailureIntegrationTest` | A noted fact survives a later failure of the same turn |
+| `EncounterIndexRebuilderIntegrationTest`   | Encounter index rebuild, upsert and closed-consultation recovery |
 | `OpenAiClinicalAnswerComposerTest`         | Grounded composition, citations, reported coverage          |
 | `FakeClinicalAnswerComposerTest`           | Deterministic offline composition and reported coverage     |
 | `ClinicalConversationIntegrationTest`      | Conversational outcomes leave the index and the documents untouched, with no repository read |

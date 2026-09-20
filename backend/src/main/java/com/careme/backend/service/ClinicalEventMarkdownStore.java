@@ -174,6 +174,7 @@ public class ClinicalEventMarkdownStore {
                 + "date_text: " + dateText + "\n"
                 + "source: " + event.source().name().toLowerCase() + "\n"
                 + "created_at: " + event.createdAt() + "\n"
+                + "encounter: " + (event.encounterCode() == null ? "" : event.encounterCode()) + "\n"
                 + "---\n\n"
                 + "# " + event.type().name().toLowerCase() + "\n\n"
                 + event.content() + "\n";
@@ -200,7 +201,8 @@ public class ClinicalEventMarkdownStore {
                 unquote(optional(metadata, "date_text").orElse("")),
                 content,
                 ClinicalEvent.EventSource.valueOf(required(metadata, "source").toUpperCase()),
-                OffsetDateTime.parse(required(metadata, "created_at")));
+                OffsetDateTime.parse(required(metadata, "created_at")),
+                optional(metadata, "encounter").orElse(null));
     }
 
     private static Map<String, String> parseMetadata(String frontMatter) {

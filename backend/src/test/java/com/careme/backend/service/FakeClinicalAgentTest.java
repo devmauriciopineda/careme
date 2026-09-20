@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 
 import com.careme.backend.dto.AgentOperation;
 import com.careme.backend.entity.ClinicalEvent;
+import com.careme.backend.entity.EncounterNote;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
@@ -73,13 +74,13 @@ class FakeClinicalAgentTest {
     }
 
     @Test
-    void registersAFactThePersonTells() {
-        when(executor.execute(any(), any(), any())).thenReturn(registered());
+    void notesAFactThePersonTells() {
+        when(executor.execute(any(), any(), any())).thenReturn(noted());
 
         agent.respond("Me diagnosticaron hipertensión hace unos dos años.", CONTEXT);
 
         AgentOperationCall call = capturedCall();
-        assertThat(call.operation()).isEqualTo(AgentOperation.REGISTER_EVENT);
+        assertThat(call.operation()).isEqualTo(AgentOperation.RECORD_NOTE);
         assertThat(call.arguments().path("type").asText()).isEqualTo("diagnosis");
         assertThat(call.arguments().path("content").asText())
                 .isEqualTo("Me diagnosticaron hipertensión hace unos dos años.");
@@ -89,12 +90,12 @@ class FakeClinicalAgentTest {
 
     @Test
     void resolvesTodayAgainstTheReferenceDateOfTheTurn() {
-        when(executor.execute(any(), any(), any())).thenReturn(registered());
+        when(executor.execute(any(), any(), any())).thenReturn(noted());
 
         agent.respond("Hoy me tomaron la presión y fue 145/92.", CONTEXT);
 
         AgentOperationCall call = capturedCall();
-        assertThat(call.operation()).isEqualTo(AgentOperation.REGISTER_EVENT);
+        assertThat(call.operation()).isEqualTo(AgentOperation.RECORD_NOTE);
         assertThat(call.arguments().path("date_precision").asText()).isEqualTo("exact");
         assertThat(call.arguments().path("date").asText()).isEqualTo("2026-09-19");
         assertThat(call.arguments().path("type").asText()).isEqualTo("measurement");
@@ -150,11 +151,19 @@ class FakeClinicalAgentTest {
                 ClinicalAnswerResult.answered(List.of(event()), "Hace unos dos años."));
     }
 
-    private static AgentOperationResult registered() {
+    private static AgentOperationResult noted() {
         return AgentOperationResult.of(
-                AgentOperation.REGISTER_EVENT,
-                new ClinicalEventRegistrationResult(
-                        ClinicalEventRegistrationResult.Kind.REGISTERED, List.of(event()), "He registrado el hecho."));
+                AgentOperation.RECORD_NOTE,
+                new EncounterNoteResult(EncounterNoteResult.Kind.COLLECTED, note(), "Lo he anotado."));
+    }
+
+    private static EncounterNote note() {
+        return new EncounterNote(
+                ClinicalEvent.ClinicalEventType.DIAGNOSIS,
+                "Me diagnosticaron hipertensión hace unos dos años.",
+                LocalDate.of(2024, 3, 1),
+                ClinicalEvent.DatePrecision.APPROXIMATE,
+                "hace unos dos años");
     }
 
     private static ClinicalEvent event() {
@@ -167,6 +176,7 @@ class FakeClinicalAgentTest {
                 null,
                 "Hipertensión diagnosticada.",
                 ClinicalEvent.EventSource.PATIENT,
-                OffsetDateTime.now(ZoneOffset.UTC));
+                OffsetDateTime.now(ZoneOffset.UTC),
+                null);
     }
 }

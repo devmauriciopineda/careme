@@ -25,7 +25,8 @@ class ClinicalEventTest {
                 "el 10 de agosto",
                 "Me diagnosticaron hipertension",
                 ClinicalEvent.EventSource.PATIENT,
-                CREATED_AT);
+                CREATED_AT,
+                null);
 
         assertThat(event.code()).isEqualTo("evt_001");
         assertThat(event.datePrecision()).isEqualTo(ClinicalEvent.DatePrecision.EXACT);
@@ -42,7 +43,8 @@ class ClinicalEventTest {
                 "hace unos dos anos",
                 "Tuve fiebre",
                 ClinicalEvent.EventSource.PATIENT,
-                CREATED_AT);
+                CREATED_AT,
+                null);
 
         assertThat(event.date()).isNull();
         assertThat(event.dateText()).isEqualTo("hace unos dos anos");
@@ -52,19 +54,19 @@ class ClinicalEventTest {
     void rejectsInvalidValues() {
         assertThatThrownBy(() -> new ClinicalEvent(
                 VALID_ID, "event_001", ClinicalEvent.ClinicalEventType.NOTE, null,
-                ClinicalEvent.DatePrecision.UNKNOWN, null, "Hecho", ClinicalEvent.EventSource.PATIENT, CREATED_AT))
+                ClinicalEvent.DatePrecision.UNKNOWN, null, "Hecho", ClinicalEvent.EventSource.PATIENT, CREATED_AT, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("code");
 
         assertThatThrownBy(() -> new ClinicalEvent(
                 VALID_ID, "evt_003", ClinicalEvent.ClinicalEventType.NOTE, null,
-                ClinicalEvent.DatePrecision.EXACT, null, "Hecho", ClinicalEvent.EventSource.PATIENT, CREATED_AT))
+                ClinicalEvent.DatePrecision.EXACT, null, "Hecho", ClinicalEvent.EventSource.PATIENT, CREATED_AT, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("date");
 
         assertThatThrownBy(() -> new ClinicalEvent(
                 VALID_ID, "evt_004", ClinicalEvent.ClinicalEventType.NOTE, null,
-                ClinicalEvent.DatePrecision.UNKNOWN, null, " ", ClinicalEvent.EventSource.PATIENT, CREATED_AT))
+                ClinicalEvent.DatePrecision.UNKNOWN, null, " ", ClinicalEvent.EventSource.PATIENT, CREATED_AT, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("content");
     }
@@ -91,6 +93,16 @@ class ClinicalEventTest {
     private static ClinicalEvent event(UUID id, String code, ClinicalEvent.ClinicalEventType type,
             ClinicalEvent.DatePrecision precision, String content, ClinicalEvent.EventSource source,
             OffsetDateTime createdAt) {
-        return new ClinicalEvent(id, code, type, null, precision, null, content, source, createdAt);
+        return new ClinicalEvent(id, code, type, null, precision, null, content, source, createdAt, null);
+    }
+
+    @Test
+    void rejectsAProvenanceThatIsNotAConsultationCode() {
+        assertThatThrownBy(() -> new ClinicalEvent(
+                VALID_ID, "evt_009", ClinicalEvent.ClinicalEventType.NOTE, null,
+                ClinicalEvent.DatePrecision.UNKNOWN, null, "Hecho", ClinicalEvent.EventSource.PATIENT,
+                CREATED_AT, "evt_001"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("encounter");
     }
 }

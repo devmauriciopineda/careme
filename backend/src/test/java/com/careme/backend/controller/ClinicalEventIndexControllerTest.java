@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.careme.backend.dto.ClinicalEventInspectionResponse;
 import com.careme.backend.service.ClinicalEventIndexRebuilder;
 import com.careme.backend.service.ClinicalEventInspectionService;
+import com.careme.backend.service.EncounterIndexRebuilder;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -26,6 +27,9 @@ class ClinicalEventIndexControllerTest {
 
     @MockitoBean
     private ClinicalEventIndexRebuilder rebuilder;
+
+    @MockitoBean
+    private EncounterIndexRebuilder encounterRebuilder;
 
     @MockitoBean
     private ClinicalEventInspectionService inspectionService;

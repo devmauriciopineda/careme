@@ -3,7 +3,10 @@ package com.careme.backend.controller;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -237,8 +240,8 @@ class ChatControllerTest {
                 .doesNotContainIgnoringCase("stacktrace");
     }
 
-        @Test
-        void normalizesOptionalChatResponseCollections() {
+    @Test
+    void normalizesOptionalChatResponseCollections() {
                 var response = new ChatMessageResponse(
                                 "conversation-1", "message-1", ChatMessageResponse.Status.FAILED,
                                 "No se pudo", null, null, null, null);
@@ -247,4 +250,56 @@ class ChatControllerTest {
                 assertThat(response.suggestedActions()).isEmpty();
                 assertThat(response.operations()).isEmpty();
         }
+
+    @Test
+    void closesTheConsultationInProgress() throws Exception {
+        when(orchestrator.closeConsultation("conversation-1")).thenReturn(new ChatMessageResponse(
+                "conversation-1", null, ChatMessageResponse.Status.REGISTERED,
+                "He registrado en tu historia clínica el hecho que hablamos. Ya puedes consultarlo.",
+                List.of(new ChatMessageResponse.EventSummary(
+                        "evt_001", "diagnosis", "2026-01-10", "exact", "Hipertensión"))));
+
+        mockMvc.perform(post("/api/v1/chat/conversations/conversation-1/consultation/close"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("registered"))
+                .andExpect(jsonPath("$.events[0].code").value("evt_001"));
+    }
+
+    @Test
+    void repeatingTheCloseReturnsTheSameOutcome() throws Exception {
+        ChatMessageResponse outcome = new ChatMessageResponse(
+                "conversation-1", null, ChatMessageResponse.Status.NOTHING_TO_REGISTER,
+                "Hemos cerrado la consulta. No había hechos médicos que registrar.", List.of());
+        when(orchestrator.closeConsultation("conversation-1")).thenReturn(outcome);
+
+        String first = mockMvc.perform(post("/api/v1/chat/conversations/conversation-1/consultation/close"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        String second = mockMvc.perform(post("/api/v1/chat/conversations/conversation-1/consultation/close"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(first).isEqualTo(second);
+        verify(orchestrator, times(2)).closeConsultation("conversation-1");
+    }
+
+    @Test
+    void rejectsACloseRequestWithAnUnsupportedMethod() throws Exception {
+        mockMvc.perform(get("/api/v1/chat/conversations/conversation-1/consultation/close"))
+                .andExpect(status().isMethodNotAllowed());
+    }
+
+    @Test
+    void keepsTheConsultationInternalsOutOfTheCloseOutcome() throws Exception {
+        when(orchestrator.closeConsultation("conversation-1")).thenReturn(new ChatMessageResponse(
+                "conversation-1", null, ChatMessageResponse.Status.NOTHING_TO_REGISTER,
+                "Hemos cerrado la consulta. No había hechos médicos que registrar.", List.of()));
+
+        String body = mockMvc.perform(post("/api/v1/chat/conversations/conversation-1/consultation/close"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        // The identifier, the summary and the motive of the consultation never cross the API.
+        assertThat(body).doesNotContain("motive", "summary", "enc_");
+    }
 }

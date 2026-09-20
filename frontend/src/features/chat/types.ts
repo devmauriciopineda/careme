@@ -1,5 +1,7 @@
 export type ChatStatus =
+  | "noted"
   | "registered"
+  | "nothing_to_register"
   | "answered"
   | "no_records"
   | "clarification_required"
@@ -24,7 +26,7 @@ export type SuggestedAction = "reformulate" | "register";
 
 export type ChatResponse = {
   conversationId: string;
-  messageId: string;
+  messageId: string | null;
   status: ChatStatus;
   message: string;
   events: Array<{

@@ -28,8 +28,9 @@ public class ClinicalEventIndexRebuilder {
     private void insert(ClinicalEvent event) {
         jdbcTemplate.update(
                 "INSERT INTO clinical_event_index "
-                        + "(id, code, type, event_date, date_precision, date_text, content, source, created_at) "
-                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        + "(id, code, type, event_date, date_precision, date_text, content, source, created_at, "
+                        + "encounter_code) "
+                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 event.id(),
                 event.code(),
                 event.type().name().toLowerCase(),
@@ -38,6 +39,7 @@ public class ClinicalEventIndexRebuilder {
                 event.dateText(),
                 event.content(),
                 event.source().name().toLowerCase(),
-                event.createdAt());
+                event.createdAt(),
+                event.encounterCode());
     }
 }

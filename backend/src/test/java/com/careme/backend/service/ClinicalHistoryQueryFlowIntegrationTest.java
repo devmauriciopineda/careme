@@ -32,10 +32,14 @@ import org.springframework.test.context.TestPropertySource;
  * exactly as it was.
  */
 @SpringBootTest
-@TestPropertySource(properties = "careme.events.directory=target/test-events-query")
+@TestPropertySource(properties = {
+        "careme.events.directory=target/test-events-query",
+        "careme.encounters.directory=target/test-encounters-query"
+})
 class ClinicalHistoryQueryFlowIntegrationTest extends PostgresIntegrationTest {
 
     private static final Path EVENTS_DIRECTORY = Path.of("target/test-events-query");
+    private static final Path ENCOUNTERS_DIRECTORY = Path.of("target/test-encounters-query");
 
     @Autowired
     private ChatOrchestrator orchestrator;
@@ -55,15 +59,22 @@ class ClinicalHistoryQueryFlowIntegrationTest extends PostgresIntegrationTest {
     @BeforeEach
     void cleanIndexAndDocuments() throws IOException {
         jdbcTemplate.update("DELETE FROM clinical_event_index");
-        if (Files.exists(EVENTS_DIRECTORY)) {
-            try (var paths = Files.walk(EVENTS_DIRECTORY)) {
-                paths.sorted(Comparator.reverseOrder()).forEach(path -> {
-                    try {
-                        Files.deleteIfExists(path);
-                    } catch (IOException ignored) {
-                    }
-                });
-            }
+        jdbcTemplate.update("DELETE FROM encounter_index");
+        deleteDirectoryContents(EVENTS_DIRECTORY);
+        deleteDirectoryContents(ENCOUNTERS_DIRECTORY);
+    }
+
+    private static void deleteDirectoryContents(Path directory) throws IOException {
+        if (!Files.exists(directory)) {
+            return;
+        }
+        try (var paths = Files.walk(directory)) {
+            paths.sorted(Comparator.reverseOrder()).forEach(path -> {
+                try {
+                    Files.deleteIfExists(path);
+                } catch (IOException ignored) {
+                }
+            });
         }
     }
 
@@ -73,7 +84,7 @@ class ClinicalHistoryQueryFlowIntegrationTest extends PostgresIntegrationTest {
                 UUID.randomUUID(), "evt_001", ClinicalEvent.ClinicalEventType.DIAGNOSIS,
                 LocalDate.of(2026, 1, 10), ClinicalEvent.DatePrecision.EXACT, "el 10 de enero",
                 "Hipertensión diagnosticada", ClinicalEvent.EventSource.PATIENT,
-                OffsetDateTime.now(ZoneOffset.UTC));
+                OffsetDateTime.now(ZoneOffset.UTC), null);
         markdownStore.write(event);
         indexWriter.write(event);
         String indexBefore = indexSnapshot();
@@ -88,16 +99,27 @@ class ClinicalHistoryQueryFlowIntegrationTest extends PostgresIntegrationTest {
     }
 
     @Test
-    void registersThenAnswersPreservingPrecisionAndTheHistory() throws IOException {
-        var registered = orchestrator.process(new ChatMessageRequest(
+    void notesThenClosesRegisteringAndAnswersPreservingPrecision() throws IOException {
+        // The turn only takes note of the fact: the clinical history is left
+        // untouched until the consultation is closed.
+        var noted = orchestrator.process(new ChatMessageRequest(
                 "Hace años me diagnosticaron hipertensión", null, "msg-register"));
-        assertThat(registered.status()).isEqualTo(ChatMessageResponse.Status.REGISTERED);
+        assertThat(noted.status()).isEqualTo(ChatMessageResponse.Status.NOTED);
+        assertThat(indexSnapshot()).as("la historia no cambia al anotar").isEqualTo("[]");
+        assertThat(documentsSnapshot()).as("los documentos no cambian al anotar").isEmpty();
+
+        // Closing the consultation is what registers the collected fact.
+        var closed = orchestrator.closeConsultation(noted.conversationId());
+        assertThat(closed.status()).isEqualTo(ChatMessageResponse.Status.REGISTERED);
+        assertThat(closed.events()).isNotEmpty();
+        assertThat(closed.events().getFirst().datePrecision()).isEqualTo("approximate");
 
         String indexAfterRegistration = indexSnapshot();
         String documentsAfterRegistration = documentsSnapshot();
+        assertThat(indexAfterRegistration).isNotEmpty();
 
         var answered = orchestrator.process(new ChatMessageRequest(
-                "¿Cuándo me diagnosticaron hipertensión?", registered.conversationId(), "msg-ask"));
+                "¿Cuándo me diagnosticaron hipertensión?", noted.conversationId(), "msg-ask"));
 
         assertThat(answered.status()).isEqualTo(ChatMessageResponse.Status.ANSWERED);
         assertThat(answered.events()).isNotEmpty();
@@ -105,7 +127,7 @@ class ClinicalHistoryQueryFlowIntegrationTest extends PostgresIntegrationTest {
         assertThat(answered.message()).contains("hipertensión");
 
         var noRecords = orchestrator.process(new ChatMessageRequest(
-                "¿He tenido migrañas?", registered.conversationId(), "msg-none"));
+                "¿He tenido migrañas?", noted.conversationId(), "msg-none"));
         assertThat(noRecords.status()).isEqualTo(ChatMessageResponse.Status.NO_RECORDS);
         assertThat(noRecords.events()).isEmpty();
 
@@ -125,7 +147,7 @@ class ClinicalHistoryQueryFlowIntegrationTest extends PostgresIntegrationTest {
                 UUID.randomUUID(), "evt_001", ClinicalEvent.ClinicalEventType.DIAGNOSIS,
                 LocalDate.of(2026, 1, 10), ClinicalEvent.DatePrecision.EXACT, "el 10 de enero",
                 "Hipertensión diagnosticada", ClinicalEvent.EventSource.PATIENT,
-                OffsetDateTime.now(ZoneOffset.UTC));
+                OffsetDateTime.now(ZoneOffset.UTC), null);
         markdownStore.write(registered);
         indexWriter.write(registered);
         String indexBefore = indexSnapshot();

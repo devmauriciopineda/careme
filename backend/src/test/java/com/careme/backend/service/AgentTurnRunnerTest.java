@@ -13,6 +13,7 @@ import static org.mockito.Mockito.when;
 
 import com.careme.backend.dto.AgentOperation;
 import com.careme.backend.entity.ClinicalEvent;
+import com.careme.backend.entity.EncounterNote;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDate;
@@ -46,28 +47,27 @@ class AgentTurnRunnerTest {
             + "\"search_terms\":[\"diagnostico\"]}";
 
     private final ClinicalHistoryQueryService historyQueryService = mock(ClinicalHistoryQueryService.class);
-    private final ClinicalEventRegistrationService registrationService =
-            mock(ClinicalEventRegistrationService.class);
+    private final EncounterService encounterService = mock(EncounterService.class);
     private final ScriptedProvider provider = new ScriptedProvider();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Test
     void runsEveryOperationAMessageNeedsAndAnswersOnce() {
-        when(registrationService.register(anyString(), any(), any())).thenReturn(registered());
+        when(encounterService.collect(anyString(), any(), any())).thenReturn(noted());
         when(historyQueryService.answer(any())).thenReturn(answered());
 
         provider.then(asks(
-                        call("1", AgentOperation.REGISTER_EVENT, REGISTRATION),
+                        call("1", AgentOperation.RECORD_NOTE, REGISTRATION),
                         call("2", AgentOperation.CONSULT_HISTORY, CONSULTATION)))
-                .then(says("He registrado el diagnóstico y esto es lo que consta."));
+                .then(says("He anotado el diagnóstico y esto es lo que consta."));
 
         AgentTurn turn = runner(MAX_OPERATIONS).run("Me diagnosticaron hipertensión. ¿Qué diagnósticos tengo?", CONTEXT);
 
         assertThat(turn.failed()).isFalse();
-        assertThat(turn.message()).isEqualTo("He registrado el diagnóstico y esto es lo que consta.");
+        assertThat(turn.message()).isEqualTo("He anotado el diagnóstico y esto es lo que consta.");
         assertThat(turn.operations()).hasSize(2);
         assertThat(turn.completedOperations()).hasSize(2);
-        verify(registrationService).register(eq(CONVERSATION_ID), any(), eq(TODAY));
+        verify(encounterService).collect(eq(CONVERSATION_ID), any(), eq(TODAY));
         verify(historyQueryService).answer(any());
     }
 
@@ -89,47 +89,46 @@ class AgentTurnRunnerTest {
 
     @Test
     void handsTheOperationResultsBackToTheAssistant() throws Exception {
-        when(registrationService.register(anyString(), any(), any())).thenReturn(registered());
+        when(encounterService.collect(anyString(), any(), any())).thenReturn(noted());
 
-        provider.then(asks(call("call-1", AgentOperation.REGISTER_EVENT, REGISTRATION)))
-                .then(says("He registrado el diagnóstico."));
+        provider.then(asks(call("call-1", AgentOperation.RECORD_NOTE, REGISTRATION)))
+                .then(says("He anotado el diagnóstico."));
 
         runner(MAX_OPERATIONS).run("Me diagnosticaron hipertensión.", CONTEXT);
 
         Map<String, Object> tool = toolMessage(1);
         assertThat(tool.get("tool_call_id")).isEqualTo("call-1");
         String content = (String) tool.get("content");
-        assertThat(content).contains("completed", "registered");
+        assertThat(content).contains("completed", "noted");
         assertThat(content).doesNotContain("data/", ".md", "path", "filesystem");
-        assertThat(objectMapper.readTree(content).path("events").path(0).path("code").asText())
-                .isEqualTo("evt_001");
+        assertThat(objectMapper.readTree(content).path("content").asText()).isEqualTo("Hipertensión.");
     }
 
     @Test
     void stopsWhenTheTurnReachesItsOperationLimitAndReportsTheTurnAsIncomplete() {
-        when(registrationService.register(anyString(), any(), any())).thenReturn(registered());
+        when(encounterService.collect(anyString(), any(), any())).thenReturn(noted());
 
         provider.then(asks(
-                call("1", AgentOperation.REGISTER_EVENT, REGISTRATION),
-                call("2", AgentOperation.REGISTER_EVENT, REGISTRATION),
-                call("3", AgentOperation.REGISTER_EVENT, REGISTRATION)));
+                call("1", AgentOperation.RECORD_NOTE, REGISTRATION),
+                call("2", AgentOperation.RECORD_NOTE, REGISTRATION),
+                call("3", AgentOperation.RECORD_NOTE, REGISTRATION)));
 
         AgentTurn turn = runner(2).run("Tres hechos distintos.", CONTEXT);
 
         assertThat(turn.failed()).isTrue();
         assertThat(turn.message()).isNotBlank();
         assertThat(turn.operations()).hasSize(2);
-        verify(registrationService, times(2)).register(anyString(), any(), any());
+        verify(encounterService, times(2)).collect(anyString(), any(), any());
     }
 
     @Test
     void keepsWhatAlreadyCompletedWhenAnOperationFails() {
-        when(registrationService.register(anyString(), any(), any())).thenReturn(registered());
+        when(encounterService.collect(anyString(), any(), any())).thenReturn(noted());
         when(historyQueryService.answer(any()))
                 .thenReturn(ClinicalAnswerResult.failure("No pude buscar en tu historia."));
 
         provider.then(asks(
-                call("1", AgentOperation.REGISTER_EVENT, REGISTRATION),
+                call("1", AgentOperation.RECORD_NOTE, REGISTRATION),
                 call("2", AgentOperation.CONSULT_HISTORY, CONSULTATION)));
 
         AgentTurn turn = runner(MAX_OPERATIONS).run("Registra esto y dime qué consta.", CONTEXT);
@@ -137,7 +136,7 @@ class AgentTurnRunnerTest {
         assertThat(turn.failed()).isTrue();
         assertThat(turn.message()).isEqualTo("No pude buscar en tu historia.");
         assertThat(turn.completedOperations()).hasSize(1);
-        assertThat(turn.completedOperations().get(0).operation()).isEqualTo(AgentOperation.REGISTER_EVENT);
+        assertThat(turn.completedOperations().get(0).operation()).isEqualTo(AgentOperation.RECORD_NOTE);
     }
 
     @Test
@@ -147,14 +146,14 @@ class AgentTurnRunnerTest {
         assertThat(turn.failed()).isTrue();
         assertThat(turn.operations()).isEmpty();
         assertThat(turn.message()).isNotBlank();
-        verifyNoInteractions(registrationService, historyQueryService);
+        verifyNoInteractions(encounterService, historyQueryService);
     }
 
     @Test
     void keepsACompletedOperationWhenTheAssistantStopsAnswering() {
-        when(registrationService.register(anyString(), any(), any())).thenReturn(registered());
+        when(encounterService.collect(anyString(), any(), any())).thenReturn(noted());
 
-        provider.then(asks(call("1", AgentOperation.REGISTER_EVENT, REGISTRATION)));
+        provider.then(asks(call("1", AgentOperation.RECORD_NOTE, REGISTRATION)));
 
         AgentTurn turn = runner(MAX_OPERATIONS).run("Me diagnosticaron hipertensión y dime qué consta.", CONTEXT);
 
@@ -171,12 +170,12 @@ class AgentTurnRunnerTest {
 
         assertThat(turn.failed()).isTrue();
         assertThat(turn.message()).isNotBlank();
-        verifyNoInteractions(registrationService, historyQueryService);
+        verifyNoInteractions(encounterService, historyQueryService);
     }
 
     @Test
     void feedsARejectedOperationBackSoTheAssistantCanAskForWhatIsMissing() {
-        provider.then(asks(call("1", AgentOperation.REGISTER_EVENT,
+        provider.then(asks(call("1", AgentOperation.RECORD_NOTE,
                         "{\"type\":\"diagnosis\",\"date_precision\":\"exact\"}")))
                 .then(says("¿Cuál fue el diagnóstico y con qué palabras quieres que lo registre?"));
 
@@ -186,7 +185,7 @@ class AgentTurnRunnerTest {
         assertThat(turn.message()).isEqualTo("¿Cuál fue el diagnóstico y con qué palabras quieres que lo registre?");
         assertThat(turn.completedOperations()).isEmpty();
         assertThat((String) toolMessage(1).get("content")).contains("rejected");
-        verify(registrationService, never()).register(anyString(), any(), any());
+        verify(encounterService, never()).collect(anyString(), any(), any());
     }
 
     @Test
@@ -200,7 +199,7 @@ class AgentTurnRunnerTest {
         assertThat(turn.message()).startsWith("No puedo borrar");
         assertThat(turn.completedOperations()).isEmpty();
         assertThat((String) toolMessage(1).get("content")).contains("rejected");
-        verifyNoInteractions(registrationService, historyQueryService);
+        verifyNoInteractions(encounterService, historyQueryService);
     }
 
     @Test
@@ -215,14 +214,14 @@ class AgentTurnRunnerTest {
         assertThat(provider.received()).hasSize(1);
         assertThat(provider.received().get(0)).singleElement()
                 .satisfies(message -> assertThat(message.get("role")).isEqualTo("user"));
-        verifyNoInteractions(registrationService, historyQueryService);
+        verifyNoInteractions(encounterService, historyQueryService);
     }
 
     private AgentTurnRunner runner(int maxOperations) {
         return new AgentTurnRunner(
                 provider,
                 new AgentOperationExecutor(
-                        historyQueryService, registrationService, new ClinicalEventIntentValidator()),
+                        historyQueryService, encounterService, new ClinicalEventIntentValidator()),
                 maxOperations);
     }
 
@@ -258,9 +257,18 @@ class AgentTurnRunnerTest {
         return ClinicalAnswerResult.answered(List.of(event()), "Esto es lo que consta.");
     }
 
-    private static ClinicalEventRegistrationResult registered() {
-        return new ClinicalEventRegistrationResult(
-                ClinicalEventRegistrationResult.Kind.REGISTERED, List.of(event()), "He registrado el hecho.");
+    private static EncounterNoteResult noted() {
+        return new EncounterNoteResult(
+                EncounterNoteResult.Kind.COLLECTED, note(), "Lo he anotado.");
+    }
+
+    private static EncounterNote note() {
+        return new EncounterNote(
+                ClinicalEvent.ClinicalEventType.DIAGNOSIS,
+                "Hipertensión.",
+                LocalDate.of(2024, 3, 1),
+                ClinicalEvent.DatePrecision.EXACT,
+                null);
     }
 
     private static ClinicalEvent event() {
@@ -273,7 +281,8 @@ class AgentTurnRunnerTest {
                 null,
                 "Hipertensión diagnosticada.",
                 ClinicalEvent.EventSource.PATIENT,
-                OffsetDateTime.now(ZoneOffset.UTC));
+                OffsetDateTime.now(ZoneOffset.UTC),
+                null);
     }
 
     /** A provider that answers with a scripted sequence and fails when it runs out. */

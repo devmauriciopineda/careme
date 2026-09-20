@@ -355,7 +355,10 @@ usarlo, la dirección del backend permanece en el servidor.
 Una **Server Action** es una función ejecutada en el servidor que puede
 invocarse desde una interacción de la interfaz. En Careme, el formulario valida
 la entrada para dar feedback inmediato; la acción vuelve a validarla, llama al
-servicio y revalida la ruta.
+servicio y revalida la ruta. El chat usa el mismo mecanismo para sus dos
+escrituras: enviar un turno y **terminar la consulta**, que la cierra y registra
+lo recogido; el cierre es una decisión propia de la persona, no algo que se
+deduzca de un mensaje, y por eso es su propia acción.
 
 ```mermaid
 sequenceDiagram

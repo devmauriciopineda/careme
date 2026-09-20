@@ -40,6 +40,20 @@ public class ClinicalEventRegistrationService {
             String conversationId,
             ClinicalEventIntent intent,
             LocalDate referenceDate) {
+        return register(conversationId, intent, referenceDate, null);
+    }
+
+    /**
+     * Registers the candidates of an intent, declaring the consultation they were
+     * collected in as their provenance. A {@code null} encounter code means the
+     * fact was registered without one, and its provenance is left open rather than
+     * attributed to a consultation that does not exist.
+     */
+    public ClinicalEventRegistrationResult register(
+            String conversationId,
+            ClinicalEventIntent intent,
+            LocalDate referenceDate,
+            String encounterCode) {
         try {
             intentValidator.validate(intent);
             if (intent.kind() == ClinicalEventIntent.Kind.CLARIFICATION) {
@@ -86,7 +100,8 @@ public class ClinicalEventRegistrationService {
                         entry.date().text(),
                         entry.candidate().content(),
                         ClinicalEvent.EventSource.PATIENT,
-                        OffsetDateTime.now(ZoneOffset.UTC)));
+                        OffsetDateTime.now(ZoneOffset.UTC),
+                        encounterCode));
             }
 
             try {

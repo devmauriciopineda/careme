@@ -32,7 +32,8 @@ class ChatOrchestratorTest {
 
     private final ClinicalAgent agent = mock(ClinicalAgent.class);
     private final ConversationStateStore stateStore = new ConversationStateStore(10, Duration.ofMinutes(30));
-    private final ChatOrchestrator orchestrator = new ChatOrchestrator(agent, stateStore);
+    private final EncounterService encounterService = mock(EncounterService.class);
+    private final ChatOrchestrator orchestrator = new ChatOrchestrator(agent, stateStore, encounterService);
 
     @Test
     void createsAConversationWhenNoneIsGiven() {
@@ -49,6 +50,8 @@ class ChatOrchestratorTest {
                         .isEqualTo(ChatMessageResponse.Status.ANSWERED));
         assertThat(response.events()).singleElement()
                 .satisfies(event -> assertThat(event.code()).isEqualTo("evt_001"));
+        assertThat(response.conversationId()).isNotBlank();
+        verify(encounterService).current(response.conversationId());
     }
 
     @Test
@@ -193,6 +196,7 @@ class ChatOrchestratorTest {
                 null,
                 "Hipertensión diagnosticada.",
                 ClinicalEvent.EventSource.PATIENT,
-                OffsetDateTime.now(ZoneOffset.UTC));
+                OffsetDateTime.now(ZoneOffset.UTC),
+                null);
     }
 }

@@ -1,6 +1,14 @@
 import { expect, test } from "@playwright/test";
 
-import { assistantTurns, historySnapshot, replyText, sendTurn, statusLabel } from "./helpers";
+import {
+  assistantTurns,
+  endConsultation,
+  historySnapshot,
+  replyText,
+  sendTurn,
+  startNewConsultation,
+  statusLabel,
+} from "./helpers";
 
 /**
  * The scenarios of UC-012 that need the real interface, the real backend and the real assistant.
@@ -20,13 +28,28 @@ function expectNoInternalDetail(reply: string) {
   expect(reply).not.toMatch(/openai|api[_ ]key|token/i);
 }
 
+/**
+ * Closes whatever consultation the scenario left open, so the next one starts from a
+ * history that no earlier turn can still add to: a later conversation closes the
+ * previous consultation, and its notes would otherwise land in the middle of another
+ * scenario's snapshot.
+ */
+test.afterEach(async ({ page }) => {
+  const end = page.getByRole("button", { name: "Terminar consulta" });
+  if ((await end.count()) === 0) {
+    return;
+  }
+  await end.click();
+  await expect(page.getByText("La consulta está cerrada.")).toBeVisible({ timeout: 240_000 });
+});
+
 /** Documents the history gained, comparing content and not only names. */
 function addedDocuments(before: Record<string, string>, after: Record<string, string>): string[] {
   return Object.keys(after).filter((name) => !(name in before));
 }
 
 test.describe("8.1 · turnos que requieren más de una operación", () => {
-  test("A1 · registra un hecho y responde una pregunta en el mismo mensaje", async ({ page }) => {
+  test("A1 · recoge un hecho y responde una pregunta en el mismo mensaje", async ({ page }) => {
     await page.goto("/");
     const before = historySnapshot();
 
@@ -44,10 +67,20 @@ test.describe("8.1 · turnos que requieren más de una operación", () => {
 
     expect(reply.length).toBeGreaterThan(0);
     expectNoInternalDetail(reply);
-    expect(status).toMatch(/Registrado|Respuesta/);
-    expect(added).toHaveLength(1);
+    // The history is still empty at this point of the run, so the turn notes the fact
+    // and reports the absence of records instead of an answer.
+    expect(status).toBe("Anotado");
+    const operations = turn.getByRole("list", { name: "Operaciones del turno" });
+    // The turn reports both operations it went through: the consultation and the note.
+    expect(await operations.locator("li").count()).toBe(2);
+    // The turn only takes note: nothing reaches the clinical history until the close.
+    expect(added).toHaveLength(0);
 
-    // «el hecho registrado puede consultarse de inmediato»
+    // «el hecho recogido se registra al cerrar la consulta y entonces puede consultarse»
+    await endConsultation(page);
+    expect(addedDocuments(before, historySnapshot())).toHaveLength(1);
+
+    await startNewConsultation(page);
     const consultation = await sendTurn(page, "¿Qué consta sobre la hipertensión que te conté?");
     const consultationStatus = (await statusLabel(consultation).innerText()).trim();
     const consultations = await consultation.locator('ul[aria-label="Hechos que sustentan la respuesta"] li').count();
@@ -100,8 +133,12 @@ test.describe("8.1 · turnos que requieren más de una operación", () => {
 
     expect(reply.length).toBeGreaterThan(0);
     expectNoInternalDetail(reply);
-    expect(status).toBe("Registrado");
-    expect(added).toHaveLength(2);
+    expect(status).toBe("Anotado");
+    // The facts are collected as notes; the close is what registers them.
+    expect(added).toHaveLength(0);
+
+    await endConsultation(page);
+    expect(addedDocuments(before, historySnapshot())).toHaveLength(2);
   });
 });
 

@@ -91,7 +91,9 @@ public record ChatMessageResponse(
     }
 
     public enum Status {
+        NOTED("noted"),
         REGISTERED("registered"),
+        NOTHING_TO_REGISTER("nothing_to_register"),
         ANSWERED("answered"),
         NO_RECORDS("no_records"),
         CLARIFICATION_REQUIRED("clarification_required"),

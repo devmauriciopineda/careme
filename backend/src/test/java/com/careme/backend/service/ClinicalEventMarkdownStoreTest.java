@@ -29,7 +29,8 @@ class ClinicalEventMarkdownStoreTest {
                 "hoy",
                 "Presion arterial 145/92",
                 ClinicalEvent.EventSource.PATIENT,
-                OffsetDateTime.parse("2026-09-13T10:15:30Z"));
+                OffsetDateTime.parse("2026-09-13T10:15:30Z"),
+                null);
     }
 
     private static ClinicalEvent sampleEvent() {
@@ -56,6 +57,37 @@ class ClinicalEventMarkdownStoreTest {
         store.write(sampleEvent());
 
         assertThat(Files.exists(configured.resolve("evt_001.md"))).isTrue();
+    }
+
+    @Test
+    void preservesTheProvenanceOfAnEventThroughTheRoundTrip() throws Exception {
+        ClinicalEvent event = new ClinicalEvent(
+                UUID.randomUUID(),
+                "evt_020",
+                ClinicalEvent.ClinicalEventType.DIAGNOSIS,
+                LocalDate.of(2026, 9, 1),
+                ClinicalEvent.DatePrecision.EXACT,
+                "el 1 de septiembre",
+                "Hipertensión diagnosticada",
+                ClinicalEvent.EventSource.PATIENT,
+                OffsetDateTime.parse("2026-09-01T10:00:00Z"),
+                "enc_001");
+        ClinicalEventMarkdownStore store = new ClinicalEventMarkdownStore(eventsDirectory);
+
+        store.write(event);
+
+        assertThat(store.read("evt_020").encounterCode()).isEqualTo("enc_001");
+        assertThat(Files.readString(eventsDirectory.resolve("evt_020.md")))
+                .contains("encounter: enc_001");
+    }
+
+    @Test
+    void keepsAnEventWithoutAConsultationWithoutInventingOne() throws Exception {
+        ClinicalEventMarkdownStore store = new ClinicalEventMarkdownStore(eventsDirectory);
+
+        store.write(sampleEvent());
+
+        assertThat(store.read("evt_001").encounterCode()).isNull();
     }
 
     @Test
@@ -124,7 +156,8 @@ class ClinicalEventMarkdownStoreTest {
                 null,
                 "Sin fecha conocida",
                 ClinicalEvent.EventSource.PATIENT,
-                OffsetDateTime.parse("2026-09-13T10:15:30Z"));
+                OffsetDateTime.parse("2026-09-13T10:15:30Z"),
+                null);
         ClinicalEventMarkdownStore store = new ClinicalEventMarkdownStore(eventsDirectory);
 
         store.write(event);
