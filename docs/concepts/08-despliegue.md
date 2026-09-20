@@ -202,7 +202,7 @@ Careme usa variables como:
 | --- | --- | --- |
 | `SPRING_DATASOURCE_URL` | Conexión backend → PostgreSQL | URL interna de Compose |
 | `CAREME_EVENTS_DIRECTORY` | Ubicación de la fuente Markdown | `/app/data/events` en contenedor |
-| `CAREME_LLM_MODE` | Modo `fake` u `openai` | `fake` por defecto |
+| `CAREME_LLM_MODE` | Modo `fake` u `openai` | `openai` por defecto (asistente real); `fake` es el modo de pruebas |
 | `CAREME_LLM_API_KEY` | Credencial del proveedor | Solo backend, nunca frontend |
 | `API_BASE_URL` | URL que usa el frontend server-side | `http://backend:8080` en Compose |
 

@@ -29,7 +29,7 @@ careme:
     # be writable by the process user and outlive the container that runs it.
     directory: ${CAREME_EVENTS_DIRECTORY:data/events}
   llm:
-    mode: ${CAREME_LLM_MODE:fake}
+    mode: ${CAREME_LLM_MODE:openai}
     base-url: ${CAREME_LLM_BASE_URL:https://api.deepseek.com}
     model: ${CAREME_LLM_MODEL:deepseek-flash}
     connect-timeout: ${CAREME_LLM_CONNECT_TIMEOUT:PT5S}

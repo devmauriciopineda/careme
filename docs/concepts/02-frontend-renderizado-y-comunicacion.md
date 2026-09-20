@@ -195,7 +195,9 @@ validación Zod. Los componentes reciben datos ya convertidos a estructuras
 
 - `src/lib/` contiene utilidades transversales, como la combinación de clases.
 - `src/test/` configura el entorno común de Vitest y Testing Library.
-- `e2e/playwright/` reserva el espacio para pruebas de extremo a extremo.
+- `e2e/playwright/` contiene los recorridos de extremo a extremo y `e2e/corpus/`
+  la medición sobre un corpus de evaluación; `playwright.config.ts` declara un
+  proyecto de Playwright para cada uno.
 - `components.json` configura shadcn/ui, sus alias y su integración con
   Tailwind.
 

@@ -24,7 +24,7 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: dev
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/careme
-      CAREME_LLM_MODE: ${CAREME_LLM_MODE:-fake}
+      CAREME_LLM_MODE: ${CAREME_LLM_MODE:-openai}
       CAREME_LLM_BASE_URL: ${CAREME_LLM_BASE_URL:-https://api.deepseek.com}
       CAREME_LLM_MODEL: ${CAREME_LLM_MODEL:-deepseek-flash}
       CAREME_LLM_API_KEY: ${CAREME_LLM_API_KEY:-}

@@ -67,42 +67,7 @@ class ClinicalEventIntentTest {
     }
 
     @Test
-    void queryIntentsCarryTheGeneralPartOnlyWhenTheyHaveOne() {
-        assertThat(historyQuery().generalPart())
-                .as("un mensaje que solo consulta la historia no tiene parte general")
-                .isNull();
-
-        var mixed = new ClinicalEventIntent.Query(
-                "¿Cuándo me la diagnosticaron?",
-                ClinicalEventIntent.Query.Scope.HISTORY,
-                List.of("diagnosticaron"),
-                null,
-                null,
-                null,
-                "¿Qué es la hipertensión?");
-
-        assertThat(mixed.generalPart()).isEqualTo("¿Qué es la hipertensión?");
-        assertThat(mixed.searchTerms())
-                .as("la parte general no es un criterio de recuperación")
-                .doesNotContain("hipertension");
-    }
-
-    @Test
-    void aBlankGeneralPartIsTheSameAsNoGeneralPart() {
-        var query = new ClinicalEventIntent.Query(
-                "¿Cuándo me la diagnosticaron?",
-                ClinicalEventIntent.Query.Scope.HISTORY,
-                List.of("diagnosticaron"),
-                null,
-                null,
-                null,
-                "   ");
-
-        assertThat(query.generalPart()).isNull();
-    }
-
-        @Test
-        void rejectsInvalidIntentPayloadCombinations() {
+    void rejectsInvalidIntentPayloadCombinations() {
                 assertThatThrownBy(() -> new ClinicalEventIntent(null, List.of(), null))
                                 .isInstanceOf(IllegalArgumentException.class)
                                 .hasMessageContaining("kind");

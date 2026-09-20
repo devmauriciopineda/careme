@@ -115,8 +115,8 @@ behavior that crosses that line.
   entry point at `/`; body tracking lives at `/measurements`. Server Components fetch at request
   time; forms are client islands that submit through Server Actions.
 - `backend/` — Spring Boot 3.5 REST service (Java 21), layered `controller → service → repository`.
-  It is the source of truth for the API contract. LLM access is opt-in via `CAREME_LLM_MODE`;
-  the default `fake` mode makes no network call.
+  It is the source of truth for the API contract. The assistant uses the real provider by
+  default (`CAREME_LLM_MODE=openai`); `CAREME_LLM_MODE=fake` runs with no network call.
 - **Storage** — PostgreSQL 17 with Flyway-owned migrations, plus Markdown clinical-event documents
   as the source of truth for clinical events, with a derived, rebuildable PostgreSQL full-text index.
 - `openspec/` — spec-driven development (SDD): main specs and archived changes.

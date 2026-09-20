@@ -246,10 +246,10 @@
     "semantic_hash": "c17b3ec78b1dcf75086e51b8b8fee655"
   },
   "frontend/package.json": {
-    "mtime": 1789079267.5917828,
-    "seen": 1789230949.280305,
-    "ast_hash": "65a7262e87b15d53c05b7497bcdad55f",
-    "semantic_hash": "65a7262e87b15d53c05b7497bcdad55f"
+    "mtime": 1789885387.550553,
+    "seen": 1789885983.3670642,
+    "ast_hash": "ee51afb2303bb3968b6db579e2ac4b56",
+    "semantic_hash": ""
   },
   "frontend/postcss.config.mjs": {
     "mtime": 1789077590.6105344,
@@ -462,9 +462,9 @@
     "semantic_hash": "19cd6973a4c374652f747a3368fdf845"
   },
   ".github/copilot-instructions.md": {
-    "mtime": 1789361199.777249,
-    "seen": 1789361748.7522902,
-    "ast_hash": "2812c756c1bf025cef1b9391812e4802",
+    "mtime": 1789880453.6403391,
+    "seen": 1789885983.3723683,
+    "ast_hash": "47a8ac49a181c10130a9611ea75fbcb4",
     "semantic_hash": ""
   },
   ".github/prompts/plan-backendSpringbootMeasurements.prompt.md": {
@@ -498,15 +498,15 @@
     "semantic_hash": "21e4edd251e7d8d2230f404044ff1369"
   },
   "README.md": {
-    "mtime": 1789704437.8141983,
-    "seen": 1789709857.1948037,
-    "ast_hash": "e3b0166a47daaa090fafc77e6da0ab87",
+    "mtime": 1789880453.637339,
+    "seen": 1789885983.3763595,
+    "ast_hash": "3bd3e255e59d595edb4b4ee4f0e844aa",
     "semantic_hash": ""
   },
   "backend/README.md": {
-    "mtime": 1789700349.5791514,
-    "seen": 1789703942.9687948,
-    "ast_hash": "528522cc501d5c01fc06abe9da10b2d8",
+    "mtime": 1789882597.4211595,
+    "seen": 1789885983.3763611,
+    "ast_hash": "20f59a915bc7be556fe5361ea32b378b",
     "semantic_hash": ""
   },
   "backend/src/main/resources/application-dev.yml": {
@@ -528,15 +528,15 @@
     "semantic_hash": "90fa0fc456333455ea2f633df9f96bd6"
   },
   "backend/src/main/resources/application.yml": {
-    "mtime": 1789337008.8539116,
-    "seen": 1789337063.3504932,
-    "ast_hash": "39b1c0762d6904ecd210ecffe93eed10",
+    "mtime": 1789880453.631341,
+    "seen": 1789885983.3766632,
+    "ast_hash": "578decc4095a0dc7099e12590eced499",
     "semantic_hash": ""
   },
   "docker-compose.yml": {
-    "mtime": 1789327212.60569,
-    "seen": 1789328196.345304,
-    "ast_hash": "dc8095917bc0ce68fa523b7f4be2a64e",
+    "mtime": 1789880453.6353397,
+    "seen": 1789885983.3768995,
+    "ast_hash": "51a328c2aeb1f693b33058c9b61de95b",
     "semantic_hash": ""
   },
   "docs/standards/java-springboot-standards.md": {
@@ -552,22 +552,22 @@
     "semantic_hash": "b1742c4be51fa343962dd84c24e46d2e"
   },
   "docs/use-cases/UC-001.md": {
-    "mtime": 1789094337.2800012,
-    "seen": 1789230949.2804136,
-    "ast_hash": "31745be24cfae22267c9f1540ce85c61",
-    "semantic_hash": "31745be24cfae22267c9f1540ce85c61"
+    "mtime": 1789872515.324521,
+    "seen": 1789875892.6755247,
+    "ast_hash": "650bb41fdcae1f1265c5c868e0a696c3",
+    "semantic_hash": ""
   },
   "docs/use-cases/UC-002.md": {
-    "mtime": 1789097096.3422494,
-    "seen": 1789230949.2804165,
-    "ast_hash": "f7de832c6a277bd577e02ff2e3a8ab65",
-    "semantic_hash": "f7de832c6a277bd577e02ff2e3a8ab65"
+    "mtime": 1789872515.3261728,
+    "seen": 1789875892.675526,
+    "ast_hash": "e5e929289299dc1fdb9bb4084e674fdc",
+    "semantic_hash": ""
   },
   "docs/use-cases/UC-003.md": {
-    "mtime": 1789100816.828468,
-    "seen": 1789230949.2804196,
-    "ast_hash": "9461d65681ddf7a0e87ae80a54b02a6a",
-    "semantic_hash": "9461d65681ddf7a0e87ae80a54b02a6a"
+    "mtime": 1789872515.3261728,
+    "seen": 1789875892.6755273,
+    "ast_hash": "5a0a001a420ede773c774dddc3de4968",
+    "semantic_hash": ""
   },
   "frontend/AGENTS.md": {
     "mtime": 1789077765.1376162,
@@ -582,9 +582,9 @@
     "semantic_hash": "5c27369b226fcf2be8a6cfe52224e767"
   },
   "frontend/README.md": {
-    "mtime": 1789704437.8141983,
-    "seen": 1789709857.1997252,
-    "ast_hash": "1be93297754c95f5ab12634d3f2b6f05",
+    "mtime": 1789885387.5525513,
+    "seen": 1789885983.3796897,
+    "ast_hash": "2c22916e2839e7365c9c92ddd72bc922",
     "semantic_hash": ""
   },
   "frontend/pnpm-workspace.yaml": {
@@ -606,21 +606,21 @@
     "semantic_hash": ""
   },
   "docs/architecture.md": {
-    "mtime": 1789799276.925575,
-    "seen": 1789799304.1524942,
-    "ast_hash": "157665b204eef095592ec8e162c3c31a",
+    "mtime": 1789886308.1184294,
+    "seen": 1789886706.696275,
+    "ast_hash": "0cc1b31d841506cef9e0e28c774df17c",
     "semantic_hash": ""
   },
   "docs/data-model.md": {
-    "mtime": 1789799276.925575,
-    "seen": 1789799304.1535707,
-    "ast_hash": "3f9dae4bd4df5eb60c46f60fa7777e4a",
+    "mtime": 1789880453.624339,
+    "seen": 1789885983.377616,
+    "ast_hash": "56bfa600c0cfbf6f98ad63eb987fc88a",
     "semantic_hash": ""
   },
   "docs/roadmap/mvp_alcance_asistente_historia_clinica.md": {
-    "mtime": 1789799276.9225736,
-    "seen": 1789799304.1535733,
-    "ast_hash": "cfb3b88ebd769ab93108f56243714e3b",
+    "mtime": 1789882597.399909,
+    "seen": 1789885983.377618,
+    "ast_hash": "40ae4112901dba58aa24114bd6148136",
     "semantic_hash": ""
   },
   "docs/roadmap/roadmap_asistente_historia_clinica.md": {
@@ -630,9 +630,9 @@
     "semantic_hash": ""
   },
   "docs/roadmap/use-cases.md": {
-    "mtime": 1789799276.9235716,
-    "seen": 1789799304.1535773,
-    "ast_hash": "8ca4047281b49e267d60101fdb72b8e6",
+    "mtime": 1789886308.1184294,
+    "seen": 1789886706.698634,
+    "ast_hash": "ec8f1cab34417eb5bc4c628bbb764222",
     "semantic_hash": ""
   },
   "docs/use-cases/UC-004-acceptance-criteria.md": {
@@ -642,15 +642,15 @@
     "semantic_hash": ""
   },
   "docs/use-cases/UC-004.md": {
-    "mtime": 1789245173.6174245,
-    "seen": 1789274566.4492702,
-    "ast_hash": "a4d4ac418b6a07c25445b0cab4ef0762",
+    "mtime": 1789872515.3261728,
+    "seen": 1789875892.6755989,
+    "ast_hash": "6abfcd51274c876edd8df8a579b98e48",
     "semantic_hash": ""
   },
   "backend/src/main/java/com/careme/backend/dto/ClinicalEventIntent.java": {
-    "mtime": 1789621514.9680119,
-    "seen": 1789623220.7484992,
-    "ast_hash": "264bd5b8c21fb2e46b1f502ebadcac8c",
+    "mtime": 1789880453.6056104,
+    "seen": 1789885983.3596125,
+    "ast_hash": "cffce5359a938106e7c9e13a1d31ea28",
     "semantic_hash": ""
   },
   "backend/src/main/java/com/careme/backend/entity/ClinicalEvent.java": {
@@ -852,9 +852,9 @@
     "semantic_hash": ""
   },
   "openspec/specs/clinical-event-registration/spec.md": {
-    "mtime": 1789327212.60569,
-    "seen": 1789328196.350129,
-    "ast_hash": "1a92f28086b8d93319e079a7ce92169d",
+    "mtime": 1789885986.0762973,
+    "seen": 1789886706.7178059,
+    "ast_hash": "4a2c8bdfd317fe1ed159e3b64bc67f4c",
     "semantic_hash": ""
   },
   "backend/src/main/java/com/careme/backend/controller/ChatController.java": {
@@ -876,15 +876,15 @@
     "semantic_hash": ""
   },
   "backend/src/main/java/com/careme/backend/dto/ChatMessageResponse.java": {
-    "mtime": 1789621514.9663677,
-    "seen": 1789623220.748494,
-    "ast_hash": "5effadb232cc234780b6aeb704145601",
+    "mtime": 1789880453.5936096,
+    "seen": 1789885983.3594775,
+    "ast_hash": "48ae52c354efb5f2539427d0d56f9ca6",
     "semantic_hash": ""
   },
   "backend/src/main/java/com/careme/backend/service/ChatOrchestrator.java": {
-    "mtime": 1789621514.972561,
-    "seen": 1789623220.752073,
-    "ast_hash": "a3998e66e8eb1693872aa7e5ae77193a",
+    "mtime": 1789880453.6046093,
+    "seen": 1789885983.361395,
+    "ast_hash": "6423439c97fd2b5fc0df47a6fac12225",
     "semantic_hash": ""
   },
   "backend/src/main/java/com/careme/backend/service/ClinicalEventIndexStartupReconciler.java": {
@@ -893,22 +893,10 @@
     "ast_hash": "b8d09375eaecffe1b185386dec5604ae",
     "semantic_hash": ""
   },
-  "backend/src/main/java/com/careme/backend/service/ClinicalIntentInterpreter.java": {
-    "mtime": 1789337008.8509085,
-    "seen": 1789337063.3425448,
-    "ast_hash": "f0467d073aa696e0a32a510910fadd95",
-    "semantic_hash": ""
-  },
   "backend/src/main/java/com/careme/backend/service/ConversationStateStore.java": {
     "mtime": 1789337008.8509085,
     "seen": 1789337063.3425465,
     "ast_hash": "abb26b09f35ca79ef7f1d409d7819783",
-    "semantic_hash": ""
-  },
-  "backend/src/main/java/com/careme/backend/service/FakeClinicalIntentInterpreter.java": {
-    "mtime": 1789621514.9751208,
-    "seen": 1789623220.755074,
-    "ast_hash": "b8d7da778b1b4be90451ba5aba53225c",
     "semantic_hash": ""
   },
   "backend/src/main/java/com/careme/backend/service/LlmIntegrationException.java": {
@@ -917,34 +905,16 @@
     "ast_hash": "4809c24861b7b9f9f396ebf610732b65",
     "semantic_hash": ""
   },
-  "backend/src/main/java/com/careme/backend/service/OpenAiClinicalIntentInterpreter.java": {
-    "mtime": 1789621514.9751208,
-    "seen": 1789623220.7555869,
-    "ast_hash": "354e8b191d59a8e565ef46a842958c6d",
-    "semantic_hash": ""
-  },
   "backend/src/test/java/com/careme/backend/controller/ChatControllerTest.java": {
-    "mtime": 1789703136.009263,
-    "seen": 1789703942.962069,
-    "ast_hash": "ba4eb493447e35a537b0e81480afbdc8",
+    "mtime": 1789880453.6076088,
+    "seen": 1789885983.3637621,
+    "ast_hash": "2041c1c44f93a86d3153278287a30adb",
     "semantic_hash": ""
   },
   "backend/src/test/java/com/careme/backend/service/ChatOrchestratorTest.java": {
-    "mtime": 1789621514.9821713,
-    "seen": 1789623220.75826,
-    "ast_hash": "43b59e6e181b30b36c4446b70beff5a0",
-    "semantic_hash": ""
-  },
-  "backend/src/test/java/com/careme/backend/service/FakeClinicalIntentInterpreterTest.java": {
-    "mtime": 1789703136.002262,
-    "seen": 1789703942.963025,
-    "ast_hash": "7944e808413cdda0fbad79cbd42cfead",
-    "semantic_hash": ""
-  },
-  "backend/src/test/java/com/careme/backend/service/OpenAiClinicalIntentInterpreterTest.java": {
-    "mtime": 1789703136.0042622,
-    "seen": 1789703942.9632442,
-    "ast_hash": "f74e206f1c91cfbfb900c68e29306035",
+    "mtime": 1789880453.6126103,
+    "seen": 1789885983.3647418,
+    "ast_hash": "666ae87a1e352991434730e3aff31811",
     "semantic_hash": ""
   },
   "frontend/src/app/measurements/page.tsx": {
@@ -954,21 +924,21 @@
     "semantic_hash": ""
   },
   "frontend/src/features/chat/components/ChatWorkspace.test.tsx": {
-    "mtime": 1789621514.9906542,
-    "seen": 1789623220.7636833,
-    "ast_hash": "51f2740fdedafa1d129233019df7cfde",
+    "mtime": 1789880453.621339,
+    "seen": 1789885983.3691719,
+    "ast_hash": "9e7ec9dbadcece67261111c56a3ddc3c",
     "semantic_hash": ""
   },
   "frontend/src/features/chat/components/ChatWorkspace.tsx": {
-    "mtime": 1789621514.9906542,
-    "seen": 1789623220.7636888,
-    "ast_hash": "6d530bcc2696a48976ac5790b10c02ba",
+    "mtime": 1789880453.62034,
+    "seen": 1789885983.369174,
+    "ast_hash": "cb1e870d5ddb8fa4682bebb5fdeeb343",
     "semantic_hash": ""
   },
   "frontend/src/features/chat/types.ts": {
-    "mtime": 1789621514.9953203,
-    "seen": 1789623220.7637014,
-    "ast_hash": "4214a47a3a11d67f3ce7c6cbb8ea564d",
+    "mtime": 1789880453.6183398,
+    "seen": 1789885983.3691816,
+    "ast_hash": "acc9204e5e87f75ad3e49a1ba305f657",
     "semantic_hash": ""
   },
   "frontend/src/services/chatService.ts": {
@@ -981,12 +951,6 @@
     "mtime": 1789279502.165101,
     "seen": 1789283778.7708776,
     "ast_hash": "97b757055380d0dbf83055d0d9c0071a",
-    "semantic_hash": ""
-  },
-  "backend/src/main/resources/prompts/clinical-intent-v1.txt": {
-    "mtime": 1789280603.0681958,
-    "seen": 1789283778.7719498,
-    "ast_hash": "12557d5818cb4461cbc0ec82d09805ee",
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-09-13-assistant-chat-llm-integration/.openspec.yaml": {
@@ -1038,21 +1002,21 @@
     "semantic_hash": ""
   },
   "openspec/specs/assistant-chat-interface/spec.md": {
-    "mtime": 1789623185.6606903,
-    "seen": 1789623220.7860322,
-    "ast_hash": "d1a6e6a76e8a64626f88cf38da47cdb1",
+    "mtime": 1789885986.0762973,
+    "seen": 1789886706.7176454,
+    "ast_hash": "ec5c682f79c0dea815e618037227d0f0",
     "semantic_hash": ""
   },
   "openspec/specs/assistant-conversation/spec.md": {
-    "mtime": 1789623185.662241,
-    "seen": 1789623220.786035,
-    "ast_hash": "a6c4a136bc63aa463131d1269d939887",
+    "mtime": 1789885986.0762973,
+    "seen": 1789886706.7176483,
+    "ast_hash": "1842a8172f611638cba9b830ec643d83",
     "semantic_hash": ""
   },
   "openspec/specs/llm-clinical-intent-adapter/spec.md": {
-    "mtime": 1789623185.6918895,
-    "seen": 1789623220.7861507,
-    "ast_hash": "a5445c824f8b7cac8c17dbd65001648d",
+    "mtime": 1789885986.0762973,
+    "seen": 1789886706.717951,
+    "ast_hash": "caadc47d128562d9399e01f0c9a85654",
     "semantic_hash": ""
   },
   "backend/src/test/java/com/careme/backend/config/CorsConfigTest.java": {
@@ -1074,9 +1038,9 @@
     "semantic_hash": ""
   },
   "frontend/src/features/chat/lib/schema.ts": {
-    "mtime": 1789621514.9953203,
-    "seen": 1789623220.7636974,
-    "ast_hash": "de881bd42ddf03b23973ad799b3f0416",
+    "mtime": 1789880453.6173408,
+    "seen": 1789885983.3691795,
+    "ast_hash": "04efb326434479b4a2992981da7435f7",
     "semantic_hash": ""
   },
   "frontend/src/services/chatService.test.ts": {
@@ -1176,9 +1140,9 @@
     "semantic_hash": ""
   },
   "backend/src/main/java/com/careme/backend/service/FakeClinicalAnswerComposer.java": {
-    "mtime": 1789536264.6471717,
-    "seen": 1789536281.5599878,
-    "ast_hash": "ca8eef0af51e9236e5880bde93263b69",
+    "mtime": 1789880453.63634,
+    "seen": 1789885983.3628223,
+    "ast_hash": "7110198a6ff825799199f298d62e9557",
     "semantic_hash": ""
   },
   "backend/src/main/java/com/careme/backend/service/OpenAiClinicalAnswerComposer.java": {
@@ -1188,9 +1152,9 @@
     "semantic_hash": ""
   },
   "backend/src/test/java/com/careme/backend/dto/ClinicalEventIntentTest.java": {
-    "mtime": 1789703136.0112598,
-    "seen": 1789703942.9622164,
-    "ast_hash": "8dfdfa98f6e41047b5a4de2e9e1075de",
+    "mtime": 1789880453.6096094,
+    "seen": 1789885983.3640337,
+    "ast_hash": "64cd9e6c41fd868a19c9470a50e55914",
     "semantic_hash": ""
   },
   "backend/src/test/java/com/careme/backend/repository/ClinicalEventQueryRepositoryTest.java": {
@@ -1224,9 +1188,9 @@
     "semantic_hash": ""
   },
   "frontend/src/features/chat/lib/schema.test.ts": {
-    "mtime": 1789621514.9906542,
-    "seen": 1789623220.7636933,
-    "ast_hash": "3a6c8b682396f6ed3f0da0b0cf265592",
+    "mtime": 1789880453.621339,
+    "seen": 1789885983.3691766,
+    "ast_hash": "d94de5e445af9e63d9ec6df9acad4d20",
     "semantic_hash": ""
   },
   ".github/prompts/doc-sync.prompt.md": {
@@ -1241,12 +1205,6 @@
     "ast_hash": "f17ef80583865d0faecb304f2f1f4a3f",
     "semantic_hash": ""
   },
-  "backend/src/main/resources/prompts/clinical-intent-v2.txt": {
-    "mtime": 1789336851.3135588,
-    "seen": 1789337063.3506079,
-    "ast_hash": "ebf4a5173e92bb0915a1adb15a2e7268",
-    "semantic_hash": ""
-  },
   "docs/use-cases/UC-007-acceptance-criteria.md": {
     "mtime": 1789336851.3175557,
     "seen": 1789337063.352162,
@@ -1254,21 +1212,21 @@
     "semantic_hash": ""
   },
   "docs/use-cases/UC-007.md": {
-    "mtime": 1789532642.8266244,
-    "seen": 1789532779.2897587,
-    "ast_hash": "af8e594109d37a7e8fadf4c7be9f3d29",
+    "mtime": 1789872515.3282225,
+    "seen": 1789875892.675664,
+    "ast_hash": "6c4787da537a3daeffd30ad8d1004fbd",
     "semantic_hash": ""
   },
   ".github/instructions/backend-java.instructions.md": {
-    "mtime": 1789361458.7537544,
-    "seen": 1789361748.7522933,
-    "ast_hash": "3e22426092a78b2f8150baec5b4da9ce",
+    "mtime": 1789880453.6383388,
+    "seen": 1789885983.3723717,
+    "ast_hash": "4712b6582a91b5b5557555a4100c6a9c",
     "semantic_hash": ""
   },
   ".github/instructions/backend-tests.instructions.md": {
-    "mtime": 1789361528.8345056,
-    "seen": 1789361748.7522953,
-    "ast_hash": "c96480f4d235a2839c53a63e6e89257a",
+    "mtime": 1789880453.637339,
+    "seen": 1789885983.3723733,
+    "ast_hash": "e1d1f198d2a7b954a51a855bbb6cc42a",
     "semantic_hash": ""
   },
   ".github/instructions/docs.instructions.md": {
@@ -1284,9 +1242,9 @@
     "semantic_hash": ""
   },
   ".github/instructions/frontend-tests.instructions.md": {
-    "mtime": 1789361458.7597556,
-    "seen": 1789361748.7522986,
-    "ast_hash": "06d14a58af6c97db964b0dec51dd165c",
+    "mtime": 1789882598.272653,
+    "seen": 1789885983.3725343,
+    "ast_hash": "cb522cacf6b8d7e25a068882558859e3",
     "semantic_hash": ""
   },
   ".github/instructions/openspec-sdd.instructions.md": {
@@ -1302,9 +1260,9 @@
     "semantic_hash": ""
   },
   "docs/concepts/02-frontend-renderizado-y-comunicacion.md": {
-    "mtime": 1789707036.1083739,
-    "seen": 1789709857.1965404,
-    "ast_hash": "d0b625c00f6435c990e755d61775131f",
+    "mtime": 1789886692.645861,
+    "seen": 1789886706.6965294,
+    "ast_hash": "8f770c9374977051a0048d4e33f4b550",
     "semantic_hash": ""
   },
   "docs/concepts/03-backend-api-concurrencia-y-persistencia.md": {
@@ -1320,9 +1278,9 @@
     "semantic_hash": ""
   },
   "docs/concepts/05-ia-llm-prompts-y-rag.md": {
-    "mtime": 1789708821.7742796,
-    "seen": 1789709857.196551,
-    "ast_hash": "48554460e518a2aef7ab9c2e4a263669",
+    "mtime": 1789882597.399909,
+    "seen": 1789885983.3772235,
+    "ast_hash": "1f5adab2a23c378461e3340797038031",
     "semantic_hash": ""
   },
   "docs/concepts/06-sdd-y-openspec.md": {
@@ -1332,9 +1290,9 @@
     "semantic_hash": ""
   },
   "docs/concepts/README.md": {
-    "mtime": 1789709434.5615935,
-    "seen": 1789709857.1965628,
-    "ast_hash": "842af709eb7ae83a1558c799376d0ddb",
+    "mtime": 1789886692.6541374,
+    "seen": 1789886706.698131,
+    "ast_hash": "9aaa47e303cd9768f466e7a196a9d8d3",
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-09-13-uc-007/.openspec.yaml": {
@@ -1398,9 +1356,9 @@
     "semantic_hash": ""
   },
   "docs/use-cases/UC-008.md": {
-    "mtime": 1789532537.0376146,
-    "seen": 1789532779.2897642,
-    "ast_hash": "0f4d8b14d08ca5de87ee2343f2242df7",
+    "mtime": 1789872515.3282225,
+    "seen": 1789875892.6757295,
+    "ast_hash": "581763501d7c3152ea21e8a9d8b78665",
     "semantic_hash": ""
   },
   "docs/use-cases/UC-010-acceptance-criteria.md": {
@@ -1410,9 +1368,9 @@
     "semantic_hash": ""
   },
   "docs/use-cases/UC-010.md": {
-    "mtime": 1789532537.03861,
-    "seen": 1789532779.289768,
-    "ast_hash": "a0fd01dfd5a8fc516f7a511318c873ec",
+    "mtime": 1789882597.3979104,
+    "seen": 1789885983.378675,
+    "ast_hash": "4da1ef0069ab5f54d233f18115c30384",
     "semantic_hash": ""
   },
   "backend/src/test/java/com/careme/backend/service/ClinicalHistoryUnsupportedRetrievalIntegrationTest.java": {
@@ -1487,52 +1445,10 @@
     "ast_hash": "c6f743eab02272d045a155f58074f123",
     "semantic_hash": ""
   },
-  "backend/src/main/java/com/careme/backend/service/ClinicalConversationComposer.java": {
-    "mtime": 1789621515.139658,
-    "seen": 1789623220.7525349,
-    "ast_hash": "21393a001d1a5bfca9454ff75e91348b",
-    "semantic_hash": ""
-  },
-  "backend/src/main/java/com/careme/backend/service/FakeClinicalConversationComposer.java": {
-    "mtime": 1789621515.1439445,
-    "seen": 1789623220.7550702,
-    "ast_hash": "39e2058c3c4e6ccae325bfd55016a11f",
-    "semantic_hash": ""
-  },
-  "backend/src/main/java/com/careme/backend/service/OpenAiClinicalConversationComposer.java": {
-    "mtime": 1789621515.1477716,
-    "seen": 1789623220.7555835,
-    "ast_hash": "aab74b3dd6266c52835c0e32b01185c3",
-    "semantic_hash": ""
-  },
   "backend/src/test/java/com/careme/backend/service/ClinicalConversationIntegrationTest.java": {
-    "mtime": 1789621515.1562185,
-    "seen": 1789623220.7582653,
-    "ast_hash": "cd08a7d7c9249e53dee74cf2b9e0613e",
-    "semantic_hash": ""
-  },
-  "backend/src/test/java/com/careme/backend/service/FakeClinicalConversationComposerTest.java": {
-    "mtime": 1789703136.006261,
-    "seen": 1789703942.9630241,
-    "ast_hash": "978914de8905d19390e170d007a32abd",
-    "semantic_hash": ""
-  },
-  "backend/src/test/java/com/careme/backend/service/OpenAiClinicalConversationComposerTest.java": {
-    "mtime": 1789703136.006261,
-    "seen": 1789703942.9632432,
-    "ast_hash": "a7efa56536e902a27daaf8063dc8f850",
-    "semantic_hash": ""
-  },
-  "backend/src/main/resources/prompts/clinical-intent-v3.txt": {
-    "mtime": 1789621515.1482918,
-    "seen": 1789623220.7763572,
-    "ast_hash": "471f997a5dabd8ee05c61c5d4f76b0dc",
-    "semantic_hash": ""
-  },
-  "backend/src/main/resources/prompts/conversation-reply-v1.txt": {
-    "mtime": 1789621515.1517954,
-    "seen": 1789623220.776361,
-    "ast_hash": "55b4e4e9572736fe765eeed463e73f88",
+    "mtime": 1789880453.6116097,
+    "seen": 1789885983.364945,
+    "ast_hash": "bc68c515717d18f387c6be49ae25539d",
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-09-17-uc-010/.openspec.yaml": {
@@ -1704,9 +1620,9 @@
     "semantic_hash": ""
   },
   "docs/use-cases/UC-011.md": {
-    "mtime": 1789697709.9991262,
-    "seen": 1789703942.9716754,
-    "ast_hash": "7f0e2f4b69d170c7cb1c6f21f6bfb2b8",
+    "mtime": 1789872515.3297305,
+    "seen": 1789875892.6758604,
+    "ast_hash": "af7d99067fd97f3ea83b286bf7e9fd15",
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-09-17-raise-jacoco-coverage/.openspec.yaml": {
@@ -1776,15 +1692,321 @@
     "semantic_hash": ""
   },
   "docs/concepts/07-calidad.md": {
-    "mtime": 1789708949.5710745,
-    "seen": 1789709857.1965563,
-    "ast_hash": "cb298e94adb523ec5ac1bbb5644cdc75",
+    "mtime": 1789886692.645861,
+    "seen": 1789886706.697964,
+    "ast_hash": "7c98fd2ed96b7d1644ec72733c97b8ca",
     "semantic_hash": ""
   },
   "docs/concepts/08-despliegue.md": {
-    "mtime": 1789709434.5615935,
-    "seen": 1789709857.1965592,
-    "ast_hash": "54149c1357ba748584ffdcccd44cfdfb",
+    "mtime": 1789882597.5369484,
+    "seen": 1789885983.3774962,
+    "ast_hash": "56443093e5b0ca92ec1771a340fb1497",
+    "semantic_hash": ""
+  },
+  "docs/use-cases/UC-012-acceptance-criteria.md": {
+    "mtime": 1789872515.3235137,
+    "seen": 1789875892.675862,
+    "ast_hash": "127f3a48e56476112fd633f05bcda1b5",
+    "semantic_hash": ""
+  },
+  "docs/use-cases/UC-012.md": {
+    "mtime": 1789872515.3235137,
+    "seen": 1789875892.6758637,
+    "ast_hash": "71c62edbfcfafea510666f2c954dc06c",
+    "semantic_hash": ""
+  },
+  "docs/use-cases/reglas-de-negocio.md": {
+    "mtime": 1789872515.3225358,
+    "seen": 1789875892.6758652,
+    "ast_hash": "1c0975f9101efd4f6f0ca0a3db35c85b",
+    "semantic_hash": ""
+  },
+  "docs/ux/principios.md": {
+    "mtime": 1789835037.6817265,
+    "seen": 1789875892.6758661,
+    "ast_hash": "3518db8067c1c43ae0b6b922965749fb",
+    "semantic_hash": ""
+  },
+  "docs/vision.md": {
+    "mtime": 1789833098.8455236,
+    "seen": 1789875892.6758668,
+    "ast_hash": "fb773ef1e70059c2a18e3936af067d76",
+    "semantic_hash": ""
+  },
+  "backend/src/main/java/com/careme/backend/dto/AgentOperation.java": {
+    "mtime": 1789880453.5782595,
+    "seen": 1789885983.3590362,
+    "ast_hash": "f827d95f2d2d8d6f86e66c24e7042f4d",
+    "semantic_hash": ""
+  },
+  "backend/src/main/java/com/careme/backend/service/AgentContext.java": {
+    "mtime": 1789880453.586611,
+    "seen": 1789885983.3613756,
+    "ast_hash": "f173c36be92407c5e676962d565cce2a",
+    "semantic_hash": ""
+  },
+  "backend/src/main/java/com/careme/backend/service/AgentOperationCall.java": {
+    "mtime": 1789880453.5792592,
+    "seen": 1789885983.361378,
+    "ast_hash": "aa0ea473b11d581002f4a13778a8d6b5",
+    "semantic_hash": ""
+  },
+  "backend/src/main/java/com/careme/backend/service/AgentOperationExecutor.java": {
+    "mtime": 1789880453.5806112,
+    "seen": 1789885983.3613796,
+    "ast_hash": "18d585524313deaa1a7af1b477197eef",
+    "semantic_hash": ""
+  },
+  "backend/src/main/java/com/careme/backend/service/AgentOperationResult.java": {
+    "mtime": 1789880453.5796096,
+    "seen": 1789885983.3613815,
+    "ast_hash": "4262bd5992676d1c8bdf22406f3cca15",
+    "semantic_hash": ""
+  },
+  "backend/src/main/java/com/careme/backend/service/AgentProvider.java": {
+    "mtime": 1789880453.587609,
+    "seen": 1789885983.361384,
+    "ast_hash": "b725a2b036d3ad64ae01c6d9a844db4e",
+    "semantic_hash": ""
+  },
+  "backend/src/main/java/com/careme/backend/service/AgentToolContract.java": {
+    "mtime": 1789880453.5836117,
+    "seen": 1789885983.3613858,
+    "ast_hash": "ea63f6840654b0e57445fc2c44395f8f",
+    "semantic_hash": ""
+  },
+  "backend/src/main/java/com/careme/backend/service/AgentTurn.java": {
+    "mtime": 1789880453.588609,
+    "seen": 1789885983.3613877,
+    "ast_hash": "62b0b8a7e0e660b4d23b6e448b8360db",
+    "semantic_hash": ""
+  },
+  "backend/src/main/java/com/careme/backend/service/AgentTurnOutcome.java": {
+    "mtime": 1789880453.5996108,
+    "seen": 1789885983.3613899,
+    "ast_hash": "6e2cced38b64efd1c80441a9bbe48b91",
+    "semantic_hash": ""
+  },
+  "backend/src/main/java/com/careme/backend/service/AgentTurnRunner.java": {
+    "mtime": 1789880453.589611,
+    "seen": 1789885983.361392,
+    "ast_hash": "add35074a02b5c8b186f66cacd3f4eca",
+    "semantic_hash": ""
+  },
+  "backend/src/main/java/com/careme/backend/service/ClinicalAgent.java": {
+    "mtime": 1789880453.5946102,
+    "seen": 1789885983.3613968,
+    "ast_hash": "dea32add339e8be4ac27c33b0c9b9d75",
+    "semantic_hash": ""
+  },
+  "backend/src/main/java/com/careme/backend/service/FakeClinicalAgent.java": {
+    "mtime": 1789880453.6026106,
+    "seen": 1789885983.3628201,
+    "ast_hash": "2ce94df78189cd64d53481e5c90237cd",
+    "semantic_hash": ""
+  },
+  "backend/src/main/java/com/careme/backend/service/OpenAiAgentProvider.java": {
+    "mtime": 1789880453.589611,
+    "seen": 1789885983.3632035,
+    "ast_hash": "91fd0ef29dd7d23bddfb58ae303d343e",
+    "semantic_hash": ""
+  },
+  "backend/src/main/java/com/careme/backend/service/OpenAiClinicalAgent.java": {
+    "mtime": 1789880453.5966094,
+    "seen": 1789885983.3632052,
+    "ast_hash": "6da02d8de2442f372496ca8a9c962233",
+    "semantic_hash": ""
+  },
+  "backend/src/test/java/com/careme/backend/dto/AgentOperationTest.java": {
+    "mtime": 1789880453.5806112,
+    "seen": 1789885983.364031,
+    "ast_hash": "ae6c759bb7a987d10ab23a756e84355d",
+    "semantic_hash": ""
+  },
+  "backend/src/test/java/com/careme/backend/service/AgentOperationExecutorTest.java": {
+    "mtime": 1789880453.581612,
+    "seen": 1789885983.3647342,
+    "ast_hash": "33a9fc527862be15ff0068a67941213e",
+    "semantic_hash": ""
+  },
+  "backend/src/test/java/com/careme/backend/service/AgentToolContractTest.java": {
+    "mtime": 1789880453.5836117,
+    "seen": 1789885983.364736,
+    "ast_hash": "abcf9897ce4604a559aa427e7b724170",
+    "semantic_hash": ""
+  },
+  "backend/src/test/java/com/careme/backend/service/AgentTurnOutcomeTest.java": {
+    "mtime": 1789880453.6006095,
+    "seen": 1789885983.3647377,
+    "ast_hash": "483a7d8c6433c1bce13ebb4462b22db3",
+    "semantic_hash": ""
+  },
+  "backend/src/test/java/com/careme/backend/service/AgentTurnRunnerTest.java": {
+    "mtime": 1789880453.5936096,
+    "seen": 1789885983.3647394,
+    "ast_hash": "f60d66b65cede76fe0aaeabe97007986",
+    "semantic_hash": ""
+  },
+  "backend/src/test/java/com/careme/backend/service/ClinicalEventSurvivesLaterFailureIntegrationTest.java": {
+    "mtime": 1789880453.62734,
+    "seen": 1789885983.365642,
+    "ast_hash": "bf734ccade6312484c419211c8fefe5c",
+    "semantic_hash": ""
+  },
+  "backend/src/test/java/com/careme/backend/service/FakeClinicalAgentTest.java": {
+    "mtime": 1789880453.6026106,
+    "seen": 1789885983.3661265,
+    "ast_hash": "64b5b9ec1974793df322e1d13c933a1e",
+    "semantic_hash": ""
+  },
+  "backend/src/test/java/com/careme/backend/service/OpenAiAgentProviderTest.java": {
+    "mtime": 1789880453.6413388,
+    "seen": 1789885983.3666172,
+    "ast_hash": "d22fd390b8ade4b0816b327886c25b5e",
+    "semantic_hash": ""
+  },
+  "frontend/e2e/corpus/clinical-history.json": {
+    "mtime": 1789885387.5525513,
+    "seen": 1789885983.3668354,
+    "ast_hash": "7963f427d69c306b184d0271a7eaa57f",
+    "semantic_hash": ""
+  },
+  "frontend/e2e/corpus/corpus.spec.ts": {
+    "mtime": 1789885387.553288,
+    "seen": 1789885983.3668377,
+    "ast_hash": "293a54efae2694341060445a30164b91",
+    "semantic_hash": ""
+  },
+  "frontend/e2e/playwright/helpers.ts": {
+    "mtime": 1789885387.550553,
+    "seen": 1789885983.3668396,
+    "ast_hash": "ad2f1666cc48d7f1ab72572e7ce2e3c5",
+    "semantic_hash": ""
+  },
+  "frontend/e2e/playwright/uc-012.spec.ts": {
+    "mtime": 1789882597.9099505,
+    "seen": 1789885983.3668413,
+    "ast_hash": "4c8f4be4cb2cc564ae2b0b5e53e0c318",
+    "semantic_hash": ""
+  },
+  "frontend/e2e/support/history.ts": {
+    "mtime": 1789885387.553288,
+    "seen": 1789885983.3668425,
+    "ast_hash": "c31b706ff07d96537ec31dfad4bc310e",
+    "semantic_hash": ""
+  },
+  "frontend/playwright.config.ts": {
+    "mtime": 1789885387.5485492,
+    "seen": 1789885983.3670661,
+    "ast_hash": "bf1de54768033915f389a9ad9afb05ce",
+    "semantic_hash": ""
+  },
+  "frontend/test-results/.last-run.json": {
+    "mtime": 1789885110.7027497,
+    "seen": 1789885983.3721657,
+    "ast_hash": "78ee59c68fd13767e517066b4d3c92e0",
+    "semantic_hash": ""
+  },
+  "backend/src/main/resources/prompts/clinical-agent-v1.txt": {
+    "mtime": 1789880453.59161,
+    "seen": 1789885983.3766668,
+    "ast_hash": "886bbce412eefac968229f9d1308f1e1",
+    "semantic_hash": ""
+  },
+  "frontend/test-results/corpus-corpus-\u00b7-medici\u00f3n-y-2dc1d-al-y-qu\u00e9-encontr\u00f3-el-corpus-corpus/error-context.md": {
+    "mtime": 1789885110.6336708,
+    "seen": 1789885983.379793,
+    "ast_hash": "4da39081406b27228e791e637d455c03",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-09-20-align-llm-adapter-contract-wording/.openspec.yaml": {
+    "mtime": 1789885760.9709623,
+    "seen": 1789885983.3851557,
+    "ast_hash": "a117aacc13f92d1cefe701846a47c991",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-09-20-align-llm-adapter-contract-wording/design.md": {
+    "mtime": 1789885797.7051218,
+    "seen": 1789885983.3851578,
+    "ast_hash": "d9be92684a651f587f9502af5bea0c2c",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-09-20-align-llm-adapter-contract-wording/proposal.md": {
+    "mtime": 1789885796.7830832,
+    "seen": 1789885983.3851595,
+    "ast_hash": "7d7f5e0dcebf7159c03364d539a7f79a",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-09-20-align-llm-adapter-contract-wording/specs/llm-clinical-intent-adapter/spec.md": {
+    "mtime": 1789885798.7013762,
+    "seen": 1789885983.3851607,
+    "ast_hash": "a12f25caaa14e4c54fcef90845568e28",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-09-20-align-llm-adapter-contract-wording/tasks.md": {
+    "mtime": 1789885863.1565297,
+    "seen": 1789885983.3851626,
+    "ast_hash": "7a53d140baa32ea114f29506c2f3b2dc",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-09-20-uc-012/.openspec.yaml": {
+    "mtime": 1789873186.589321,
+    "seen": 1789885983.385164,
+    "ast_hash": "75cf8d7a782a9dc39c1083c6a943e514",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-09-20-uc-012/design.md": {
+    "mtime": 1789885387.5485492,
+    "seen": 1789885983.3851655,
+    "ast_hash": "805a423021f364b037e1a926fea73021",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-09-20-uc-012/proposal.md": {
+    "mtime": 1789874567.4949853,
+    "seen": 1789885983.3851676,
+    "ast_hash": "ae1d85cbe735e88bad994aee8751c6f6",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-09-20-uc-012/specs/assistant-agent-turn/spec.md": {
+    "mtime": 1789874567.4959855,
+    "seen": 1789885983.3851695,
+    "ast_hash": "7e518399afcbefdfc043e2e275b9d4e7",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-09-20-uc-012/specs/assistant-chat-interface/spec.md": {
+    "mtime": 1789880453.5752559,
+    "seen": 1789885983.385171,
+    "ast_hash": "922efdaf3ea24a4d57e18a7aa1392927",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-09-20-uc-012/specs/assistant-conversation/spec.md": {
+    "mtime": 1789880453.5752559,
+    "seen": 1789885983.3851724,
+    "ast_hash": "676bfaa9f1648552f41252417124823b",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-09-20-uc-012/specs/clinical-event-registration/spec.md": {
+    "mtime": 1789874567.497988,
+    "seen": 1789885983.3851743,
+    "ast_hash": "9d494d535b0b385fec0b87a4ae2b3ced",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-09-20-uc-012/specs/llm-clinical-intent-adapter/spec.md": {
+    "mtime": 1789880453.5652552,
+    "seen": 1789885983.3851755,
+    "ast_hash": "264d56c27957928e6bb42180e05dcc6c",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-09-20-uc-012/tasks.md": {
+    "mtime": 1789885387.5485492,
+    "seen": 1789885983.3851779,
+    "ast_hash": "3620f88e9b0a06afde558e727a1234f1",
+    "semantic_hash": ""
+  },
+  "openspec/specs/assistant-agent-turn/spec.md": {
+    "mtime": 1789885986.0762973,
+    "seen": 1789886706.7176397,
+    "ast_hash": "752a5b176fa76f037049af1384a73836",
     "semantic_hash": ""
   }
 }

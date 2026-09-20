@@ -67,12 +67,14 @@ test an old build by mistake.
 | `pnpm typecheck`    | TypeScript check without emitting        |
 | `pnpm test`         | Vitest, single run                       |
 | `pnpm test:watch`   | Vitest in watch mode                     |
+| `pnpm test:e2e`     | Playwright against a running stack       |
+| `pnpm test:e2e:corpus` | Playwright, the evaluation corpus     |
 
 ## Project structure
 
 ```
 frontend/
-├── e2e/playwright/               # Reserved for end-to-end tests
+├── e2e/playwright/               # Playwright end-to-end scenarios
 ├── src/
 │   ├── app/                      # layout, chat (/), clinical-events, measurements, error
 │   ├── components/ui/            # shadcn/ui primitives
@@ -162,14 +164,29 @@ the containers, is covered in the [root README](../README.md).
 ```bash
 pnpm test        # Vitest, single run
 pnpm test:watch  # Vitest in watch mode
+pnpm test:e2e    # Playwright against an already running stack
+pnpm test:e2e:corpus  # the evaluation corpus, also against an already running stack
 ```
 
-Tests run in jsdom and need neither the backend nor the database.
+Unit and component tests run in jsdom and need neither the backend nor the
+database. The end-to-end scenarios under `e2e/playwright/` drive the real
+interface, so they need the backend and PostgreSQL up with the real assistant, and
+`CAREME_EVENTS_DIRECTORY` pointing at the clinical history they assert against —
+which they expect to start empty.
 
-128 test cases across the measurements and chat features, including validation
+The evaluation corpus under `e2e/corpus/` is the phase's measurement instrument
+(`roadmap_asistente_historia_clinica.md` §4.11): fictional clinical facts plus an
+independent set of test questions. It drives the chat API rather than the browser,
+because the measurements it produces — the status of the turn and how many
+operations it needed — belong to the backend contract. It needs the same stack, a
+history that is already seeded (or an empty one, which it seeds itself) and
+`E2E_API_BASE_URL` when the backend is not on `http://localhost:8080`. It reports a
+scorecard instead of stopping at the first finding.
+
+134 test cases across the measurements and chat features, including validation
 and rendering of the answered, no-records and general-conversation chat outcomes
 with supporting events, the absence reason, the offered continuation and the
-conversational part of a mixed turn.
+operations a turn went through.
 Unit tests cover the pure helpers in `measurements/lib/metrics.ts` (sorting,
 series building, axis domain, localization, local-day helpers), the Zod schemas
 (measurement API payloads, the registration form and the chat turn) and both
@@ -195,6 +212,6 @@ and `ChatWorkspace` with its actions.
 ## Deferred from the frontend standard
 
 The project follows `docs/standards/next-standards.md` progressively. Still
-pending: Storybook, Playwright, TanStack Query, Zustand, runtime i18n and dark
-mode. The structure already reserves the places they will live in
-(`e2e/playwright/`, `src/components/ui/`) so adopting them is additive.
+pending: Storybook, TanStack Query, Zustand, runtime i18n and dark mode. The
+structure already reserves the places they will live in (`src/components/ui/`) so
+adopting them is additive.

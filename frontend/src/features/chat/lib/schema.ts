@@ -43,22 +43,37 @@ const absenceReasonSchema = z.enum([
 /** What the user is offered after an absence. */
 const suggestedActionSchema = z.enum(["reformulate", "register"]);
 
+/** The outcome of one turn. */
+const chatStatusSchema = z.enum([
+  "registered",
+  "answered",
+  "no_records",
+  "clarification_required",
+  "general_conversation",
+  "duplicate",
+  "failed",
+]);
+
+/**
+ * One operation the turn went through, with its own result. The turn's message is
+ * the single answer; this is what lets the interface tell what was completed from
+ * what was not.
+ */
+const operationSummarySchema = z.object({
+  status: chatStatusSchema,
+  events: z.array(chatEventSchema),
+  absenceReason: absenceReasonSchema.nullish(),
+  suggestedActions: z.array(suggestedActionSchema).optional(),
+});
+
 /** One turn as the backend returns it. */
 export const chatResponseSchema = z.object({
   conversationId: z.string(),
   messageId: z.string(),
-  status: z.enum([
-    "registered",
-    "answered",
-    "no_records",
-    "clarification_required",
-    "general_conversation",
-    "duplicate",
-    "failed",
-  ]),
+  status: chatStatusSchema,
   message: z.string(),
   events: z.array(chatEventSchema),
   absenceReason: absenceReasonSchema.nullish(),
   suggestedActions: z.array(suggestedActionSchema).optional(),
-  generalReply: z.string().nullish(),
+  operations: z.array(operationSummarySchema).optional(),
 });

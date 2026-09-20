@@ -39,9 +39,14 @@ export type ChatResponse = {
   /** Present on a `no_records` turn; absent or empty otherwise. */
   suggestedActions?: SuggestedAction[];
   /**
-   * The conversational part of a message that also depends on the clinical
-   * history. It travels apart from `message` so the interface never presents a
-   * conversational reply as an answer grounded in the history.
+   * Every operation the turn went through, in the order it ran. `message` is the
+   * single answer; this lets the interface tell what was completed from what was
+   * not, instead of presenting an incomplete turn as fully successful.
    */
-  generalReply?: string | null;
+  operations?: Array<{
+    status: ChatStatus;
+    events: ChatResponse["events"];
+    absenceReason?: AbsenceReason | null;
+    suggestedActions?: SuggestedAction[];
+  }>;
 };

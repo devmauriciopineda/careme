@@ -203,7 +203,7 @@ describe("ChatWorkspace", () => {
     expect(screen.queryByText(/te recomiendo|deberías tomar/i)).not.toBeInTheDocument();
   });
 
-  it("shows the general part of a mixed turn apart from the grounded answer", async () => {
+  it("shows a turn that registered a fact and answered a question as one answer", async () => {
     const user = userEvent.setup();
     sendChatMessageMock.mockResolvedValue({
       ok: true,
@@ -211,7 +211,7 @@ describe("ChatWorkspace", () => {
         conversationId: "conversation-1",
         messageId: "message-1",
         status: "answered",
-        message: "Te la diagnosticaron en enero.",
+        message: "He registrado el diagnóstico y esto es lo que consta.",
         events: [
           {
             code: "evt_001",
@@ -221,48 +221,62 @@ describe("ChatWorkspace", () => {
             content: "Hipertensión diagnosticada",
           },
         ],
-        generalReply: "Es una condición que se mide y se valora en consulta.",
+        operations: [
+          { status: "registered", events: [] },
+          {
+            status: "answered",
+            events: [
+              {
+                code: "evt_001",
+                type: "diagnosis",
+                date: "2026-01-10",
+                datePrecision: "exact",
+                content: "Hipertensión diagnosticada",
+              },
+            ],
+          },
+        ],
       },
     });
 
     render(<ChatWorkspace />);
-    await send(user, "¿Qué es la hipertensión? ¿Cuándo me la diagnosticaron?");
+    await send(user, "Me diagnosticaron hipertensión. ¿Qué diagnósticos tengo?");
 
-    expect(await screen.findByText("Te la diagnosticaron en enero.")).toBeInTheDocument();
+    expect(await screen.findByText("He registrado el diagnóstico y esto es lo que consta.")).toBeInTheDocument();
 
-    const conversation = screen.getByRole("group", { name: "Conversación general" });
-    expect(within(conversation).getByText("Es una condición que se mide y se valora en consulta.")).toBeInTheDocument();
-    expect(within(conversation).queryByText("Hipertensión diagnosticada")).not.toBeInTheDocument();
+    const operations = screen.getByRole("list", { name: "Operaciones del turno" });
+    expect(within(operations).getByText("Registrado")).toBeInTheDocument();
+    expect(within(operations).getByText("Respuesta")).toBeInTheDocument();
 
     const supporting = screen.getByRole("list", { name: "Hechos que sustentan la respuesta" });
     expect(within(supporting).getByText("Hipertensión diagnosticada")).toBeInTheDocument();
-    expect(
-      within(supporting).queryByText("Es una condición que se mide y se valora en consulta.")
-    ).not.toBeInTheDocument();
   });
 
-  it("names the conversational block and leaks no internal detail", async () => {
+  it("shows an operation that did not complete apart from the ones that did", async () => {
     const user = userEvent.setup();
     sendChatMessageMock.mockResolvedValue({
       ok: true,
       response: {
         conversationId: "conversation-1",
         messageId: "message-1",
-        status: "no_records",
-        message: "No encuentro registros que respondan a tu pregunta.",
+        status: "failed",
+        message: "No he podido completar lo que me pedías. Puedes reintentarlo.",
         events: [],
-        absenceReason: "no_term_match",
-        suggestedActions: ["reformulate", "register"],
-        generalReply: "Es una condición que se mide y se valora en consulta.",
+        operations: [
+          { status: "registered", events: [] },
+          { status: "failed", events: [] },
+        ],
       },
     });
 
     render(<ChatWorkspace />);
-    await send(user, "¿Qué es la hipertensión? ¿He tenido migrañas?");
+    await send(user, "Registra esto y dime qué consta.");
 
-    const conversation = await screen.findByRole("group", { name: "Conversación general" });
-    expect(within(conversation).getByText("Es una condición que se mide y se valora en consulta.")).toBeInTheDocument();
-    expect(screen.getByText("Sin registros")).toBeInTheDocument();
+    expect(await screen.findByText(/No he podido completar/)).toBeInTheDocument();
+
+    const operations = screen.getByRole("list", { name: "Operaciones del turno" });
+    expect(within(operations).getByText("Registrado")).toBeInTheDocument();
+    expect(within(operations).getByText("Sin completar · No se pudo completar")).toBeInTheDocument();
     expect(screen.queryByText(/prompt|stack trace|credential|deepseek/i)).not.toBeInTheDocument();
   });
 

@@ -103,15 +103,17 @@ They are not persisted; they describe the HTTP contract.
   it holds no facts and, instead, the response reports the reason for the absence
   (`absenceReason`: `empty_history`, `no_events_of_type`,
   `no_events_in_period` or `no_term_match`) and the actions offered
-  (`suggestedActions`: `reformulate`, `register`). When the message mixes a
-  general part with another part that depends on the history, `generalReply`
-  carries the conversational part, apart from the clinical result. The three
-  fields are optional and additive.
-- **ClinicalEventIntent**: the structured contract between the chat and
-  registration or the query; `kind` (`events`, `query`, `clarification`,
-  `conversation`), with search criteria and the general part of the message in the
-  query, `events` and `clarification`. It is what the LLM adapter produces and the
-  domain validates.
+  (`suggestedActions`: `reformulate`, `register`). The response also reports the
+  operations the turn went through (`operations`), each with its own status and
+  support, so a client can tell what was completed from what was not. Those fields
+  are optional and additive.
+- **AgentOperation**: the closed set of operations the assistant may ask for —
+  `consult_history` and `register_event` — declared to the provider and executed
+  by the application, which validates before writing.
+- **ClinicalEventIntent**: the structured contract the application builds for a
+  registration or a query; `kind` (`events`, `query`, `clarification`,
+  `conversation`), with the search criteria in the query. It is what the
+  application validates before persisting or retrieving.
 
 **Import file format:** required columns `date`, `weight_kg` and
 `abdominal_circumference_cm`, with a header. Default limit of 10000 rows.

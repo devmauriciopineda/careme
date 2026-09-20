@@ -73,12 +73,6 @@ public record ClinicalEventIntent(
      * A question about the patient's own clinical history and the criteria the
      * backend uses to retrieve the events that can answer it. The scope decides
      * the destination: the clinical history or the measurement tracking space.
-     *
-     * @param generalPart the part of the same message that does not depend on the
-     *                    clinical history, in the user's own words, or {@code null}
-     *                    when the whole message is the question. It is never a
-     *                    retrieval criterion and it is answered as conversation,
-     *                    apart from the history outcome.
      */
     public record Query(
             String question,
@@ -86,23 +80,10 @@ public record ClinicalEventIntent(
             List<String> searchTerms,
             ClinicalEvent.ClinicalEventType type,
             LocalDate fromDate,
-            LocalDate toDate,
-            String generalPart) {
+            LocalDate toDate) {
 
         public Query {
             searchTerms = searchTerms == null ? List.of() : List.copyOf(searchTerms);
-            generalPart = generalPart == null || generalPart.isBlank() ? null : generalPart;
-        }
-
-        /** A question that carries no general part, which is the usual case. */
-        public Query(
-                String question,
-                Scope scope,
-                List<String> searchTerms,
-                ClinicalEvent.ClinicalEventType type,
-                LocalDate fromDate,
-                LocalDate toDate) {
-            this(question, scope, searchTerms, type, fromDate, toDate, null);
         }
 
         public enum Scope {

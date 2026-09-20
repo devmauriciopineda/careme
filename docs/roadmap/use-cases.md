@@ -2,7 +2,7 @@
 
 > **MVP cerrado el 2026-09-18.** 8 de 11 implementados · 3 cubiertos.
 >
-> Implementación actual: **UC-001 → UC-004, UC-007, UC-008, UC-010 y UC-011**.
+> Implementación actual: **UC-001 → UC-004, UC-007, UC-008, UC-010, UC-011 y UC-012**.
 >
 > Todos los casos de uso del MVP están implementados o cubiertos.
 >
@@ -111,14 +111,16 @@ Casos de uso previstos para la Fase 4 del
 —agente con herramientas, consulta y modelo de mediciones—, el perfil del paciente y la ampliación del
 modelo clínico.
 
-Se enuncian aquí para fijar el alcance de la fase. **Los documentos de caso de uso y sus criterios de
-aceptación están pendientes de escribir.**
+Se enuncian aquí para fijar el alcance de la fase. **UC-012 ya está implementado; los demás siguen
+pendientes de escribir.**
 
 ## UC-012 — Operar el asistente como agente con herramientas y proveedor LLM real por defecto
 
-**Estado:** ⬜ Pendiente
+**Estado:** ✅ Implementado
 
 El asistente decide qué necesita hacer y llama herramientas para consultar o registrar, y el backend valida dentro de la llamada.
+
+Documento: [`UC-012.md`](../use-cases/UC-012.md) — «Atender un mensaje que requiere varias operaciones» · [criterios de aceptación](../use-cases/UC-012-acceptance-criteria.md). Cambio archivado: `openspec/changes/archive/2026-09-20-uc-012/`.
 
 ## UC-013 — Sostener una consulta y registrar con procedencia los hechos que el usuario menciona
 

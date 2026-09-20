@@ -99,23 +99,41 @@ describe("chatResponseSchema", () => {
     expect(parsed.success).toBe(false);
   });
 
-  it("accepts a turn that carries the general part of a mixed message", () => {
+  it("accepts a turn that reports the operations it went through", () => {
     const parsed = chatResponseSchema.safeParse({
       ...base,
       status: "answered",
-      generalReply: "Es una condición que se mide y se valora en consulta.",
+      operations: [
+        { status: "registered", events: [] },
+        {
+          status: "answered",
+          events: [
+            {
+              code: "evt_001",
+              type: "diagnosis",
+              date: "2026-01-10",
+              datePrecision: "exact",
+              content: "Hipertensión diagnosticada",
+            },
+          ],
+        },
+      ],
     });
 
     expect(parsed.success).toBe(true);
   });
 
-  it("accepts a turn that omits the general part or reports it as null", () => {
+  it("accepts a turn that omits the operations", () => {
     expect(chatResponseSchema.safeParse({ ...base, status: "answered" }).success).toBe(true);
-    expect(chatResponseSchema.safeParse({ ...base, status: "answered", generalReply: null }).success).toBe(true);
+    expect(chatResponseSchema.safeParse({ ...base, status: "answered", operations: [] }).success).toBe(true);
   });
 
-  it("rejects a general part the interface cannot render", () => {
-    const parsed = chatResponseSchema.safeParse({ ...base, status: "answered", generalReply: 12 });
+  it("rejects an operation the interface cannot read", () => {
+    const parsed = chatResponseSchema.safeParse({
+      ...base,
+      status: "answered",
+      operations: [{ status: "inventado", events: [] }],
+    });
 
     expect(parsed.success).toBe(false);
   });

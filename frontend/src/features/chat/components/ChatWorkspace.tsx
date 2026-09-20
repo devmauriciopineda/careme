@@ -15,9 +15,18 @@ type Message = {
   events?: ChatResponse["events"];
   absenceReason?: ChatResponse["absenceReason"];
   suggestedActions?: ChatResponse["suggestedActions"];
-  generalReply?: ChatResponse["generalReply"];
+  operations?: ChatResponse["operations"];
   retryText?: string;
 };
+
+/** The operations that produced a result the person can be told about. */
+const completedStatuses = new Set<NonNullable<ChatResponse["status"]>>([
+  "registered",
+  "answered",
+  "no_records",
+  "duplicate",
+  "general_conversation",
+]);
 
 const statusLabels: Record<NonNullable<Message["status"]>, string> = {
   registered: "Registrado",
@@ -127,7 +136,7 @@ export function ChatWorkspace() {
           events: outcome.response.events,
           absenceReason: outcome.response.absenceReason,
           suggestedActions: outcome.response.suggestedActions,
-          generalReply: outcome.response.generalReply,
+          operations: outcome.response.operations,
         },
       ]);
     });
@@ -172,15 +181,18 @@ export function ChatWorkspace() {
                 {message.role === "assistant" && message.status && (
                   <p className="mt-1 text-xs text-muted-foreground">{statusLabels[message.status]}</p>
                 )}
-                {message.role === "assistant" && message.generalReply && (
-                  <div
-                    aria-label="Conversación general"
-                    className="mt-2 rounded-xl border border-dashed border-border px-4 py-3 text-sm"
-                    role="group"
-                  >
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Conversación</p>
-                    <p className="mt-1">{message.generalReply}</p>
-                  </div>
+                {message.role === "assistant" && message.operations && (message.operations.length > 1 || message.operations.some((operation) => !completedStatuses.has(operation.status))) && (
+                  <ul aria-label="Operaciones del turno" className="mt-2 space-y-1">
+                    {message.operations.map((operation, index) => (
+                      <li
+                        className={completedStatuses.has(operation.status) ? "rounded-lg border border-border/70 bg-card px-3 py-2 text-xs text-muted-foreground" : "rounded-lg border border-dashed border-destructive/50 px-3 py-2 text-xs text-muted-foreground"}
+                        key={`${message.id}-operation-${index}`}
+                      >
+                        <span className="font-semibold text-foreground">{completedStatuses.has(operation.status) ? statusLabels[operation.status] : `Sin completar · ${statusLabels[operation.status]}`}</span>
+                        {operation.absenceReason && <span> · {absenceReasonLabels[operation.absenceReason]}</span>}
+                      </li>
+                    ))}
+                  </ul>
                 )}
                 {message.role === "assistant" && message.events && message.events.length > 0 && (
                   <ul aria-label="Hechos que sustentan la respuesta" className="mt-2 space-y-1">

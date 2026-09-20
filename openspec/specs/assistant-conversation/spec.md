@@ -37,63 +37,67 @@ The system MUST expose a non-streaming JSON chat operation that accepts a user m
 - **AND** the clinical history remains unchanged
 - **AND** the next turn is processed as a new turn
 
-### Requirement: Return explicit chat outcomes
+### Requirement: Report the outcome of the turn and the operations it went through
 
-The system MUST return exactly one observable outcome for each accepted message: `registered`, `answered`, `no_records`, `clarification_required`, `general_conversation`, `duplicate`, or `failed`. Each response MUST include a user-facing Spanish message and MUST NOT expose provider prompts, credentials, stack traces, or internal persistence details. For an `answered` outcome, the response MUST include the references to the clinical events that support the answer. For a `no_records` outcome, the response MUST include the reason the absence applies and the actionable continuation offered to the user, so a client can present both without reinterpreting the Spanish text. For a `general_conversation` outcome, the response MUST carry the conversational Spanish reply composed for that message, MUST NOT carry references to clinical events, and MUST NOT present any part of the reply as a fact recorded in the clinical history. For a `clarification_required` outcome the response MUST include a Spanish clarification question, and the system MUST also return it when it cannot determine whether the message depends on the clinical history. When a message contains both a general part and a part that depends on the clinical history, the response MUST carry the general part in a separate field from the outcome of the history part, so a client can present the two as different kinds of answer.
+El sistema MUST devolver exactamente un resultado observable por mensaje aceptado: `registered`, `answered`, `no_records`, `clarification_required`, `general_conversation`, `duplicate` o `failed`. Un turno MAY completar más de una operación. El sistema MUST informar de **todas** las operaciones por las que pasó el turno, en el orden en que se ejecutaron, cada una con su propio resultado, de modo que un cliente pueda distinguir lo que quedó completado de lo que no. La respuesta MUST incluir **una sola** respuesta visible para la persona, en español, que cubra todo lo que el mensaje requería, y MUST NOT exponer prompts del proveedor, credenciales, trazas ni detalles internos de la persistencia.
 
-#### Scenario: Return a registration outcome
-- **WHEN** the clinical registration completes successfully
-- **THEN** the response status is `registered` and includes a concise Spanish confirmation
+El estado del turno MUST describir el turno en su conjunto: MUST ser el resultado de la operación cuando el turno ejecutó una sola; MUST ser `answered` cuando el turno completó más de una operación y produjo una respuesta; y MUST ser `failed` cuando alguna operación no se completó, aunque otra del mismo turno sí lo hiciera.
 
-#### Scenario: Return an answered outcome
-- **WHEN** a question about the clinical history is answered from registered events
-- **THEN** the response status is `answered` and includes the Spanish answer
-- **AND** it includes the references to the clinical events that support the answer
+Para un resultado `answered`, la respuesta MUST incluir las referencias a los hechos clínicos que sustentan la respuesta. Para `no_records`, MUST incluir el motivo por el que la ausencia aplica y la continuación ofrecida a la persona. Para `general_conversation`, MUST llevar la réplica conversacional compuesta para ese mensaje, MUST NOT llevar referencias a hechos clínicos y MUST NOT presentar ninguna parte de la réplica como un hecho registrado. Para `clarification_required`, MUST incluir una pregunta de aclaración en español, y MUST devolverlo también cuando no pueda determinarse si el mensaje depende de la historia clínica. El sistema MUST NOT modificar la historia clínica al responder.
 
-#### Scenario: Return a no-records outcome
-- **WHEN** a question about the clinical history has no supporting registered events
-- **THEN** the response status is `no_records` and the Spanish message states that no records were found
-- **AND** it identifies which absence reason applies: an empty history, no events of the questioned type, no events in the questioned period, or no events matching the terms used
-- **AND** it includes the actionable continuation offered to the user
-- **AND** no clinical event is presented as support
+#### Scenario: Report a turn that registered a fact and answered a question
+- **WHEN** el turno completa un registro y una consulta
+- **THEN** la respuesta informa de las dos operaciones, cada una con su propio resultado
+- **AND** el estado es `answered`
+- **AND** la persona recibe una sola respuesta que cubre ambas cosas
 
-#### Scenario: Return a partial answer outcome
-- **WHEN** part of a question about the clinical history is supported by registered events and part is not
-- **THEN** the response answers the supported part and includes the references to the events it relies on
-- **AND** it declares the part of the question that has no records
-- **AND** no clinical event is presented as support for the unsupported part
+#### Scenario: Report a turn that went through several consultations
+- **WHEN** el turno ejecuta más de una consulta de la historia clínica
+- **THEN** la respuesta informa de cada consulta en el orden en que se ejecutó
+- **AND** ninguna operación completada se omite de la respuesta
+
+#### Scenario: Report a completed operation when another one failed
+- **WHEN** una operación del turno no se completa después de que otra sí lo hiciera
+- **THEN** el estado es `failed` con un mensaje reintentable en español
+- **AND** la respuesta informa de la operación que sí se completó, con su propio resultado
+- **AND** declara la operación que no se completó
+- **AND** no presenta el turno como completamente exitoso
+
+#### Scenario: Report an operation that was rejected for missing information
+- **WHEN** una operación no se ejecuta porque le falta información o contradice las reglas
+- **THEN** el estado es `clarification_required` e incluye una pregunta de aclaración en español
+- **AND** la respuesta informa de la operación como no completada
+- **AND** no se registra ningún hecho por esa operación
+
+#### Scenario: Report a no-records outcome with its reason and its continuation
+- **WHEN** una consulta de la historia no encuentra hechos que respondan la pregunta
+- **THEN** la respuesta informa de esa operación como una ausencia
+- **AND** identifica cuál de las situaciones de ausencia aplica
+- **AND** incluye la continuación ofrecida a la persona
+- **AND** no presenta ningún hecho clínico como sustento
+
+#### Scenario: Report a failure with a retryable message
+- **WHEN** el proveedor, la validación del contrato o la publicación de un hecho falla
+- **THEN** el estado es `failed` con un mensaje reintentable en español
+- **AND** ningún hecho clínico parcial queda visible
+- **AND** la respuesta informa de las operaciones del turno que sí se completaron
+
+#### Scenario: Answer general conversation without touching the history
+- **WHEN** el turno no ejecuta ninguna operación porque el mensaje no depende de la historia clínica
+- **THEN** el estado es `general_conversation` y lleva la réplica conversacional en español
+- **AND** la respuesta informa de que el turno no pasó por ninguna operación
+- **AND** no se registra ningún hecho clínico
 
 #### Scenario: Keep absence out of the failed outcome
-- **WHEN** the search cannot be completed, so no absence can be verified
-- **THEN** the response status is `failed` with a retryable Spanish message
-- **AND** it is not returned as `no_records`
-
-#### Scenario: Return a clarification outcome
-- **WHEN** the message could describe a clinical event but lacks sufficient information
-- **THEN** the response status is `clarification_required` and includes a Spanish clarification question
-- **AND** no clinical event is persisted
+- **WHEN** la búsqueda no puede completarse, de modo que ninguna ausencia puede verificarse
+- **THEN** el estado es `failed` con un mensaje reintentable en español
+- **AND** no se devuelve como `no_records`
 
 #### Scenario: Return a clarification outcome for an undetermined channel
-- **WHEN** the message may or may not depend on the clinical history and the system cannot determine which
-- **THEN** the response status is `clarification_required` and includes a Spanish clarification question
-- **AND** the system assumes no interpretation of the message
-- **AND** it does not read the clinical history
-
-#### Scenario: Return a general conversation outcome
-- **WHEN** the message contains no registrable clinical event and does not depend on the clinical history
-- **THEN** the response status is `general_conversation` and includes the conversational Spanish reply for that message
-- **AND** the reply addresses the message instead of acknowledging it
-- **AND** no clinical event is persisted
-
-#### Scenario: Return a failure outcome
-- **WHEN** the provider, contract validation, or event publication fails
-- **THEN** the response status is `failed` with a retryable Spanish message
-- **AND** no partial clinical event is visible
-
-#### Scenario: Keep the general part of a mixed message separate from the history outcome
-- **WHEN** the message contains a general part and a part that depends on the clinical history
-- **THEN** the response carries the general part in its own field and the outcome of the history part in its own state
-- **AND** a client can present the general part as conversation and the history outcome as a grounded result without reinterpreting either text
+- **WHEN** el mensaje puede o no depender de la historia clínica y el sistema no puede determinarlo
+- **THEN** el estado es `clarification_required` e incluye una pregunta de aclaración en español
+- **AND** el sistema no asume ninguna interpretación del mensaje
+- **AND** no lee la historia clínica
 
 ### Requirement: Make message retries idempotent
 
@@ -178,24 +182,3 @@ The system MUST decline, explicitly and in Spanish, any request for a diagnosis,
 - **THEN** the response status is `general_conversation`
 - **AND** the response carries no references to clinical events
 - **AND** no clinical event is presented as support
-
-### Requirement: Separate the general part of a mixed message
-
-When a message contains both a general part and a part that depends on the clinical history, the system MUST answer the general part as conversation and MUST handle the history part through the clinical history outcome. The system MUST NOT blend the two parts into a single statement, MUST NOT use the general part to answer the history part, and MUST NOT use the history part, its events, or its absence to answer the general part. The general part MUST NOT be presented as support of an answer about the clinical history.
-
-#### Scenario: Answer both parts of a mixed message
-- **WHEN** the message contains a general question and a question that depends on the clinical history
-- **THEN** the response carries the general part as conversation and the history part through its own outcome
-- **AND** the two parts are not presented in a single statement
-- **AND** the clinical history remains unchanged
-
-#### Scenario: Do not fill an absence with the general part
-- **WHEN** the history part of a mixed message has no supporting registered events
-- **THEN** the response declares the absence with its reason and keeps the general part separate from that declaration
-- **AND** the general conversation reply does not supply the missing clinical information
-- **AND** no clinical event is presented as support
-
-#### Scenario: Do not present the general part as support of a grounded answer
-- **WHEN** the history part of a mixed message is answered from registered events
-- **THEN** the response includes only those events as support
-- **AND** the general part is not presented as support of that answer

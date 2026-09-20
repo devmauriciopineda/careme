@@ -106,49 +106,73 @@ class ChatControllerTest {
     }
 
     @Test
-    void reportsTheGeneralPartOfAMixedTurnApartFromTheHistoryOutcome() throws Exception {
+    void reportsTheOperationsOfTheTurn() throws Exception {
         when(orchestrator.process(any())).thenReturn(new ChatMessageResponse(
                 "conversation-1", "message-1", ChatMessageResponse.Status.ANSWERED,
-                "Te la diagnosticaron en enero.",
+                "He registrado el diagnóstico y esto es lo que consta.",
                 List.of(new ChatMessageResponse.EventSummary(
-                        "evt_001", "diagnosis", "2026-01-10", "exact", "Hipertensión")),
+                        "evt_002", "diagnosis", "2026-02-01", "exact", "Hipertensión")),
                 null,
-                List.of(),
-                "Es una condición que se mide en consulta."));
+                List.of())
+                .withOperations(List.of(
+                        new ChatMessageResponse.OperationSummary(
+                                ChatMessageResponse.Status.REGISTERED,
+                                List.of(new ChatMessageResponse.EventSummary(
+                                        "evt_001", "diagnosis", "2026-01-10", "exact", "Hipertensión")),
+                                null,
+                                List.of()),
+                        new ChatMessageResponse.OperationSummary(
+                                ChatMessageResponse.Status.ANSWERED,
+                                List.of(new ChatMessageResponse.EventSummary(
+                                        "evt_002", "diagnosis", "2026-02-01", "exact", "Hipertensión")),
+                                null,
+                                List.of()))));
 
         mockMvc.perform(post("/api/v1/chat/messages")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"message\":\"¿Qué es la hipertensión? ¿Cuándo me la diagnosticaron?\",\"messageId\":\"message-1\"}"))
+                        .content("{\"message\":\"Me diagnosticaron hipertensión. ¿Qué diagnósticos tengo?\",\"messageId\":\"message-1\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("answered"))
-                .andExpect(jsonPath("$.message").value("Te la diagnosticaron en enero."))
-                .andExpect(jsonPath("$.generalReply").value("Es una condición que se mide en consulta."))
-                .andExpect(jsonPath("$.events[0].code").value("evt_001"));
+                .andExpect(jsonPath("$.message").value("He registrado el diagnóstico y esto es lo que consta."))
+                .andExpect(jsonPath("$.operations[0].status").value("registered"))
+                .andExpect(jsonPath("$.operations[0].events[0].code").value("evt_001"))
+                .andExpect(jsonPath("$.operations[1].status").value("answered"))
+                .andExpect(jsonPath("$.operations[1].events[0].code").value("evt_002"))
+                .andExpect(jsonPath("$.operations[1].events[0].datePrecision").value("exact"))
+                .andExpect(jsonPath("$.operations[2]").doesNotExist())
+                .andExpect(jsonPath("$.events[0].code").value("evt_002"));
     }
 
     @Test
-    void keepsTheAbsenceDetailOnAMixedTurnWithAGeneralPart() throws Exception {
+    void keepsTheAbsenceDetailAcrossTheOperationsOfTheTurn() throws Exception {
         when(orchestrator.process(any())).thenReturn(new ChatMessageResponse(
                 "conversation-1", "message-1", ChatMessageResponse.Status.NO_RECORDS,
                 "No encuentro registros que respondan a tu pregunta.",
                 List.of(),
                 ChatMessageResponse.AbsenceReason.NO_TERM_MATCH,
                 List.of(ChatMessageResponse.SuggestedAction.REFORMULATE,
-                        ChatMessageResponse.SuggestedAction.REGISTER),
-                "Es una condición que se mide en consulta."));
+                        ChatMessageResponse.SuggestedAction.REGISTER))
+                .withOperations(List.of(new ChatMessageResponse.OperationSummary(
+                        ChatMessageResponse.Status.NO_RECORDS,
+                        List.of(),
+                        ChatMessageResponse.AbsenceReason.NO_TERM_MATCH,
+                        List.of(ChatMessageResponse.SuggestedAction.REFORMULATE,
+                                ChatMessageResponse.SuggestedAction.REGISTER)))));
 
         mockMvc.perform(post("/api/v1/chat/messages")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"message\":\"¿Qué es la hipertensión? ¿He tenido migrañas?\",\"messageId\":\"message-1\"}"))
+                        .content("{\"message\":\"¿He tenido migrañas?\",\"messageId\":\"message-1\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("no_records"))
                 .andExpect(jsonPath("$.absenceReason").value("no_term_match"))
                 .andExpect(jsonPath("$.suggestedActions[0]").value("reformulate"))
-                .andExpect(jsonPath("$.generalReply").value("Es una condición que se mide en consulta."));
+                .andExpect(jsonPath("$.operations[0].status").value("no_records"))
+                .andExpect(jsonPath("$.operations[0].absenceReason").value("no_term_match"))
+                .andExpect(jsonPath("$.operations[0].suggestedActions[1]").value("register"));
     }
 
     @Test
-    void leavesTheGeneralPartOutOfTurnsThatHaveNone() throws Exception {
+    void leavesTheOperationsOutOfTurnsThatWentThroughNone() throws Exception {
         when(orchestrator.process(any())).thenReturn(new ChatMessageResponse(
                 "conversation-1", "message-1", ChatMessageResponse.Status.GENERAL_CONVERSATION,
                 "Es una condición que se mide en consulta.", List.of()));
@@ -158,8 +182,38 @@ class ChatControllerTest {
                         .content("{\"message\":\"¿Qué es la hipertensión?\",\"messageId\":\"message-1\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("general_conversation"))
-                .andExpect(jsonPath("$.generalReply").doesNotExist())
+                .andExpect(jsonPath("$.operations").isEmpty())
                 .andExpect(jsonPath("$.events").isEmpty());
+    }
+
+    @Test
+    void keepsTheCompletedOperationWhenAnotherOneDidNotComplete() throws Exception {
+        when(orchestrator.process(any())).thenReturn(new ChatMessageResponse(
+                "conversation-1", "message-1", ChatMessageResponse.Status.FAILED,
+                "No he podido completar lo que me pedías. Puedes reintentarlo.",
+                List.of(),
+                null,
+                List.of())
+                .withOperations(List.of(
+                        new ChatMessageResponse.OperationSummary(
+                                ChatMessageResponse.Status.REGISTERED,
+                                List.of(new ChatMessageResponse.EventSummary(
+                                        "evt_001", "diagnosis", "2026-01-10", "exact", "Hipertensión")),
+                                null,
+                                List.of()),
+                        new ChatMessageResponse.OperationSummary(
+                                ChatMessageResponse.Status.FAILED, List.of(), null, List.of()))));
+
+        mockMvc.perform(post("/api/v1/chat/messages")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"message\":\"Registra esto y dime qué consta.\",\"messageId\":\"message-1\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("failed"))
+                .andExpect(jsonPath("$.message").value("No he podido completar lo que me pedías. Puedes reintentarlo."))
+                .andExpect(jsonPath("$.operations[0].status").value("registered"))
+                .andExpect(jsonPath("$.operations[0].events[0].code").value("evt_001"))
+                .andExpect(jsonPath("$.operations[1].status").value("failed"))
+                .andExpect(jsonPath("$.operations[1].events").isEmpty());
     }
 
     @Test
@@ -184,13 +238,13 @@ class ChatControllerTest {
     }
 
         @Test
-        void normalizesOptionalChatResponseCollectionsAndBlankGeneralReply() {
+        void normalizesOptionalChatResponseCollections() {
                 var response = new ChatMessageResponse(
                                 "conversation-1", "message-1", ChatMessageResponse.Status.FAILED,
-                                "No se pudo", null, null, null, "  ");
+                                "No se pudo", null, null, null, null);
 
                 assertThat(response.events()).isEmpty();
                 assertThat(response.suggestedActions()).isEmpty();
-                assertThat(response.generalReply()).isNull();
+                assertThat(response.operations()).isEmpty();
         }
 }

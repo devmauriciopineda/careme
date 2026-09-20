@@ -97,6 +97,10 @@ Frontend: test -> typecheck -> lint -> build
           Vitest/jsdom -> TypeScript -> ESLint -> compilación Next.js
 ```
 
+Fuera de esas dos cadenas quedan las pruebas de extremo a extremo (§4.5) y la
+medición sobre un corpus de evaluación (§4.6): ambas necesitan la pila levantada,
+así que se ejecutan aparte y no forman parte de la compilación.
+
 La suite backend combina JUnit 5, Mockito, AssertJ, MockMvc, Spring Boot Test y
 Testcontainers. Las pruebas que requieren PostgreSQL arrancan `postgres:17-alpine`
 y aplican las migraciones reales. El frontend usa Vitest en `jsdom` y React
@@ -221,6 +225,56 @@ de la interfaz, no sus detalles privados.
 
 Puede comprobar validación, estados de carga, interacción, mensajes de error,
 filas de una tabla y contenido accesible de un gráfico.
+
+### 4.5 Prueba de extremo a extremo
+
+Una **prueba de extremo a extremo** recorre el producto desde la interfaz hasta
+sus dependencias reales. Su valor es el realismo: demuestra que el recorrido
+completo funciona, no que cada pieza funcione por separado. Su coste es la
+fragilidad y la lentitud, así que no sustituye a los niveles anteriores.
+
+Este nivel necesita un **oráculo externo** al sistema: algo distinto de la
+interfaz que permita decidir si el turno hizo lo que debía. En Careme el oráculo
+es el propio almacenamiento, los documentos Markdown de `data/events/`, que la
+ejecución lee directamente. La prueba no se conforma con contar archivos: compara
+una **instantánea de contenido** —nombre y hash de cada documento— antes y
+después del turno, de modo que «la historia clínica queda exactamente como
+estaba» signifique que nada se añadió, se modificó ni se borró.
+
+Los recorridos viven en `frontend/e2e/playwright/` y se ejecutan con
+`pnpm test:e2e`. Antes de contar con ellos hay que levantar la pila: el backend
+con el asistente real y PostgreSQL en marcha, y `CAREME_EVENTS_DIRECTORY`
+apuntando al directorio que la prueba inspecciona.
+
+### 4.6 Medición sobre un corpus de evaluación
+
+Una **medición sobre un corpus** no comprueba un caso: mide una propiedad sobre
+un conjunto de datos preparado. En lugar de una expectativa por ejecución hay un
+**corpus** —hechos ficticios y un conjunto independiente de preguntas de
+prueba— y un **tablero de resultados** al final. La diferencia importa: una
+prueba afirma y falla; una medición recoge y permite decidir. Por eso el corpus
+sirve para fijar valores que de otro modo se eligen por intuición, como cuántas
+operaciones necesita un turno real.
+
+El oráculo es lo delicado. Aquí no se puede comparar texto, porque el asistente
+redacta y dos respuestas correctas no coinciden palabra por palabra. Se miden
+**invariantes**: que el estado del turno sea el declarado, que toda referencia a
+un hecho corresponda a un documento que existe, que una pregunta sobre algo no
+registrado no produzca ninguna afirmación y que una consulta no escriba. La
+comprobación de «no invención» pide cautela aparte: una respuesta correcta a una
+pregunta de ausencia **nombra** lo que no consta —«no consta ninguna alergia al
+gluten»—, así que buscar por subcadena confundiría la negación con una
+afirmación. La medición mira si el término aparece **fuera de una negación o de
+una lista de términos buscados**.
+
+En Careme el corpus vive en `frontend/e2e/corpus/` y se ejecuta con
+`pnpm test:e2e:corpus`. Lo conduce la **API** y no el navegador, porque lo que
+mide —el estado del turno y cuántas operaciones necesitó— forma parte del
+contrato del backend y la interfaz no lo muestra entero; por eso
+`playwright.config.ts` declara dos proyectos, uno para la interfaz y otro para el
+corpus. Su veredicto puede quedar en rojo a propósito: cuando el corpus encuentra
+un fallo real de recuperación, se archiva como hallazgo documentado en lugar de
+rebajarse la expectativa para que pase.
 
 ## 5. Ejemplos del backend
 
@@ -443,6 +497,7 @@ sistema, también pueden usarse:
 No todas tienen que ejecutarse en cada cambio. Su selección depende del riesgo,
 la frecuencia de cambio, el coste de ejecución y la propiedad que se necesita
 evidenciar. En Careme, la suite existente prioriza reglas de dominio, contratos
-HTTP, componentes de interfaz, integración con PostgreSQL y cobertura del
-backend; las demás categorías sirven como contexto para ampliar la estrategia
-cuando el producto o su operación lo requieran.
+HTTP, componentes de interfaz, integración con PostgreSQL, cobertura del backend,
+y el recorrido de extremo a extremo con la medición sobre un corpus de evaluación
+(§4.5 y §4.6); las demás categorías sirven como contexto para ampliar la
+estrategia cuando el producto o su operación lo requieran.

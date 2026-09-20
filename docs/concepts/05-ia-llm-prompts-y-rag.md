@@ -33,8 +33,11 @@ Términos que hay que retener:
 - **Fundamentación (grounding)**: que la respuesta se apoye solo en los datos aportados, y que cite de dónde salió.
 - **Puerto**: interfaz que expresa una capacidad que el dominio necesita sin depender de una tecnología concreta.
 - **Adaptador**: componente que traduce entre el contrato de un puerto y una tecnología externa, como un proveedor LLM o el sistema de archivos.
+- **Herramienta** (o **función**): una capacidad acotada que el modelo puede pedir ejecutar, declarada por la aplicación con un nombre, una descripción y la forma de sus argumentos.
+- **Llamada a función** (*function calling*): modo de invocación en el que el modelo, en lugar de redactar directamente la respuesta final, devuelve qué función quiere invocar y con qué argumentos.
+- **Bucle de decisión**: la repetición acotada de «el modelo pide, el código ejecuta, el resultado vuelve al modelo» hasta que el modelo responde sin pedir nada más.
 
-Una distinción importante de vocabulario: este sistema usa un **adaptador de modelo** —llamadas puntuales con entrada y salida definidas—, no un **agente** ni un uso de **herramientas** por parte del modelo. El modelo no decide qué ejecutar; solo clasifica y redacta.
+Una distinción importante de vocabulario: este sistema **sí** es un **agente con herramientas**. El modelo no escribe en la persistencia ni consulta la base de datos —eso lo hace el código—, pero **decide** cuál de las operaciones declaradas atiende el mensaje, con qué argumentos, y puede encadenar más de una en un mismo turno. Lo que lo mantiene acotado es que el conjunto de operaciones es **cerrado y declarado**: el modelo no puede invocar una capacidad que la aplicación no haya publicado. Ver [`UC-012`](../use-cases/UC-012.md) y el catálogo de [reglas de negocio](../use-cases/reglas-de-negocio.md).
 
 ---
 
@@ -42,15 +45,15 @@ Una distinción importante de vocabulario: este sistema usa un **adaptador de mo
 
 **Por qué un LLM.** La entrada del sistema es lenguaje natural en español: "me diagnosticaron hipertensión el mes pasado", "¿cuándo empecé con la medicación?". Interpretar eso con reglas rígidas es frágil; el modelo maneja bien la variación del lenguaje. Pero el modelo **no es la fuente de verdad**: el código sigue siendo el que guarda, busca y decide.
 
-**Por qué salida estructurada en lugar de texto libre.** Si el modelo devolviera prosa, habría que adivinar qué quiso decir. Pidiéndole JSON con una forma fija, el resultado se convierte en un dato que el programa puede **validar y rechazar**. El modelo nunca escribe directamente en la persistencia: primero su salida pasa por validación.
+**Por qué salida estructurada en lugar de texto libre.** Si el modelo devolviera prosa, habría que adivinar qué quiso decir. Pidiéndole que elija entre operaciones declaradas y devuelva sus argumentos con una forma fija, el resultado se convierte en un dato que el programa puede **validar y rechazar**. El modelo nunca escribe directamente en la persistencia: la operación pasa por validación antes de tocar nada.
 
-**Por qué llamadas separadas.** El sistema no le pide todo al modelo en una sola vez. La primera llamada **clasifica** el mensaje y extrae una intención. A partir de ahí hay dos caminos de redacción, y en cada turno se usa uno solo: la **composición fundamentada** redacta una respuesta a partir de hechos ya recuperados, y la **composición conversacional** redacta una respuesta que no depende de la historia. Separarlas aporta tres cosas: la clasificación no necesita ver la historia; cada composición recibe únicamente el material que le corresponde —y lo que una llamada no recibe no lo puede afirmar—; y cada una se puede probar y sustituir por separado.
+**Por qué el modelo decide y el código ejecuta.** El sistema no clasifica el mensaje por su cuenta para después redactar: publica un conjunto **cerrado** de operaciones —consultar la historia, registrar un hecho— y deja que el modelo elija. Eso traslada al modelo la parte que hace bien, entender lenguaje natural variado, y deja en el código la parte que debe ser predecible: resolver los argumentos, validarlos, recuperar y escribir. Cada ejecución recibe únicamente el material que le corresponde, y lo que una ejecución no recibe no lo puede afirmar.
 
 **Por qué RAG con recuperación léxica.** El modelo no conoce la historia clínica de la persona, y no debe inventarla. La recuperación aporta los hechos reales, y el modelo solo los redacta. La búsqueda es **léxica** (sobre las palabras de la persona), no semántica: es predecible, no requiere almacenar vectores y respeta el vocabulario original.
 
 **Por qué fundamentar y citar.** Una respuesta sobre salud debe poder **verificarse**. Por eso la respuesta cita los hechos en los que se apoya, y una cita fuera del conjunto recuperado se rechaza: no se presenta como fundamentada algo que no lo está.
 
-**Por qué un modo sin red.** El comportamiento del modelo es caro y no determinista. Por defecto el sistema funciona en un **modo simulado** que no sale a la red, para poder desarrollar y probar sin credenciales ni dependencia de un proveedor. El proveedor real se activa explícitamente.
+**Por qué un modo sin red.** El comportamiento del modelo es caro y no determinista. Por eso existe un **modo simulado** que no sale a la red y que también elige operaciones, de modo que desarrollar y probar no dependa de credenciales ni de un proveedor. Ese modo es una herramienta de prueba: el comportamiento por defecto es el **asistente real**, porque un asistente que no consulta ni registra no es el producto. Sin credencial el backend **no arranca**, en lugar de degradar en silencio a un doble de prueba.
 
 ---
 
@@ -71,18 +74,20 @@ Tres consecuencias explican casi todo el diseño:
 
 ### 3.2 El prompt como contrato
 
-Cada llamada usa un archivo de prompt que hace de **contrato**: una instrucción, un conjunto de reglas y la forma exacta del JSON de salida.
+Cada llamada usa un archivo de prompt que hace de **contrato**: una instrucción, un conjunto de reglas y el **catálogo de operaciones** que el modelo puede pedir ejecutar.
 
 ```text
 Instrucción: qué rol cumple el modelo
-Reglas:      qué no puede hacer (no inventar, conservar la precisión temporal, no citar fuera del conjunto)
-Forma:       la estructura JSON exacta de la respuesta
+Reglas:      qué no puede hacer (no inventar, conservar la precisión temporal,
+             no citar fuera del conjunto, no diagnosticar ni recomendar)
+Operaciones: las declaradas, con su descripción y la forma de sus argumentos
+Forma:       cómo devolver la operación elegida y cómo cerrar el turno con una respuesta
 ```
 
 Dos decisiones destacan:
 
-- **Los prompts están versionados como archivos.** Un cambio de comportamiento es un cambio revisable y reversible; el intérprete declara qué versión usa.
-- **El formato se pide, pero no se confía.** Se solicita al proveedor una respuesta JSON, y aun así la aplicación **parsea y valida** el contenido. La petición de formato reduce errores; la validación los detecta.
+- **Los prompts están versionados como archivos.** Un cambio de comportamiento es un cambio revisable y reversible. El agente usa `clinical-agent-v1.txt`; la redacción fundamentada de §3.7 conserva su propio prompt, `clinical-answer-v3.txt`.
+- **El formato se pide, pero no se confía.** Se declaran las operaciones y se pide al modelo que elija, y aun así la aplicación **parsea y valida** los argumentos: una operación que no está declarada no se resuelve, y unos argumentos inválidos no llegan a escribir nada.
 
 El mensaje de usuario añade el contexto que el modelo no tiene: la **fecha de referencia** (para poder interpretar expresiones como "ayer") y, cuando los hay, los **turnos recientes** de la conversación.
 
@@ -99,48 +104,40 @@ mensajes. Cada mensaje tiene un rol que indica cómo debe interpretarse:
 | `tool` | Resultado devuelto por una función externa invocada durante una conversación |
 | `model` | Normalmente identifica el modelo elegido, no un rol estándar del mensaje |
 
-En Careme, las llamadas al proveedor incluyen un mensaje `system` con el prompt
-versionado y un mensaje `user` con la información concreta del turno. La
-respuesta del proveedor llega como mensaje del modelo, que la API suele
-presentar con rol `assistant`; el backend extrae su contenido JSON y lo valida.
+En Careme, cada llamada al proveedor lleva un mensaje `system` con el prompt
+versionado y la conversación del turno. El modelo responde con un mensaje
+`assistant` que puede **solicitar operaciones**; el backend las resuelve, las
+ejecuta y contesta al modelo con un mensaje `tool` por cada una, con el resultado
+de la operación. El bucle termina cuando el modelo responde sin solicitar nada más.
 
-No hay mensajes `tool` en el flujo actual. El modelo no llama una función para
-buscar en PostgreSQL: el backend interpreta primero la intención, ejecuta la
-recuperación y después construye otra llamada con los hechos recuperados. En
-otras arquitecturas, un mensaje `assistant` puede solicitar una herramienta y el
-backend respondería con un mensaje `tool`; ese es un patrón de uso de
-herramientas, no el que implementa Careme.
+**Sí hay mensajes `tool`.** El modelo no ejecuta nada ni consulta PostgreSQL: pide
+la operación `consult_history`, y el código es el que recupera y le devuelve los
+hechos como resultado de la herramienta. Ese es exactamente el patrón de uso de
+herramientas, y es el que implementa Careme.
 
-### 3.3 De lenguaje a estructura: la intención
+### 3.3 De lenguaje a operaciones: las funciones declaradas
 
-La primera llamada convierte el mensaje en una **intención** tipada. Hay cuatro formas posibles:
+El turno empieza cuando el modelo convierte el mensaje en una o más **operaciones** elegidas de un conjunto cerrado. Son dos:
 
-| Intención | Significado |
+| Operación | Significado |
 | --- | --- |
-| `events` | El mensaje describe hechos clínicos que deben registrarse |
-| `query` | El mensaje pregunta por la historia clínica |
-| `clarification` | Falta información: el mensaje podría ser un hecho, o no puede determinarse su cauce |
-| `conversation` | El mensaje ni registra un hecho ni depende de la historia |
+| `consult_history` | El mensaje pregunta por la historia clínica |
+| `register_event` | El mensaje describe hechos clínicos que la persona afirma y deben registrarse |
 
-Una intención de consulta lleva la pregunta, un **ámbito** (historia o seguimiento corporal), los **términos de búsqueda** y, cuando la persona los mencionó, filtros de tipo y de fecha. Puede llevar además la **parte general** del mensaje: la porción que no depende de la historia, cuando el mensaje mezcla ambas cosas.
+Una operación de consulta lleva la pregunta, un **ámbito** (historia o seguimiento corporal), los **términos de búsqueda** y, cuando la persona los mencionó, filtros de tipo y de fecha. Una operación de registro lleva los hechos candidatos con su tipo, su contenido y su precisión temporal. Ni una ni otra expone rutas, archivos ni almacenamiento: el modelo nombra una capacidad, no un recurso.
 
-**Qué decide el cauce.** El reparto no depende de «lo que parece», sino de una regla con una asimetría deliberada:
+**Qué decide el turno.** El modelo elige cuántas operaciones necesita y en qué orden: un mensaje que registra un hecho y además pregunta por lo ya registrado produce **dos operaciones en un mismo turno**, y las dos se atienden. Lo que el modelo no puede hacer es declarar una operación que la aplicación no haya publicado, ni ejecutar nada por su cuenta.
 
-- si **alguna** parte del mensaje depende de la historia, la intención es `query` —aunque el resto del mensaje no dependa, y aunque la pregunta esté formulada en lenguaje coloquial;
-- la parte que no depende de la historia se conserva en la consulta, **fuera** de los términos de búsqueda, para poder responderla aparte;
-- si no puede determinarse si el mensaje depende de la historia, la intención es `clarification`: el sistema **pregunta** en lugar de adivinar;
-- `conversation` es lo que queda cuando el mensaje ni registra un hecho ni depende de la historia.
+Cuando falta un dato —no se sabe qué hecho registrar o con qué precisión—, el sistema **pregunta** en lugar de adivinar, y no registra nada hasta tenerlo. Y cuando el mensaje ni registra un hecho ni depende de la historia, el turno es **conversación general**: no se solicita ninguna operación y la respuesta queda fuera de la historia clínica.
 
-La asimetría es intencionada porque los dos errores no cuestan lo mismo. Clasificar como conversación algo que dependía de la historia llevaría a responder con conocimiento general una pregunta clínica, es decir, a **fabricar**. Clasificar como consulta algo que era general produce, como mucho, una ausencia explícita y accionable.
+Antes de ejecutar nada, el código **valida** la operación solicitada:
 
-Después de parsear, el código **valida** antes de usar la intención:
-
-- una intención de consulta **no puede** traer hechos candidatos;
-- solo una consulta puede llevar pregunta y parte general;
-- debe contener al menos un término de búsqueda o un filtro;
+- la operación tiene que estar **declarada**; si no lo está, no se resuelve y no se ejecuta;
+- una consulta **no puede** traer hechos candidatos, y necesita al menos un término de búsqueda o un filtro;
+- una consulta sobre el seguimiento corporal —peso y circunferencia— no se atiende por este cauce, que es la historia clínica, y se responde con la indicación de dónde sí consta;
 - un hecho con precisión exacta **necesita** una fecha.
 
-Si la respuesta del proveedor no se puede parsear o no cumple estas reglas, el turno termina en un **fallo controlado** —sin inventar— y **sin escribir nada**.
+Si la respuesta del proveedor no se puede interpretar o no cumple estas reglas, el turno termina en un **fallo controlado** —sin inventar— y **sin escribir nada**. La validación y la escritura ocurren **dentro** de la ejecución de la operación, antes de devolver el resultado al modelo: cuando el modelo ve el resultado, el hecho ya está escrito, y no puede describir como hecho algo que no llegó a registrarse.
 
 ### 3.4 Las fechas: el modelo propone, el código normaliza
 
@@ -157,24 +154,18 @@ Ese último punto es el importante: el sistema **nunca convierte una fecha aprox
 
 ```mermaid
 flowchart LR
-    S["Servicio (dominio)"] --> I["Puerto: intérprete / compositor"]
-    I --> F["Implementación simulada<br/>(sin red)"]
-    I --> O["Implementación con proveedor<br/>(característica activada)"]
+    S["Servicio (dominio)"] --> A["Puerto: agente clínico"]
+    A --> F["Agente simulado<br/>(pruebas, sin red)"]
+    A --> O["Agente con proveedor<br/>(comportamiento por defecto)"]
 ```
 
-El dominio depende de un **puerto**, no de un proveedor. Hay dos implementaciones: una **simulada**, que clasifica con reglas sencillas y es la opción por defecto; y una que **llama al proveedor**, activada por configuración. Consecuencias:
+El dominio depende de un **puerto**, no de un proveedor. Hay dos implementaciones: la del **agente real**, que llama al proveedor y es el comportamiento por defecto; y una **simulada**, que también elige operaciones pero con reglas sencillas y sin red, y que existe sobre todo para las pruebas. Consecuencias:
 
-- **El resto del sistema no sabe qué proveedor hay detrás.** Cambiar de proveedor, o ejecutar sin red, no afecta a las reglas.
-- **Las pruebas usan la implementación simulada**, así que no dependen de la red ni de credenciales.
+- **El resto del sistema no sabe qué proveedor hay detrás.** Cambiar de proveedor no afecta a las reglas ni a la validación.
+- **Las pruebas fijan el modo simulado de forma explícita**, así que no dependen de la red ni de credenciales.
 - **La credencial la lee solo el backend** y nunca llega al navegador. Los tiempos de conexión y de lectura están acotados por configuración.
 
-Un puerto es una interfaz que nombra la capacidad, por ejemplo
-`ClinicalIntentInterpreter.interpret(...)`. Un adaptador es la implementación
-que traduce esa capacidad al protocolo concreto de una dependencia. El adaptador
-real transforma el contrato del sistema en una petición HTTP con `model`,
-`messages`, temperatura y formato JSON; después transforma la respuesta del
-proveedor en `ClinicalEventIntent`. El adaptador simulado cumple la misma
-interfaz sin abrir una conexión.
+Un puerto es una interfaz que nombra la capacidad: aquí, `ClinicalAgent.respond(...)`, que devuelve el turno ya atendido, y `AgentProvider.send(...)`, que es lo único que habla con el proveedor. Un adaptador es la implementación que traduce esa capacidad al protocolo concreto de una dependencia. El adaptador real transforma el contrato del sistema en una petición HTTP con `model`, `messages`, las **operaciones declaradas** y temperatura; después transforma la respuesta del proveedor en operaciones resueltas. El adaptador simulado cumple la misma interfaz sin abrir una conexión.
 
 Por eso “el dominio depende de un puerto, no de un proveedor” significa que las
 reglas reciben una abstracción estable. El dominio conoce que puede interpretar
@@ -187,15 +178,16 @@ cambiar proveedor, usar el modo simulado o probar una regla sin red.
 ```mermaid
 sequenceDiagram
     participant U as Persona
-    participant C as Código (backend)
     participant M as Modelo
+    participant C as Código (backend)
     participant DB as Índice
-    U->>M: mensaje (llamada 1: clasificar)
-    M-->>C: intención con términos y filtros
+    U->>M: mensaje
+    M-->>C: operación solicitada: consult_history(consulta)
+    C->>C: valida los argumentos
     C->>DB: búsqueda léxica + filtros + límite
     DB-->>C: conjunto acotado de hechos
-    C->>M: pregunta + hechos (llamada 2: redactar)
-    M-->>C: respuesta + referencias
+    C-->>M: resultado de la operación (mensaje tool)
+    M-->>C: respuesta final, sin nuevas operaciones
     C->>C: valida que las referencias estén en el conjunto
     C-->>U: respuesta fundamentada y citada
 ```
@@ -220,24 +212,22 @@ Verificar las citas no basta, porque una respuesta puede apoyarse en hechos real
 - Con cobertura **parcial**, se responde solo la parte respaldada y se declara explícitamente la que no tiene registros.
 - Con cobertura **ninguna**, el texto compuesto se descarta —podría describir hechos que no vienen al caso— y el sistema declara la ausencia: ningún hecho recuperado se presenta como apoyo de algo que no responde.
 
-No todos los mensajes pasan por aquí. Cuando el mensaje no depende de la historia, la redacción es otra: la del apartado siguiente.
+De esta redacción no se encarga el turno por su cuenta: la convoca la operación de consulta cuando hay hechos que responder. Si no hay ninguno, no se llama al modelo para redactar y el sistema declara la ausencia.
 
-### 3.8 La composición conversacional: responder sin hechos
+### 3.8 Una sola respuesta para todo el turno
 
-No todo mensaje depende de la historia. Cuando la intención es `conversation`, el sistema pide una respuesta al mismo modelo, pero con otro material: **el mensaje y los turnos recientes de la conversación, y nada más**. No se recupera nada, no se envía ningún hecho y la firma del compositor no admite ni hechos ni referencias.
+Un turno con varias operaciones produce **una sola respuesta**. El modelo redacta un único texto que cubre lo que hizo —la confirmación del hecho que registró y la respuesta a lo que preguntó— sin partir el turno en dos ni repetir dos veces la misma cosa.
 
-Eso es una garantía **estructural**, no un filtro sobre el texto ya escrito: el compositor no puede citar un hecho registrado porque nunca lo recibe. Es la misma idea que recorre este documento desde otro ángulo: *lo que una llamada no recibe no lo puede afirmar*. Un filtro detecta lo que ya se redactó; quitar el material impide redactarlo.
+Eso no significa que el turno oculte lo que pasó. La respuesta viaja acompañada de **la lista de operaciones por las que pasó el turno**, cada una con su estado, de modo que la interfaz puede presentar por separado lo que se completó y lo que no. La respuesta es para la persona; el detalle de lo ocurrido es para poder verificarlo.
 
-El prompt de esta llamada lleva sus propios límites, porque aquí el riesgo no es inventar una cita, sino **aplicar** conocimiento general al caso de la persona:
+**Cuando no hay hechos que citar.** Si el mensaje no dependía de la historia, no se recupera nada y no se envía ningún hecho al modelo: la respuesta es conversación general. Aquí el riesgo no es inventar una cita, sino **aplicar** conocimiento general al caso de la persona, así que el prompt lleva sus propios límites:
 
 - explicar un concepto en términos generales, **sin** aplicarlo a su caso ni interpretar sus datos;
 - no afirmar nada sobre la historia clínica ni presentar la respuesta como un hecho registrado;
-- no diagnosticar ni recomendar tratamiento: si la persona lo pide, la petición se **declina** de forma explícita (ver §6);
+- no diagnosticar ni recomendar tratamiento: si la persona lo pide, la negativa es **obligatoria** y explícita (ver §6);
 - responder en el idioma del mensaje y con el tono del chat.
 
-**Un mensaje, dos salidas.** Cuando el mensaje mezcla una parte general con otra que depende de la historia, el turno no elige un cauce: los atiende por separado. El resultado clínico conserva su estado y su mensaje —`answered`, `no_records` o `failed`— y la parte general viaja en un campo propio, aparte. Ninguna de las dos rellena a la otra: la réplica conversacional no puede tapar una ausencia declarada ni presentarse como apoyo de una respuesta fundada.
-
-Conviene no confundir este reparto con la **cobertura parcial** de §3.7. Allí se parte una *pregunta* en la parte que los hechos respaldan y la que no; aquí se parte un *mensaje* en dos cauces, y cada uno tiene su propio mecanismo de verdad.
+Conviene no confundir esto con la **cobertura parcial** de §3.7. Allí se parte una *pregunta* en la parte que los hechos respaldan y la que no; aquí se compone un *turno* que puede contener varias operaciones, y cada operación conserva su propio mecanismo de verdad.
 
 ### 3.9 RAG, y qué no hace este sistema
 
@@ -246,7 +236,7 @@ RAG significa, literalmente, **recuperar y luego generar condicionado por lo rec
 Para delimitar el concepto, conviene decir qué **no** ocurre:
 
 - **No hay búsqueda vectorial ni *embeddings*.** La recuperación es léxica, sobre las palabras de la persona.
-- **No hay agente ni uso de herramientas.** No hay bucle de decisión ni el modelo invoca funciones; son llamadas de una sola vuelta: clasificar y, después, redactar —con hechos recuperados o sin ellos, según el cauce.
+- **Sí hay agente y uso de herramientas, en un bucle acotado.** El modelo pide operaciones de un conjunto declarado y el código las ejecuta; el turno termina cuando el modelo responde sin pedir nada más o cuando se agota el máximo de operaciones por turno.
 - **No hay reentrenamiento.** El modelo no se ajusta; se le aporta contexto mediante el prompt.
 
 ## 4. Patrones de RAG
@@ -267,23 +257,27 @@ Existen varias formas de organizarlo:
 | RAG agentivo | modelo decide → llama herramientas → observa → genera | El modelo participa en un ciclo de decisiones y herramientas |
 | RAG multi-etapa | clasificar → recuperar → verificar → generar | Divide la consulta en pasos con controles intermedios |
 
-Careme utiliza un **RAG multi-etapa y conversacional, pero no agentivo**:
+Careme utiliza un **RAG agentivo, multi-etapa y conversacional**:
 
-1. el intérprete clasifica el mensaje y extrae términos y filtros;
-2. el código recupera candidatos mediante búsqueda léxica PostgreSQL y filtros
-    de metadatos;
-3. el compositor recibe la pregunta y ese conjunto acotado;
-4. el backend valida cobertura y referencias antes de devolver la respuesta.
+1. el agente decide qué operaciones declaradas atienden el mensaje —una o varias— y con qué argumentos;
+2. el código valida los argumentos y ejecuta cada operación;
+3. en la consulta, el código recupera candidatos mediante búsqueda léxica PostgreSQL
+y    filtros de metadatos, y devuelve ese conjunto acotado como resultado de la operación;
+4. el agente redacta una **sola** respuesta sobre los resultados, y el backend valida
+    cobertura y referencias antes de devolverla.
 
 La parte conversacional se limita a usar turnos recientes para interpretar una
 pregunta de seguimiento. No se envía todo el historial clínico al modelo ni se
-permite que el modelo elija libremente una consulta SQL. La recuperación sigue
-siendo determinista y la ejecuta el backend.
+permite que el modelo elija libremente una consulta SQL: la recuperación sigue
+siendo determinista y la ejecuta el backend. Lo que el modelo elige es **cuál** de
+las operaciones declaradas se ejecuta y con qué argumentos, no cómo se consulta la
+base de datos.
 
-Este diseño también puede describirse como **retrieve-then-generate**: primero se
-recupera y después se genera. Es diferente de un agente que decide en tiempo de
-ejecución qué herramienta invocar, cuántas veces invocarla y cuándo considera
-que tiene suficiente información.
+Este diseño también puede describirse como **retrieve-then-generate** dentro de un
+bucle de decisión: la recuperación sigue siendo determinista, pero es el agente
+quien decide cuándo pedirla, cuántas operaciones necesita y cuándo considera que ya
+tiene suficiente para responder. El número de operaciones por turno está acotado
+por configuración, de modo que un bucle no puede crecer sin límite.
 
 ## 5. Memoria y conversaciones multiturno
 
@@ -302,8 +296,8 @@ sequenceDiagram
         participant L as LLM
         P->>B: mensaje 1 + conversationId
         B->>S: crear o recuperar estado
-        B->>L: system + user
-        L-->>B: intención o respuesta
+        B->>L: system + user + operaciones declaradas
+        L-->>B: operaciones solicitadas o respuesta
         B->>S: guardar turno resumido
         P->>B: mensaje 2 + mismo conversationId
         B->>S: leer turnos recientes
@@ -328,21 +322,21 @@ Esta memoria es **efímera y operacional**, no historia clínica:
 - la respuesta clínica se fundamenta en hechos recuperados desde la historia,
     no en el resumen conversacional.
 
-El flujo multiturno tiene dos usos. El intérprete recibe turnos recientes para
-resolver una referencia y producir términos de búsqueda explícitos. El
-compositor conversacional recibe el mensaje y esos turnos, pero no recibe hechos
-clínicos. La separación impide que una conversación general se convierta por
-accidente en una afirmación sobre la historia.
+El agente recibe los turnos recientes en cada llamada para resolver referencias
+—"¿y cuándo ocurrió eso?"— y para no preguntar dos veces lo mismo. Los hechos
+clínicos **no** viajan en esos turnos: llegan como resultado de la operación de
+consulta, y solo si esa operación se ejecuta. La memoria conversacional nunca es
+la fuente de una afirmación sobre la historia.
 
 - **Idempotencia.** Repetir un turno con los mismos identificadores devuelve el resultado original sin repetir efectos.
 - **Límite de tamaño del mensaje**, además de los tiempos de espera de conexión y lectura.
-- **Los fallos no inventan.** Si la interpretación o la búsqueda fallan, el resultado es un fallo recuperable, sin respuesta fabricada.
-- **Un fallo al redactar tampoco inventa.** Si falla la composición conversacional, el turno es un fallo recuperable que conserva el mensaje para reintentarlo. Y en un mensaje mixto, un fallo de la parte general no cuesta el resultado clínico ya obtenido: el turno conserva su estado y simplemente no lleva parte conversacional.
+- **Los fallos no inventan.** Si la operación solicitada o la búsqueda fallan, el resultado es un fallo recuperable, sin respuesta fabricada y sin escritura.
+- **Un fallo al redactar tampoco inventa.** Si el agente no logra cerrar el turno con una respuesta, el turno es un fallo recuperable que conserva el mensaje para reintentarlo. Y un fallo en una operación no cuesta las que ya se completaron: el turno conserva el resultado de las anteriores y no lo deshace, porque lo registrado es un hecho que la persona afirmó.
 - **Ausencia no es fallo.** Que la historia no respalde una pregunta es un **resultado**, no un error: se declara con su motivo —historia vacía, sin hechos de ese tipo, sin hechos en ese periodo, o ninguno que responda—, con su alcance acotado y con una salida para continuar. Además **no niega que el hecho ocurriera**: solo dice que no consta. Un fallo de búsqueda, en cambio, se informa como recuperable y nunca se disfraza de ausencia.
 
 ## 6. Límites y controles para datos clínicos
 
-- **El asistente registra lo que la persona afirma**, no lo que el sistema deduce: no diagnostica, no infiere, no recomienda tratamiento. Una sospecha no es un hecho. Cuando la persona pide justamente eso —un diagnóstico, una recomendación o una interpretación de su caso—, el sistema lo **declina de forma explícita**: no lo responde desde la historia, no lo sustituye por una respuesta inventada y no lo disfraza de conversación útil.
+- **El asistente registra lo que la persona afirma**, no lo que el sistema deduce: no diagnostica, no infiere, no recomienda tratamiento. Una sospecha no es un hecho. Cuando la persona pide justamente eso —un diagnóstico, una recomendación o una interpretación de su caso—, el sistema lo **declina de forma explícita**: no lo responde desde la historia, no lo sustituye por una respuesta inventada y no lo disfraza de conversación útil. La negativa se exige en el prompt como un elemento **obligatorio** de la respuesta, con su frase literal, y no como una recomendación de estilo; medido con una sola muestra, que dependa del prompt es un riesgo aceptado, y la salida prevista ante una regresión es una guarda determinista en la aplicación.
 - **Los registros no incluyen el contenido clínico** ni el prompt, la respuesta del proveedor o la credencial; solo identificadores de correlación para poder seguir un turno.
 - **El proveedor externo queda fuera del control de la aplicación.** Su política de retención y su región de procesamiento no las garantiza este sistema: son una decisión de despliegue antes de enviar datos reales.
-- **El modelo puede equivocarse igualmente.** De ahí la combinación de controles: salida estructurada, validación, recuperación acotada, fundamentación con citas y un camino explícito para "no hay registros".
+- **El modelo puede equivocarse igualmente.** De ahí la combinación de controles: un conjunto cerrado de operaciones, argumentos validados antes de ejecutar, recuperación acotada, fundamentación con citas y un camino explícito para "no hay registros".

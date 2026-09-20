@@ -14,7 +14,7 @@ import org.springframework.stereotype.Service;
  * the end-to-end cycle works offline without inventing anything.
  */
 @Service
-@ConditionalOnProperty(name = "careme.llm.mode", havingValue = "fake", matchIfMissing = true)
+@ConditionalOnProperty(name = "careme.llm.mode", havingValue = "fake")
 public class FakeClinicalAnswerComposer implements ClinicalAnswerComposer {
 
     /**

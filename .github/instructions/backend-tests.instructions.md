@@ -13,4 +13,6 @@ Stack: JUnit 5, Mockito, MockMvc, Spring Boot Test, AssertJ, Testcontainers.
 - Integration tests need a reachable container runtime (Podman exposes a Docker-compatible API).
 - Run `.\mvnw.cmd test` for the suite and `.\mvnw.cmd verify` for the suite plus the JaCoCo
   coverage gate before considering work done.
-- Keep the `fake` LLM modes (default `CAREME_LLM_MODE=fake`) so tests run without network access.
+- Keep the `fake` LLM modes selected explicitly for tests — `backend/src/test/resources/application.properties`
+  sets `careme.llm.mode=fake` — so the suite runs without network access even though the application's
+  default is the real assistant.

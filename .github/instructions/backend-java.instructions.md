@@ -32,6 +32,7 @@ contract. Change the contract there first, then the code and the frontend consum
 
 ## LLM integration
 
-The interpreter/composer are selected by `CAREME_LLM_MODE` (default `fake`, no network). Keep the
-`fake` implementations working — tests and local development rely on them — and never expose the
+The assistant is selected by `CAREME_LLM_MODE` (default `openai`, the real provider; `fake` selects
+the simulated assistant, with no network). Keep the `fake` implementations working — tests and local
+development rely on them — and never expose the
 API key (`CAREME_LLM_API_KEY`) to the frontend or logs.

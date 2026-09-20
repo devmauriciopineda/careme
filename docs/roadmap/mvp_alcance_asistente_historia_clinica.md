@@ -378,19 +378,24 @@ El índice es derivado y debe poder reconstruirse desde el Markdown: el backend 
 ## 8. Interpretación del LLM y herramientas del backend
 
 El LLM no tiene acceso directo al filesystem, no conoce rutas físicas y **no ejecuta acciones**.
-Se invoca contra una API compatible con OpenAI en modo JSON (`response_format: json_object`,
-`OpenAiClinicalIntentInterpreter.java:61,66`) y devuelve una **intención** que el backend valida
-antes de producir cualquier efecto:
+Se invoca contra una API compatible con OpenAI con **llamada a función** (`OpenAiAgentProvider.java`)
+y devuelve una o más **operaciones** de un conjunto declarado que el backend valida antes de producir
+cualquier efecto:
+
+> **Revisión aplicada (Fase 4.2).** Esta sección describe el MVP. Con el agente con herramientas
+> implementado, el modelo decide qué operaciones necesita de un conjunto declarado y acotado, y la
+> validación y la escritura del backend ocurren dentro del camino de la operación. Lo que se conserva
+> es la frontera: el modelo nunca toca el filesystem ni escribe sin validación. Ver
+> [`UC-012`](../use-cases/UC-012.md) y
+> [`05-ia-llm-prompts-y-rag.md`](../concepts/05-ia-llm-prompts-y-rag.md) §3.3 y §3.8.
 
 ```text
-{"kind": "events",       "events": [...]}               # registrar hechos
-{"kind": "query",        "search_terms": [...], ...}    # consultar la historia
-{"kind": "clarification", "clarification": "..."}      # falta información para registrar
-{"kind": "conversation"}                                # no depende de la historia
+{"name": "register_event",  "arguments": {...}}   # registrar hechos
+{"name": "consult_history", "arguments": {...}}   # consultar la historia
 ```
 
-`ChatOrchestrator` interpreta esa intención y decide qué operación del backend se ejecuta
-(`ChatOrchestrator.java:77`). Un fallo del proveedor no produce ninguna escritura: el turno termina
+El agente decide qué operaciones del backend se ejecutan y `AgentOperationExecutor` valida los
+argumentos y ejecuta cada una. Un fallo del proveedor no produce ninguna escritura: el turno termina
 como `FAILED`.
 
 El backend inyecta la fecha actual y la zona horaria en el contexto de la interpretación, para que
@@ -648,7 +653,7 @@ careme/
 │       │   └── exception/
 │       └── resources/
 │           ├── db/migration/     # V1__create_measurements_table.sql, V2__create_clinical_event_index.sql
-│           └── prompts/          # clinical-intent-v3, clinical-answer-v3, conversation-reply-v1
+│           └── prompts/          # clinical-agent-v1, clinical-answer-v3
 ├── frontend/                     # Next.js
 │   └── src/
 │       ├── app/                  # / (chat), /measurements (anexo), /clinical-events (inspección)
@@ -893,6 +898,12 @@ intención y el backend ejecuta la operación (§8).
 reconciliar este documento con el software construido. La Fase 4 revisa dos de ellos —el catálogo de
 tipos de evento (§4.2) y el papel de `/measurements` (§11)— y asume los requisitos de ingeniería de
 validación (§17) y el agente con herramientas.
+
+> **Revisión aplicada (Fase 4.2).** El papel del proveedor está revisado: el comportamiento por
+> defecto ya no es el modo simulado —que queda como modo de desarrollo y de pruebas— sino el asistente
+> real, sin activación manual; y sin credencial el backend no arranca. La redacción del MVP de esta
+> sección y de §8 se conserva porque describe el mismo contrato de operaciones. Ver
+> [`UC-012`](../use-cases/UC-012.md).
 
 ---
 

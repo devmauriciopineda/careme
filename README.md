@@ -103,11 +103,11 @@ Each service is documented in its own README:
 
 ## Use of APIs or external services
 
-- The backend can consume **DeepSeek's OpenAI-compatible LLM API** when the chat
-  assistant is explicitly enabled (`CAREME_LLM_MODE=openai`); the default
-  `CAREME_LLM_MODE=fake` runs with no network call. The key is read from the
-  environment (`CAREME_LLM_API_KEY`) and never reaches the browser; see
-  [`backend/README.md`](./backend/README.md).
+- The backend consumes **DeepSeek's OpenAI-compatible LLM API** for the chat
+  assistant, which is the default (`CAREME_LLM_MODE=openai`); setting
+  `CAREME_LLM_MODE=fake` selects a simulated assistant that runs with no network
+  call. The key is read from the environment (`CAREME_LLM_API_KEY`) and never
+  reaches the browser; see [`backend/README.md`](./backend/README.md).
 - The frontend consumes the backend's own HTTP API
   (`GET` and `POST /api/v1/measurements`, the CSV import endpoints,
   `POST /api/v1/chat/messages` and the read-only clinical-event inspection

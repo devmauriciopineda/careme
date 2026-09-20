@@ -26,9 +26,10 @@ contract.
   validates against it.
 - CORS is configured explicitly and scoped to known origins.
 - `POST /api/v1/chat/messages` receives Spanish natural-language messages and returns
-  a non-streaming structured outcome. The default `CAREME_LLM_MODE=fake` is safe for
-  local development; `CAREME_LLM_MODE=openai` uses DeepSeek's OpenAI-compatible API
-  with the backend-only `CAREME_LLM_API_KEY` credential.
+  a non-streaming structured outcome. The default `CAREME_LLM_MODE=openai` uses
+  DeepSeek's OpenAI-compatible API with the backend-only `CAREME_LLM_API_KEY`
+  credential, so the backend refuses to start without it; `CAREME_LLM_MODE=fake`
+  selects the simulated assistant for local development and tests, with no network call.
 - The chat can answer questions about the clinical history from the derived
   `clinical_event_index`, returning `answered` with supporting events or
   `no_records` when no registered event supports the question. A `no_records`
@@ -145,16 +146,16 @@ events in `events`; `no_records` includes none, and instead reports:
 | ------------------ | ------------- | -------------------------------------------------------------------------------------- |
 | `absenceReason`    | `no_records`  | `empty_history`, `no_events_of_type`, `no_events_in_period` or `no_term_match`, or `null` |
 | `suggestedActions` | `no_records`  | `reformulate` and/or `register`; empty otherwise                                        |
-| `generalReply`     | mixed message | the conversational part of a message that also depends on the history, or `null`        |
+| `operations`       | always        | the operations the turn went through, in order, each with its own `status`, `events`, `absenceReason` and `suggestedActions` |
 
-All three fields are additive and optional, so a client that does not know them
-keeps working. A `general_conversation` response carries the composed
-conversational reply in `message`, includes no events and no absence reason, and
-is declined from the clinical history: the turn never reads or cites it. When a
-single message contains a general part and a part that depends on the clinical
-history, the status is the one of the history outcome, `message` carries that
-outcome and `generalReply` carries the general part, so a client presents them as
-two different kinds of answer. A search that cannot be completed is reported as
+`operations` is additive and optional, so a client that does not know it keeps
+working. `message` is the single answer the turn produced, and `operations` lets a
+client tell what was completed from what was not. A `general_conversation`
+response carries the conversational reply in `message`, includes no events and no
+absence reason, and is declined from the clinical history: the turn never reads or
+cites it. When the turn completed more than one operation, the status is
+`answered` if it produced an answer, and `failed` if any operation did not
+complete — even when another operation of the same turn did. A search that cannot be completed is reported as
 `failed`, never as `no_records`, so an absence is only ever declared after it was
 verified. When the retrieved events support only part of a question, the answer is
 `answered`: it answers the supported part and its Spanish message declares the part
@@ -323,13 +324,10 @@ backend/
 ├── src/main/resources/
 │   ├── application.yml                 # port, datasource, JPA, CORS, LLM, events dir
 │   ├── application-{dev,pre,prd}.yml   # per-environment overrides
-│   ├── prompts/clinical-intent-v1.txt  # reversible registration prompt
-│   ├── prompts/clinical-intent-v2.txt  # classification prompt with history queries
-│   ├── prompts/clinical-intent-v3.txt  # in use: adds the channel rules and the general part
+│   ├── prompts/clinical-agent-v1.txt   # in use: the agent with the declared operations
 │   ├── prompts/clinical-answer-v1.txt  # grounded answer composition prompt
 │   ├── prompts/clinical-answer-v2.txt  # adds the unsupported part of the question
 │   ├── prompts/clinical-answer-v3.txt  # in use: adds the reported answer coverage
-│   ├── prompts/conversation-reply-v1.txt  # in use: conversational reply outside the history
 │   └── db/migration/                   # Flyway migrations (V1 measurements, V2 event index)
 ├── src/test/java/com/careme/backend/   # mirrors the package structure
 ├── .mvn/wrapper/                       # Maven wrapper configuration
@@ -442,22 +440,25 @@ The suite is 31 test classes (232 test methods), organized by layer:
 | `MeasurementJpaRepositoryTest`             | Mapping, empty table, unique `date`, `CHECK` constraints     |
 | `MeasurementTest` / `MeasurementDraftTest` | Domain invariants                                           |
 | `ChatControllerTest`                       | `@WebMvcTest`: chat endpoint contract, absence reason and offered actions |
-| `ChatOrchestratorTest`                     | Intent → status mapping, idempotency by message id          |
+| `ChatOrchestratorTest`                     | Operation → status mapping, idempotency by message id       |
 | `ClinicalEventTest`                        | Clinical-event domain invariants                            |
 | `ClinicalEventDateNormalizerTest`          | Exact, relative, approximate and unknown dates              |
 | `ClinicalEventIntentValidatorTest`         | Rejection of non-registrable or invalid intents             |
 | `ClinicalEventMarkdownStoreTest`           | Markdown round-trip, code reservation, atomic publish       |
 | `ClinicalEventRegistrationServiceTest`     | Registration, dedup within conversation, rollback on failure |
-| `FakeClinicalIntentInterpreterTest`        | Deterministic fake interpreter                              |
-| `OpenAiClinicalIntentInterpreterTest`      | LLM adapter parsing and failure mapping                     |
+| `AgentOperationTest`                       | Declared operation set and name resolution                  |
+| `AgentOperationExecutorTest`               | Argument validation and per-operation execution              |
+| `AgentToolContractTest`                    | Wire shape of the declared tools and tool calls              |
+| `AgentTurnRunnerTest`                      | Turn loop, operation budget and failure mapping              |
+| `AgentTurnOutcomeTest`                     | Operation list and turn status precedence                    |
+| `FakeClinicalAgentTest`                    | Deterministic offline agent that also chooses operations     |
+| `OpenAiAgentProviderTest`                  | Startup guard on the credential and prompt loading           |
 | `ClinicalEventQueryRepositoryTest`         | Lexical and metadata retrieval, absence counts on a real index |
 | `ClinicalHistoryQueryServiceTest`          | Absence reason ladder, partial answers, failure vs absence  |
 | `ClinicalHistoryQueryFlowIntegrationTest`  | Register → ask cycle, every absence reason leaves the history untouched |
 | `ClinicalHistoryUnsupportedRetrievalIntegrationTest` | A retrieved event that does not answer the question declares the absence |
 | `OpenAiClinicalAnswerComposerTest`         | Grounded composition, citations, reported coverage          |
 | `FakeClinicalAnswerComposerTest`           | Deterministic offline composition and reported coverage     |
-| `OpenAiClinicalConversationComposerTest`   | Conversational prompt wiring, reply parsing and failure mapping |
-| `FakeClinicalConversationComposerTest`     | Offline conversational reply, declination and concept limits |
 | `ClinicalConversationIntegrationTest`      | Conversational outcomes leave the index and the documents untouched, with no repository read |
 
 Integration tests extend `PostgresIntegrationTest`, which starts one

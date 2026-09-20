@@ -11,15 +11,15 @@ public record ChatMessageResponse(
         List<EventSummary> events,
         AbsenceReason absenceReason,
         List<SuggestedAction> suggestedActions,
-        String generalReply) {
+        List<OperationSummary> operations) {
 
     public ChatMessageResponse {
         events = events == null ? List.of() : List.copyOf(events);
         suggestedActions = suggestedActions == null ? List.of() : List.copyOf(suggestedActions);
-        generalReply = generalReply == null || generalReply.isBlank() ? null : generalReply;
+        operations = operations == null ? List.of() : List.copyOf(operations);
     }
 
-    /** Outcome that carries neither absence detail nor a general part. */
+    /** Outcome that carries neither absence detail nor operation detail. */
     public ChatMessageResponse(
             String conversationId,
             String messageId,
@@ -29,7 +29,7 @@ public record ChatMessageResponse(
         this(conversationId, messageId, status, message, events, null, null, null);
     }
 
-    /** Outcome that carries an absence but no general part. */
+    /** Outcome that carries an absence but no operation detail. */
     public ChatMessageResponse(
             String conversationId,
             String messageId,
@@ -70,23 +70,6 @@ public record ChatMessageResponse(
             List<ClinicalEvent> events,
             AbsenceReason absenceReason,
             List<SuggestedAction> suggestedActions) {
-        return of(conversationId, messageId, status, message, events, absenceReason, suggestedActions, null);
-    }
-
-    /**
-     * Outcome of a message that also carried a general part, which travels apart
-     * from the clinical result so a client presents the two as different kinds of
-     * answer without reading either Spanish text.
-     */
-    public static ChatMessageResponse of(
-            String conversationId,
-            String messageId,
-            Status status,
-            String message,
-            List<ClinicalEvent> events,
-            AbsenceReason absenceReason,
-            List<SuggestedAction> suggestedActions,
-            String generalReply) {
         return new ChatMessageResponse(
                 conversationId,
                 messageId,
@@ -95,7 +78,16 @@ public record ChatMessageResponse(
                 events == null ? List.of() : events.stream().map(EventSummary::from).toList(),
                 absenceReason,
                 suggestedActions,
-                generalReply);
+                null);
+    }
+
+    /**
+     * The same outcome, reporting the operations the turn went through so a client
+     * can show what was completed apart from what was not.
+     */
+    public ChatMessageResponse withOperations(List<OperationSummary> operations) {
+        return new ChatMessageResponse(
+                conversationId, messageId, status, message, events, absenceReason, suggestedActions, operations);
     }
 
     public enum Status {
@@ -127,6 +119,37 @@ public record ChatMessageResponse(
                     event.date() == null ? null : event.date().toString(),
                     event.datePrecision().name().toLowerCase(),
                     event.content());
+        }
+    }
+
+    /**
+     * One operation the turn went through, with its own result.
+     *
+     * <p>It carries no text of its own: the turn's message is the single response
+     * the person reads. What it adds is which operations completed, which one did
+     * not, and the events each one produced.
+     */
+    public record OperationSummary(
+            Status status,
+            List<EventSummary> events,
+            AbsenceReason absenceReason,
+            List<SuggestedAction> suggestedActions) {
+
+        public OperationSummary {
+            events = events == null ? List.of() : List.copyOf(events);
+            suggestedActions = suggestedActions == null ? List.of() : List.copyOf(suggestedActions);
+        }
+
+        public static OperationSummary of(
+                Status status,
+                List<ClinicalEvent> events,
+                AbsenceReason absenceReason,
+                List<SuggestedAction> suggestedActions) {
+            return new OperationSummary(
+                    status,
+                    events == null ? List.of() : events.stream().map(EventSummary::from).toList(),
+                    absenceReason,
+                    suggestedActions);
         }
     }
 

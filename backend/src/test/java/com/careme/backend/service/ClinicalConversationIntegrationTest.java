@@ -54,7 +54,7 @@ class ClinicalConversationIntegrationTest extends PostgresIntegrationTest {
     private ClinicalEventQueryRepository queryRepository;
 
     @MockitoSpyBean
-    private ClinicalConversationComposer conversationComposer;
+    private ClinicalAgent clinicalAgent;
 
     @BeforeEach
     void cleanIndexAndDocuments() throws IOException {
@@ -81,7 +81,7 @@ class ClinicalConversationIntegrationTest extends PostgresIntegrationTest {
         assertThat(general.message()).isNotBlank();
         assertThat(general.events()).isEmpty();
         assertThat(general.absenceReason()).isNull();
-        assertThat(general.generalReply()).isNull();
+        assertThat(general.operations()).as("un turno conversacional no pasa por operaciones").isEmpty();
 
         var concept = ask("¿Qué es la hipertensión?");
         assertThat(concept.status()).isEqualTo(ChatMessageResponse.Status.GENERAL_CONVERSATION);
@@ -105,18 +105,17 @@ class ClinicalConversationIntegrationTest extends PostgresIntegrationTest {
     }
 
     @Test
-    void separatesTheGeneralPartOfAMixedMessageFromTheHistoryOutcome() throws IOException {
+    void reportsTheOperationsOfEachConversationalTurn() throws IOException {
         String indexBefore = indexSnapshot();
 
-        var response = ask("¿Qué es la hipertensión? ¿He tenido migrañas?");
+        var absent = ask("¿He tenido migrañas?");
 
-        assertThat(response.status()).as("el estado es el de la historia").isEqualTo(ChatMessageResponse.Status.NO_RECORDS);
-        assertThat(response.absenceReason()).isEqualTo(ChatMessageResponse.AbsenceReason.EMPTY_HISTORY);
-        assertThat(response.events()).as("la ausencia no presenta hechos").isEmpty();
-        assertThat(response.generalReply()).contains("hipertensión");
-        assertThat(response.message())
-                .as("la declaración de ausencia no se mezcla con la conversación")
-                .doesNotContain(response.generalReply());
+        assertThat(absent.status()).isEqualTo(ChatMessageResponse.Status.NO_RECORDS);
+        assertThat(absent.operations()).as("la consulta que no encontró registros se informa").hasSize(1);
+        assertThat(absent.operations().get(0).status()).isEqualTo(ChatMessageResponse.Status.NO_RECORDS);
+        assertThat(absent.operations().get(0).absenceReason())
+                .isEqualTo(ChatMessageResponse.AbsenceReason.EMPTY_HISTORY);
+        assertThat(absent.events()).as("la ausencia no presenta hechos").isEmpty();
 
         assertThat(indexSnapshot()).isEqualTo(indexBefore);
         assertThat(countDocuments()).isZero();
@@ -139,14 +138,16 @@ class ClinicalConversationIntegrationTest extends PostgresIntegrationTest {
                 .as("una reformulación coloquial se atiende como consulta de la historia")
                 .isEqualTo(ChatMessageResponse.Status.ANSWERED);
         assertThat(response.events()).isNotEmpty();
-        assertThat(response.generalReply()).isNull();
+        assertThat(response.operations()).singleElement()
+                .satisfies(operation -> assertThat(operation.status())
+                        .isEqualTo(ChatMessageResponse.Status.ANSWERED));
         assertThat(indexSnapshot()).isEqualTo(indexBefore);
     }
 
     @Test
-    void reportsAFailedConversationTurnWithoutReadingTheHistory() throws IOException {
+    void reportsAFailedTurnWithoutReadingTheHistory() throws IOException {
         doThrow(new LlmIntegrationException("provider unavailable"))
-                .when(conversationComposer).compose(anyString(), any());
+                .when(clinicalAgent).respond(anyString(), any());
         String indexBefore = indexSnapshot();
 
         var response = ask("¿Qué es la hipertensión?");

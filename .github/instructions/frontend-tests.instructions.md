@@ -12,4 +12,6 @@ Stack: Vitest + React Testing Library (unit/component), Playwright (end-to-end).
   mock the service layer, not the framework.
 - User-facing assertions use the Spanish strings the UI actually renders.
 - Run `pnpm test` for the suite (use `pnpm test:watch` while iterating) and `pnpm typecheck`
-  before considering work done. End-to-end specs live under `frontend/e2e/playwright/`.
+  before considering work done. End-to-end specs live under `frontend/e2e/playwright/` and run
+  with `pnpm test:e2e`, which expects the backend, PostgreSQL and the real assistant to be up
+  already; a spec reaches the clinical history it asserts on through `CAREME_EVENTS_DIRECTORY`.

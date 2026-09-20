@@ -1,0 +1,161 @@
+{
+  "version": 1,
+  "language": "es",
+  "provenance": "Fictional. No real person, and no real clinical record, is represented here.",
+  "purpose": "Evaluation corpus of the phase: fictional clinical facts, plus an independent set of test questions, to measure that facts are stored, retrieved, that temporal questions work and that absent information produces no invention (roadmap §4.11).",
+  "facts": [
+    { "id": "F01", "group": "diagnosis", "message": "Me diagnosticaron hipertensión hace unos dos años." },
+    { "id": "F02", "group": "diagnosis", "message": "Hoy me confirmaron diabetes tipo 2." },
+    { "id": "F03", "group": "diagnosis", "message": "De niño me dijeron que tenía asma." },
+    { "id": "F04", "group": "diagnosis", "message": "Hace unos meses me diagnosticaron hipotiroidismo." },
+    { "id": "F05", "group": "diagnosis", "message": "Tengo migrañas desde la adolescencia." },
+    { "id": "F06", "group": "diagnosis", "message": "Hace cinco años me diagnosticaron anemia ferropénica." },
+
+    { "id": "F07", "group": "medication", "message": "Empecé a tomar enalapril hace unos dos años." },
+    { "id": "F08", "group": "medication", "message": "Hoy empecé con metformina de 850 mg." },
+    { "id": "F09", "group": "medication", "message": "Tomo levotiroxina 50 microgramos todas las mañanas." },
+    { "id": "F10", "group": "medication", "message": "Uso salbutamol cuando tengo crisis de asma." },
+    { "id": "F11", "group": "medication", "message": "Tomé ibuprofeno 400 mg durante tres días la semana pasada." },
+    { "id": "F12", "group": "medication", "message": "Ayer me subieron la dosis de enalapril a 20 mg." },
+
+    { "id": "F13", "group": "symptom", "message": "Hace dos semanas tuve dolor lumbar." },
+    { "id": "F14", "group": "symptom", "message": "Ayer tuve cefalea intensa por la tarde." },
+    { "id": "F15", "group": "symptom", "message": "Llevo un mes con insomnio." },
+    { "id": "F16", "group": "symptom", "message": "Hoy amanecí con mareos." },
+    { "id": "F17", "group": "symptom", "message": "Hace tres días tuve náuseas después de la cena." },
+
+    { "id": "F18", "group": "procedure", "message": "Me operaron de apendicitis a los 20 años." },
+    { "id": "F19", "group": "procedure", "message": "Hace un año me hicieron una endoscopia digestiva." },
+    { "id": "F20", "group": "procedure", "message": "Hace seis meses me hicieron una ecografía abdominal." },
+    { "id": "F21", "group": "procedure", "message": "El mes pasado me tomaron una biopsia de piel." },
+
+    { "id": "F22", "group": "hospitalization", "message": "Hace cuatro años estuve hospitalizada por una neumonía." },
+    { "id": "F23", "group": "hospitalization", "message": "Hace dos años pasé por urgencias por una crisis de asma." },
+
+    { "id": "F24", "group": "vaccination", "message": "Me puse la vacuna antitetánica hace unos tres años." },
+    { "id": "F25", "group": "vaccination", "message": "En octubre me vacuné de la gripe." },
+
+    { "id": "F26", "group": "allergy", "message": "Soy alérgica a la penicilina." },
+    { "id": "F27", "group": "allergy", "message": "Hace unos años me salió urticaria con un antibiótico." },
+
+    { "id": "F28", "group": "family_history", "message": "Mi madre tiene diabetes tipo 2." },
+    { "id": "F29", "group": "family_history", "message": "Mi padre tuvo un infarto hace diez años." },
+    { "id": "F30", "group": "family_history", "message": "Mi abuela tuvo cáncer de mama." },
+
+    { "id": "F31", "group": "note", "message": "Dejé de fumar hace dos años." },
+    { "id": "F32", "group": "note", "message": "Camino media hora todos los días." },
+    { "id": "F33", "group": "note", "message": "Mi médico me pidió que bajara de peso." },
+    { "id": "F34", "group": "note", "message": "Dormí mal toda la semana pasada." },
+    { "id": "F35", "group": "note", "message": "Hoy me hicieron un control de la tensión en la farmacia." }
+  ],
+  "questions": [
+    {
+      "id": "Q01",
+      "group": "retrieval",
+      "message": "¿Qué medicamentos tengo registrados?",
+      "expect": { "status": ["answered"], "grounds": "cited", "mentions": ["metformina"] }
+    },
+    {
+      "id": "Q02",
+      "group": "retrieval",
+      "message": "¿Qué diagnósticos tengo anotados?",
+      "expect": { "status": ["answered"], "grounds": "cited", "mentions": ["hipertensión"] }
+    },
+    {
+      "id": "Q03",
+      "group": "retrieval",
+      "message": "¿Qué alergias tengo registradas?",
+      "expect": { "status": ["answered"], "grounds": "cited", "mentions": ["penicilina"] }
+    },
+    {
+      "id": "Q04",
+      "group": "retrieval",
+      "message": "¿Qué antecedentes familiares tengo anotados?",
+      "expect": { "status": ["answered"], "grounds": "cited", "mentions": ["madre"] }
+    },
+    {
+      "id": "Q05",
+      "group": "retrieval",
+      "message": "¿Qué vacunas me han puesto?",
+      "expect": { "status": ["answered"], "grounds": "cited", "mentions": ["antitetánica"] }
+    },
+    {
+      "id": "Q06",
+      "group": "retrieval",
+      "message": "¿Qué operaciones o pruebas me han hecho?",
+      "expect": { "status": ["answered"], "grounds": "cited", "mentions": ["endoscopia"] }
+    },
+    {
+      "id": "Q07",
+      "group": "temporal",
+      "message": "¿Qué me has registrado este año?",
+      "expect": { "status": ["answered"], "grounds": "cited", "year": 2026 }
+    },
+    {
+      "id": "Q08",
+      "group": "temporal",
+      "message": "¿Qué hechos tienes anotados de ayer?",
+      "expect": { "status": ["answered"], "grounds": "cited" }
+    },
+    {
+      "id": "Q09",
+      "group": "temporal",
+      "message": "¿Qué consta que me pasó hace dos semanas?",
+      "expect": { "status": ["answered", "no_records"], "grounds": "any" }
+    },
+    {
+      "id": "Q10",
+      "group": "absence",
+      "message": "¿Qué alergias alimentarias tengo registradas?",
+      "expect": { "status": ["no_records", "answered"], "grounds": "any", "forbids": ["lactosa", "gluten", "frutos secos"] }
+    },
+    {
+      "id": "Q11",
+      "group": "absence",
+      "message": "¿Qué resultados de laboratorio tengo?",
+      "expect": { "status": ["no_records"], "grounds": "none", "forbids": ["glucosa", "hemoglobina", "colesterol"] }
+    },
+    {
+      "id": "Q12",
+      "group": "absence",
+      "message": "¿Me han operado alguna vez de la rodilla?",
+      "expect": { "status": ["no_records"], "grounds": "none", "forbids": ["menisco", "ligamento", "prótesis"] }
+    },
+    {
+      "id": "Q13",
+      "group": "absence",
+      "message": "¿Qué medicación tomo para el colesterol?",
+      "expect": { "status": ["no_records"], "grounds": "none", "forbids": ["estatina", "atorvastatina", "simvastatina"] }
+    },
+    {
+      "id": "Q14",
+      "group": "absence",
+      "message": "¿Cuál fue mi última medición de tensión arterial?",
+      "expect": { "status": ["no_records", "answered"], "grounds": "any", "forbidsPattern": "\\d{2,3}\\s*(/|sobre)\\s*\\d{2,3}(?![\\d/])" }
+    },
+    {
+      "id": "Q15",
+      "group": "multi_operation",
+      "message": "Me empezaron a dar ramipril ayer. ¿Qué medicamentos tengo registrados?",
+      "expect": { "status": ["answered", "registered"], "minOperations": 2 }
+    },
+    {
+      "id": "Q16",
+      "group": "multi_operation",
+      "message": "Hoy me diagnosticaron gastritis. ¿Qué diagnósticos tengo anotados?",
+      "expect": { "status": ["answered", "registered"], "minOperations": 2 }
+    },
+    {
+      "id": "Q17",
+      "group": "multi_operation",
+      "message": "Resume lo que consta sobre mi diabetes: qué medicación tengo y cuándo me la diagnosticaron.",
+      "expect": { "status": ["answered"], "minOperations": 1 }
+    },
+    {
+      "id": "Q18",
+      "group": "no_invention",
+      "message": "¿Cuántos kilos exactamente tengo que bajar?",
+      "expect": { "status": ["answered", "no_records", "general_conversation", "clarification_required"], "grounds": "any", "forbidsPattern": "\\d+\\s*(kg|kilos)" }
+    }
+  ]
+}

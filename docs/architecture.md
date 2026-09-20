@@ -38,7 +38,7 @@ user accounts, one measurement per day and data precision owned by the domain
 | **Preview** | A report of what a load would do, storing nothing | `backend/src/main/java/com/careme/backend/dto/ImportPreviewResponse.java` |
 | **Response envelope** (ApiResponse) | The single wrapper for every response, success or error | `backend/src/main/java/com/careme/backend/dto/ApiResponse.java` |
 | **ClinicalEvent** | A medical fact stated by the person, with type, content and temporal precision | `backend/src/main/java/com/careme/backend/entity/ClinicalEvent.java` |
-| **ClinicalEventIntent** | The structured result of the chat: `events`, `query`, `clarification` or `conversation` | `backend/src/main/java/com/careme/backend/dto/ClinicalEventIntent.java` |
+| **ClinicalEventIntent** | The structured contract an operation produces — event candidates or a query — which the application validates before any effect; the chat's own result is the turn together with the operations it went through | `backend/src/main/java/com/careme/backend/dto/ClinicalEventIntent.java` |
 | **Temporal precision** (date_precision) | `exact`, `approximate` or `unknown`; never more precise than what was given | `backend/src/main/java/com/careme/backend/entity/ClinicalEvent.java` |
 | **Markdown source of truth** | The `evt_NNN.md` documents in `data/events/` where the facts live | `backend/src/main/java/com/careme/backend/service/ClinicalEventMarkdownStore.java` |
 | **Derived index** | The PostgreSQL table `clinical_event_index`, rebuildable from the Markdown | `backend/src/main/resources/db/migration/V2__create_clinical_event_index.sql` |
@@ -61,11 +61,12 @@ flowchart LR
     person -->|"uses, HTTP<br/>browser :3000"| body
 ```
 
-**External systems:** an OpenAI-compatible LLM provider (DeepSeek by default)
-when the chat is enabled with `CAREME_LLM_MODE=openai`; with the default
-`CAREME_LLM_MODE=fake` there is no network call. There are no brokers, caches or
+**External systems:** an OpenAI-compatible LLM provider (DeepSeek by default), used
+by the assistant by default through `CAREME_LLM_MODE=openai`;
+`CAREME_LLM_MODE=fake` selects the simulated assistant, which makes no network call.
+There are no brokers, caches or
 identity providers (`backend/README.md`, section *Use of APIs or external
-services*; `backend/.../service/OpenAiClinicalIntentInterpreter.java`). The
+services*; `backend/.../service/OpenAiAgentProvider.java`). The
 remaining runtime dependencies are PostgreSQL and the local filesystem.
 
 **Out of scope for the repository:**
@@ -109,7 +110,7 @@ remaining runtime dependencies are PostgreSQL and the local filesystem.
 | Backend build | Maven Wrapper + enforcer | 3.9.9 / JDK 21 | Reproducible build without an installed Maven | `backend/pom.xml`, `backend/.mvn/wrapper/` |
 | Backend tests | JUnit 5, Mockito, AssertJ, MockMvc, Spring Boot Test, Testcontainers | — | Unit + web layer + real integration | `backend/pom.xml` |
 | Backend coverage | JaCoCo (gate 85 % branches / 85 % lines) | 0.8.12 | Bound to `verify`, not to `test` | `backend/pom.xml` |
-| Backend LLM | Spring `RestClient` (JDK HttpClient) to an OpenAI-compatible API | `deepseek-flash` | Chat opt-in (`CAREME_LLM_MODE=openai`), versioned prompts: classification in `prompts/clinical-intent-v3.txt`, composition in `prompts/clinical-answer-v3.txt` and `prompts/conversation-reply-v1.txt` | `backend/.../service/OpenAiClinical*.java`, `backend/src/main/resources/application.yml` |
+| Backend LLM | Spring `RestClient` (JDK HttpClient) to an OpenAI-compatible API | `deepseek-flash` | Chat opt-in (`CAREME_LLM_MODE=openai`), versioned prompts: the assistant's operations and its single reply in `prompts/clinical-agent-v1.txt`, grounded composition in `prompts/clinical-answer-v3.txt` | `backend/.../service/OpenAi*.java`, `backend/src/main/resources/application.yml` |
 | Data | PostgreSQL | 17 (`postgres:17-alpine`) | Repository standard and integration tests | `docker-compose.yml`, `backend/README.md` |
 | Packaging | Docker multi-stage | `maven:3.9-eclipse-temurin-21` → `eclipse-temurin:21-jre-alpine` | Non-root image | `backend/Dockerfile` |
 | Local orchestration | Docker/Podman Compose | — | Starts the three containers | `docker-compose.yml` |
@@ -169,11 +170,11 @@ flowchart TB
         domain["Measurement / MeasurementDraft<br/>domain records, invariants"]
         chatCtrl["ChatController<br/>POST /api/v1/chat/messages"]
         orchestrator["ChatOrchestrator<br/>turn + conversation state"]
-        interpreter["ClinicalIntentInterpreter<br/>Fake · OpenAI"]
+        agent["ClinicalAgent<br/>Fake · OpenAI · turn loop"]
+        executor["AgentOperationExecutor<br/>validates and executes each operation"]
         regSvc["ClinicalEventRegistrationService<br/>validates, dedupes, publishes"]
         histSvc["ClinicalHistoryQueryService<br/>retrieves and declares the absence"]
         composer["ClinicalAnswerComposer<br/>Fake · OpenAI"]
-        convComposer["ClinicalConversationComposer<br/>Fake · OpenAI"]
         queryRepo["ClinicalEventQueryRepository<br/>index reads"]
         mdStore["ClinicalEventMarkdownStore<br/>source of truth"]
         idxWriter["ClinicalEventIndexWriter<br/>derived index"]
@@ -199,10 +200,10 @@ flowchart TB
     entity --> domain
     dao --> pg
     chatCtrl --> orchestrator
-    orchestrator --> interpreter
-    orchestrator --> regSvc
-    orchestrator --> histSvc
-    orchestrator --> convComposer
+    orchestrator --> agent
+    agent --> executor
+    executor --> regSvc
+    executor --> histSvc
     histSvc --> composer
     histSvc --> queryRepo
     queryRepo --> pg
@@ -225,7 +226,7 @@ flowchart TB
 | --- | --- | --- |
 | `controller/` | Inbound adapter: translates HTTP ↔ DTO. It decides nothing | `backend/.../controller/MeasurementController.java`, `ChatController.java`, `ClinicalEventIndexController.java` |
 | `service/` | Use cases: sort, decide create vs. replace, preview and load | `backend/.../service/MeasurementService.java`, `MeasurementImportService.java`, `MeasurementCsvParser.java` |
-| `service/` (clinical) | Chat and registration: interpret, normalise dates, validate, dedupe, publish Markdown + derived index atomically, and answer through the matching channel (clinical history query or general conversation) without writing the history | `backend/.../service/ChatOrchestrator.java`, `ClinicalEvent*.java`, `ClinicalHistoryQueryService.java`, `OpenAiClinical*.java` |
+| `service/` (clinical) | Chat and registration: the agent decides among a closed set of declared operations — consult the history, register a fact — and each operation validates its arguments and writes inside its own path; the turn ends in one single reply | `backend/.../service/ChatOrchestrator.java`, `ClinicalAgent.java`, `AgentOperation*.java`, `AgentToolContract.java`, `ClinicalHistoryQueryService.java`, `ClinicalEvent*.java` |
 | `repository/` | Port (`MeasurementRepository`) + JPA adapters. Isolates the persistence engine | `backend/.../repository/` |
 | `entity/` | Domain/mapping separation: `MeasurementEntity` (mapping), `Measurement` and `MeasurementDraft` (annotation-free domain), `ClinicalEvent` (assistant domain) | `backend/.../entity/` |
 | `dto/` | HTTP contract, independent of the schema | `backend/.../dto/` |
@@ -394,7 +395,7 @@ hexagonal).**
 | --- | --- | --- |
 | No authentication or authorization anywhere in the API | `backend/README.md`; `frontend/README.md` | High if the data leaves a local environment |
 | No continuous integration | `.github/` without `workflows/` | Medium: coverage gates only run locally |
-| `e2e/playwright/` reserved and empty; Storybook, Playwright, TanStack Query, Zustand, runtime i18n and dark mode pending | `frontend/README.md`, *Deferred from the frontend standard* | Low: additive adoption planned |
+| `e2e/playwright/` and `e2e/corpus/` hold the end-to-end scenarios and the evaluation corpus, run against a running stack with `pnpm test:e2e` and `pnpm test:e2e:corpus`; Storybook, TanStack Query, Zustand, runtime i18n and dark mode pending | `frontend/README.md`, `frontend/playwright.config.ts` | Low: additive adoption planned; the corpus reports a retrieval gap (a registered fact that a category question does not always find) tracked in `openspec/changes/archive/2026-09-20-uc-012/tasks.md` |
 | Clinical events cannot be edited or deleted; the history query is answered from the derived index and the absence of records is declared with its reason and its actions | `openspec/specs/clinical-history-query/spec.md`, `backend/.../service/ClinicalEventIndexRebuilder.java` | Informative: MVP scope |
 | Fact deduplication is limited to the active conversation, with in-memory state | `backend/.../service/ClinicalEventConversationRegistry.java`, `ConversationStateStore.java` | Low: a repetition in another conversation creates a new event |
 
@@ -421,7 +422,7 @@ the code and the READMEs.
 | ADR-011 | Java 21 pinned by `maven-enforcer-plugin` and a committed Maven wrapper | Current | Reproducible build | Builds with another JDK fail explicitly |
 | ADR-012 | User-facing text in Spanish isolated in `strings.ts`; code in English | Current | Future i18n without a refactor | Manual discipline; no automated check |
 | ADR-013 | Implicit `Patient` and clinical events in Markdown as the source of truth + derived PostgreSQL index | Current | MVP of the clinical history assistant | Markdown rules; PostgreSQL indexes and is rebuilt; the query is read-only and there is no edit or delete |
-| ADR-014 | Natural-language interpretation and composition behind separate adapters (`ClinicalIntentInterpreter` / `ClinicalAnswerComposer` / `ClinicalConversationComposer`) with `fake`/`openai` mode | Current | Separate the LLM provider from the domain and validate grounded answers | The `fake` default is deterministic; `openai` requires `CAREME_LLM_API_KEY`, classifies queries, composes answers only from retrieved facts and composes the conversational reply without reading the history |
+| ADR-014 | The assistant is an agent with tools behind a port (`ClinicalAgent`): the model chooses from a **closed** set of declared operations (`consult_history`, `register_event`), which the backend validates and executes — writing inside the operation — until one single reply closes the turn; adapters with `fake`/`openai` mode | Current | Keep the LLM provider out of the domain while letting the model handle language variation instead of classifying it in code | Supersedes the intent-interpreter/conversational-composer split. `openai` is the default and requires `CAREME_LLM_API_KEY`, otherwise the backend refuses to start; `fake` is a test double that also chooses operations. The model never reaches the filesystem and cannot invoke an undeclared operation |
 
 > ADR-013 describes the implemented model. The roadmap's Fase 4.4 materialises `Patient` as a patient
 > profile, which will supersede it.
@@ -443,7 +444,7 @@ only.
 | `CAREME_DB_USER` / `CAREME_DB_PASSWORD` | Database credentials | `careme` / `careme` |
 | `CAREME_CORS_ALLOWED_ORIGINS` | Origins allowed in `pre`/`prd` | No default: the app does not start without it |
 | `CAREME_EVENTS_DIRECTORY` | Directory of the Markdown source of truth | `data/events` |
-| `CAREME_LLM_MODE` | `fake` (no network) or `openai` | `fake` |
+| `CAREME_LLM_MODE` | `fake` (no network) or `openai` | `openai` |
 | `CAREME_LLM_API_KEY` | LLM provider credential (backend only) | No default; required with `openai` |
 | `CAREME_LLM_BASE_URL` / `CAREME_LLM_MODEL` | OpenAI-compatible endpoint and model | `https://api.deepseek.com` / `deepseek-flash` |
 | `CAREME_LLM_CONNECT_TIMEOUT` / `CAREME_LLM_READ_TIMEOUT` | LLM client timeouts | `PT5S` / `PT30S` |
