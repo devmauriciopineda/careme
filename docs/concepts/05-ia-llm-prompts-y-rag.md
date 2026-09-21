@@ -102,9 +102,8 @@ Dos consecuencias prácticas del patrón:
   de diseño y no un detalle.
 
 En Careme el puerto que nombra esta capacidad es `ClinicalAgent`, y el conjunto de
-herramientas es **cerrado**: cuatro operaciones declaradas —consultar la historia,
-consultar el seguimiento de mediciones y recoger notas de hecho y de medición—. La
-aplicación declara, el modelo elige y el
+herramientas es **cerrado**: la aplicación publica un conjunto acotado de
+operaciones declaradas, el modelo elige entre ellas y el
 código ejecuta; lo que no está declarado no existe para el modelo. El detalle de
 roles, ejecución y validación está en §3.2.1 y §3.3.
 
@@ -188,20 +187,13 @@ herramientas, y es el que implementa Careme.
 
 ### 3.3 De lenguaje a operaciones: las funciones declaradas
 
-El turno empieza cuando el modelo convierte el mensaje en una o más **operaciones** elegidas de un conjunto cerrado. Son cuatro:
+El turno empieza cuando el modelo convierte el mensaje en una o más **operaciones** elegidas de un conjunto cerrado. Las operaciones se agrupan en **familias** según lo que producen: **consultar** algo ya registrado, **anotar** en la consulta algo que la persona acaba de mencionar y **medir** un valor con su unidad y su fecha.
 
-| Operación | Significado |
-| --- | --- |
-| `consult_history` | El mensaje pregunta por la historia clínica |
-| `consult_measurements` | El mensaje pregunta por las mediciones del seguimiento —una métrica, varias o un periodo— |
-| `record_note` | El mensaje menciona hechos clínicos que la persona afirma y deben quedar recogidos en la consulta |
-| `record_measurement` | El mensaje menciona una medición —métrica, valor y fecha— que debe quedar recogida en la consulta |
-
-Una operación de consulta de la historia lleva la pregunta, un **ámbito** (historia o seguimiento corporal), los **términos de búsqueda** y, cuando la persona los mencionó, filtros de tipo y de fecha. Una operación de consulta del seguimiento lleva la pregunta, las **métricas** que la persona nombró y el **periodo**, y es de **solo lectura**: pedir una medición nunca cambia el seguimiento. Una operación de nota lleva los hechos candidatos con su tipo, su contenido y su precisión temporal. Una operación de medición lleva la métrica que la persona nombró, su valor o sus valores, la unidad cuando la dijo y la fecha con su precisión, y **no** se declara como hecho clínico: la medición viaja por su propio cauce. Ninguna de las cuatro expone rutas, archivos ni almacenamiento: el modelo nombra una capacidad, no un recurso.
+Una operación de consulta nunca escribe: lee y devuelve un conjunto acotado de material —hechos clínicos o mediciones, según el ámbito— para que el modelo lo use, y esa lectura es de **solo lectura**: preguntar nunca cambia un registro. Una operación de anotación deja un candidato en la consulta, con su contenido y su precisión temporal. Una operación de medición lleva la métrica que la persona nombró, su valor o sus valores, la unidad cuando la dijo y la fecha con su precisión, y **no** se declara como hecho clínico: la medición viaja por su propio cauce. Ninguna operación expone rutas, archivos ni almacenamiento: el modelo nombra una capacidad, no un recurso.
 
 **Registrar no es una operación del turno.** Un hecho mencionado durante la conversación se recoge como **nota** de la consulta, y una medición como **nota de medición**; la incorporación a la historia clínica y al seguimiento de mediciones ocurre al **cerrar** la consulta. Mientras la consulta está en curso, ninguna operación del turno escribe: el turno y el cierre son dos momentos distintos, y el resultado del turno declara lo recogido, no lo registrado.
 
-**Qué decide el turno.** El modelo elige cuántas operaciones necesita y en qué orden: un mensaje que menciona un hecho y además pregunta por lo ya registrado produce **dos operaciones en un mismo turno**, y las dos se atienden. Lo que el modelo no puede hacer es declarar una operación que la aplicación no haya publicado, ni ejecutar nada por su cuenta.
+**Qué decide el turno.** El modelo elige cuántas operaciones necesita y en qué orden: un mensaje que menciona un hecho y además pregunta por lo ya registrado produce **más de una operación en un mismo turno**, y todas se atienden. Lo que el modelo no puede hacer es declarar una operación que la aplicación no haya publicado, ni ejecutar nada por su cuenta.
 
 Cuando falta un dato —no se sabe qué hecho recoger o con qué precisión—, el sistema **pregunta** en lugar de adivinar, y no lo deja recogido hasta tenerlo. Y cuando el mensaje ni menciona un hecho ni depende de la historia, el turno es **conversación general**: no se solicita ninguna operación y la respuesta queda fuera de la historia clínica.
 
@@ -209,7 +201,7 @@ Antes de ejecutar nada, el código **valida** la operación solicitada:
 
 - la operación tiene que estar **declarada**; si no lo está, no se resuelve y no se ejecuta;
 - una consulta **no puede** traer hechos candidatos, y necesita al menos un término de búsqueda o un filtro;
-- una consulta cuyo ámbito es el seguimiento de mediciones no se responde desde la historia clínica: se atiende por el cauce de las mediciones, de modo que un valor de medición nunca se presenta como un hecho clínico aunque el modelo haya pedido la operación equivocada;
+- un valor de medición nunca se presenta como un hecho clínico: la medición tiene su propio cauce, y el modelo no lo convierte en hecho por pedir la operación equivocada;
 - un hecho con precisión exacta **necesita** una fecha;
 - una medición **necesita** una métrica admitida, un valor válido para ella, una unidad inequívoca y una fecha **exacta**; una fecha aproximada o desconocida no se convierte en exacta.
 

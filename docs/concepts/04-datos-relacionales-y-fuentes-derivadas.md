@@ -390,7 +390,7 @@ su propia tabla derivada:
 | `data/events/evt_NNN.md` | `clinical_event_index` | Recuperar hechos clínicos para responder |
 | `data/encounters/enc_NNN.md` | `encounter_index` | Conservar el ciclo de vida de la conversación |
 
-Las dos tablas son descartables: se reconstruyen desde los documentos. Pero la
+Esas tablas son descartables: se reconstruyen desde los documentos. Pero la
 consulta añade una propiedad que el hecho no tiene: se **republica** mientras
 está abierta, porque va acumulando notas, de modo que su fila de índice se
 **actualiza** en cada cambio en lugar de insertarse una sola vez.
@@ -419,17 +419,30 @@ revierte el efecto de una operación anterior cuando no existe una transacción
 ### 7.2 Una vista derivada que conserva un contrato
 
 Cambiar la forma de un dato no obliga a romper el contrato que ya consumían sus
-clientes. En Careme, la tabla antigua de mediciones desaparece, pero el contrato
-`/api/v1/measurements` —una fila por día con peso y circunferencia— se conserva
-como una **vista derivada**: el repositorio **compone** la pareja del día a partir
-de las métricas almacenadas y hace *upsert* de esas dos métricas al escribir, de
-modo que el cliente no cambia y el seguimiento sigue teniendo una sola fuente.
+clientes. Una **vista derivada** permite hacerlo en dos tiempos: el almacenamiento
+adopta la forma nueva y sobre ella se **compone**, al leer, la forma que el cliente
+esperaba recibir. El cliente no cambia y el sistema sigue teniendo una sola fuente
+de verdad, porque la vista no guarda nada: se calcula desde el modelo. La dirección
+de la derivación importa —se escribe en la forma nueva y se lee la antigua—; si la
+vista guardara el dato por su cuenta, la forma antigua seguiría siendo la fuente y
+la evolución no habría ocurrido.
+
+Cuando la forma antigua no es una simple proyección sino un objeto con reglas
+propias, esas reglas se trasladan a la vista: si el contrato promete un registro
+por período con dos valores que van juntos, escribir a través de él tiene que
+reflejar los dos en el modelo nuevo, y leerlo tiene que volver a reunirlos.
+
+En Careme el caso aparece al pasar de una tabla de mediciones diaria a un modelo
+que guarda cada métrica por separado. La tabla antigua desaparece, pero su contrato
+se conserva con esa técnica: una capa que compone la pareja del día a partir de las
+métricas almacenadas y refleja ambas al escribir, de modo que quien ya consultaba
+ese contrato no cambia y el seguimiento sigue teniendo una sola fuente.
 
 Una vista de ese tipo tiene un coste que conviene declarar, no ocultar: solo puede
-componer lo que su contrato exige, así que un día con **una sola** de las dos
-métricas queda íntegro en el modelo pero no aparece en ella. Reconocer ese hueco
-es parte del diseño; suponer que la vista es completa porque el contrato no admite
-nulos sería el error.
+componer lo que su contrato exige, así que un período que en el modelo tiene **una
+sola** de las dos métricas queda íntegro en el almacenamiento pero no aparece en la
+vista. Reconocer ese hueco es parte del diseño; suponer que la vista es completa
+porque el contrato no admite nulos sería el error.
 
 ## 8. Búsqueda full-text de PostgreSQL
 

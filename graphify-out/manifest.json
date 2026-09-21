@@ -474,15 +474,15 @@
     "semantic_hash": "21e4edd251e7d8d2230f404044ff1369"
   },
   "README.md": {
-    "mtime": 1790010927.823058,
-    "seen": 1790011725.8279254,
-    "ast_hash": "ba70f757b09f749d4c2172721722b9d1",
+    "mtime": 1790024736.90565,
+    "seen": 1790029684.96934,
+    "ast_hash": "b3bd88687d0010d81376883b4ab31a62",
     "semantic_hash": ""
   },
   "backend/README.md": {
-    "mtime": 1790010128.574404,
-    "seen": 1790010396.21602,
-    "ast_hash": "686e5946a5fe893376975d9978ae9245",
+    "mtime": 1790027731.0867133,
+    "seen": 1790029684.969343,
+    "ast_hash": "af34501457453e43c8f5d24d64698b44",
     "semantic_hash": ""
   },
   "backend/src/main/resources/application-dev.yml": {
@@ -558,9 +558,9 @@
     "semantic_hash": "5c27369b226fcf2be8a6cfe52224e767"
   },
   "frontend/README.md": {
-    "mtime": 1790010927.823058,
-    "seen": 1790011725.8329747,
-    "ast_hash": "49cfd58cc7cb8f98de3a70a171467671",
+    "mtime": 1790027731.0820422,
+    "seen": 1790029684.9729626,
+    "ast_hash": "67f08884418c561f131a96c3a475b4cb",
     "semantic_hash": ""
   },
   "frontend/pnpm-workspace.yaml": {
@@ -1230,9 +1230,9 @@
     "semantic_hash": ""
   },
   "docs/concepts/01-estructura-y-arquitectura-del-repositorio.md": {
-    "mtime": 1789705985.6367757,
-    "seen": 1789709857.1965368,
-    "ast_hash": "98a7f1e3d1f7695fcd5d4f149fa0e0c5",
+    "mtime": 1790019590.0397117,
+    "seen": 1790019792.8219223,
+    "ast_hash": "6e13c549feb6577722e0fe7ee18090d5",
     "semantic_hash": ""
   },
   "docs/concepts/02-frontend-renderizado-y-comunicacion.md": {
@@ -1242,21 +1242,21 @@
     "semantic_hash": ""
   },
   "docs/concepts/03-backend-api-concurrencia-y-persistencia.md": {
-    "mtime": 1789965884.1914694,
-    "seen": 1789965901.74112,
+    "mtime": 1790018191.6021879,
+    "seen": 1790019792.8221734,
     "ast_hash": "6d1f430eccbf4a485af99756b5308de4",
     "semantic_hash": ""
   },
   "docs/concepts/04-datos-relacionales-y-fuentes-derivadas.md": {
-    "mtime": 1789965884.1893651,
-    "seen": 1789965901.7411258,
-    "ast_hash": "b4bd5cd5949a9d61b32122e3fe63dd17",
+    "mtime": 1790019590.0265598,
+    "seen": 1790019792.8221793,
+    "ast_hash": "05cb153d093a401133c558582111f3c6",
     "semantic_hash": ""
   },
   "docs/concepts/05-ia-llm-prompts-y-rag.md": {
-    "mtime": 1790011635.0480244,
-    "seen": 1790011725.829377,
-    "ast_hash": "68c61fe1f0c9b3d448dd5d96d13a5209",
+    "mtime": 1790019590.016779,
+    "seen": 1790019792.822185,
+    "ast_hash": "253dc2dc1768014f7618b26514c0c100",
     "semantic_hash": ""
   },
   "docs/concepts/06-sdd-y-openspec.md": {
@@ -1662,21 +1662,21 @@
     "semantic_hash": ""
   },
   ".github/prompts/sync-concept-docs.prompt.md": {
-    "mtime": 1789709842.168672,
-    "seen": 1789709857.1940873,
-    "ast_hash": "d19483bc30f43652974b1bd371223104",
+    "mtime": 1790019650.789295,
+    "seen": 1790019792.8182871,
+    "ast_hash": "d31fcc9ff7ebe49a973492fe88b22346",
     "semantic_hash": ""
   },
   "docs/concepts/07-calidad.md": {
-    "mtime": 1790011635.0480244,
-    "seen": 1790011725.8294702,
-    "ast_hash": "8050ad28c3ec7157413ab7ab93dfb9ee",
+    "mtime": 1790029554.4598818,
+    "seen": 1790029684.970516,
+    "ast_hash": "f6aaf7c97e47f5a96af726fca037bc26",
     "semantic_hash": ""
   },
   "docs/concepts/08-despliegue.md": {
-    "mtime": 1789965884.1934717,
-    "seen": 1789965901.7412913,
-    "ast_hash": "e99c8f0a5b9e6e89517713709755a6db",
+    "mtime": 1790019590.0265598,
+    "seen": 1790019792.8224838,
+    "ast_hash": "19d834b2a1ce5b34f04a03a11bff8d2b",
     "semantic_hash": ""
   },
   "docs/use-cases/UC-012-acceptance-criteria.md": {
@@ -2655,6 +2655,36 @@
     "mtime": 1790010264.4054904,
     "seen": 1790010396.2721636,
     "ast_hash": "a30a8c4064e845778ae4da52e21f12f1",
+    "semantic_hash": ""
+  },
+  "docs/testing/README.md": {
+    "mtime": 1790024736.9016411,
+    "seen": 1790029684.9710603,
+    "ast_hash": "6a563f1af368e8ee57bd2e4918132f1f",
+    "semantic_hash": ""
+  },
+  "docs/testing/coverage-and-gates.md": {
+    "mtime": 1790027731.0820422,
+    "seen": 1790029684.9710617,
+    "ast_hash": "96ef25318bbd8b7bea0fb4babe8f07f6",
+    "semantic_hash": ""
+  },
+  "docs/testing/regression-scope.md": {
+    "mtime": 1790027731.0820422,
+    "seen": 1790029684.9710634,
+    "ast_hash": "80c7dc485a3971dd0b3131d59d86aeb2",
+    "semantic_hash": ""
+  },
+  "docs/testing/test-process.md": {
+    "mtime": 1790028942.3823292,
+    "seen": 1790029684.971065,
+    "ast_hash": "c05bdfff0d735d759d2863abb5a56543",
+    "semantic_hash": ""
+  },
+  "docs/testing/test-strategy.md": {
+    "mtime": 1790024736.9016411,
+    "seen": 1790029684.971066,
+    "ast_hash": "1ad297a0125e327b32b0a237c1a45177",
     "semantic_hash": ""
   }
 }

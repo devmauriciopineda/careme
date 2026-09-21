@@ -197,20 +197,15 @@ history that is already seeded (or an empty one, which it seeds itself) and
 `E2E_API_BASE_URL` when the backend is not on `http://localhost:8080`. It reports a
 scorecard instead of stopping at the first finding.
 
-148 test cases across the measurements and chat features, including validation
-and rendering of the collected-for-close, answered, no-records and
-general-conversation chat outcomes with supporting events, answers grounded in the
-measurements with their values, unit and date (a compound metric as one
-measurement) together with the measurement absence reasons, the absence reason,
-the offered continuation and the operations a turn went through, and the
-end-consultation action with its close outcome.
-Unit tests cover the pure helpers in `measurements/lib/metrics.ts` (sorting,
-series building, axis domain, localization, local-day helpers), the Zod schemas
-(measurement API payloads, the registration form and the chat turn) and both
-services. Integration tests render `MeasurementsTable` (row order, number
-formatting, accessible caption), `MeasurementForm` (validation, a successful
-save, a failed save that keeps the typed values, the disabled state while saving)
-and `ChatWorkspace` with its actions.
+The strategy behind these suites — levels, quality gates and regression scope — is
+documented in [`docs/testing/`](../docs/testing/README.md).
+
+The suite is organized the way the interface is: the pure helpers and the boundary
+schemas as unit tests, the rendered islands as component tests, and the scenarios
+as end-to-end specs. Which one has to carry the evidence for a given behaviour is
+decided by the selection rule in
+[`docs/testing/test-process.md`](../docs/testing/test-process.md); the files
+themselves sit next to the modules they cover.
 
 ## Accessibility
 

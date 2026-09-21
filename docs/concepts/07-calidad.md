@@ -18,6 +18,7 @@ la evidencia que permite saber si el comportamiento implementado es confiable.
 6. [Ejemplos del frontend](#6-ejemplos-del-frontend)
 7. [Cobertura de código](#7-cobertura-de-código)
 8. [Otras verificaciones](#8-otras-verificaciones)
+9. [Evaluación de texto generado por un modelo](#9-evaluación-de-texto-generado-por-un-modelo)
 
 ## 1. Qué es calidad
 
@@ -87,24 +88,51 @@ pequeñas mantienen esa localización.
 
 ### 2.2 Secuencia real del repositorio
 
-En Careme, el backend se ejecuta con Maven y el frontend con pnpm:
+En Careme la verificación se escalona en el mismo orden que la estrategia: primero
+las pruebas que no necesitan infraestructura, después la comprobación de tipos y el
+análisis estático, y al final la compilación. El backend añade una **puerta de
+cobertura** que se evalúa en un paso posterior a las pruebas, de modo que pasar las
+pruebas no basta; el frontend no impone umbral, pero exige que el tipado y el
+linting pasen antes de compilar.
 
-```text
-Backend:  test -> verify
-          pruebas JUnit/Spring -> informe JaCoCo -> umbral de cobertura
+Fuera de esa cadena quedan las pruebas de extremo a extremo (§4.5) y la medición
+sobre un corpus de evaluación (§4.6): ambas necesitan la pila levantada y el
+asistente real, así que se ejecutan aparte y su coste no se paga en cada cambio.
 
-Frontend: test -> typecheck -> lint -> build
-          Vitest/jsdom -> TypeScript -> ESLint -> compilación Next.js
+El nivel no se elige por la herramienta disponible, sino por la **frontera
+observable** del comportamiento: dónde puede decidirse si la propiedad se cumple.
+La herramienta es la consecuencia de esa elección, no su criterio. La figura
+siguiente resume el recorrido completo —de la elección del nivel al cierre del
+cambio— y sitúa la puerta de cobertura dentro de él:
+
+```mermaid
+flowchart TB
+    Behavior["Comportamiento de un escenario"] --> Frontier{"¿Dónde se decide la propiedad?"}
+    Frontier -->|"dentro de una unidad"| Unit["Prueba unitaria"]
+    Frontier -->|"en el límite de una petición o de un componente"| Boundary["Prueba de frontera"]
+    Frontier -->|"en la composición con una dependencia real"| Integration["Prueba de integración"]
+    Frontier -->|"en el recorrido completo"| E2E["Prueba de extremo a extremo"]
+    Unit --> Close
+    Boundary --> Close
+    Integration --> Close
+    E2E --> Apart["Se ejecuta aparte: necesita la pila real"]
+    Close["Cierre del cambio: suite completa y análisis estático"] --> Gate{"Puerta de cobertura agregada"}
+    Gate -->|"se cumple"| Done["Evidencia sobre el comportamiento"]
+    Gate -->|"no se cumple"| Fix["Añadir casos en el nivel que falta"]
 ```
 
-Fuera de esas dos cadenas quedan las pruebas de extremo a extremo (§4.5) y la
-medición sobre un corpus de evaluación (§4.6): ambas necesitan la pila levantada,
-así que se ejecutan aparte y no forman parte de la compilación.
+Cerrar un cambio no consiste en elegir una lista de casos de regresión: la
+regresión es la **suite completa** de cada lado, porque solo una ejecución
+completa permite atribuir un fallo a lo que acaba de cambiar y no a otra cosa.
+La puerta de cobertura (§7.3), cuando existe, se evalúa después de las pruebas y
+sobre el **conjunto agregado** del módulo, de modo que su resultado no puede
+obtenerse ejecutando un subconjunto.
 
-La suite backend combina JUnit 5, Mockito, AssertJ, MockMvc, Spring Boot Test y
-Testcontainers. Las pruebas que requieren PostgreSQL arrancan `postgres:17-alpine`
-y aplican las migraciones reales. El frontend usa Vitest en `jsdom` y React
-Testing Library; esas pruebas no necesitan levantar el backend.
+La gradación de herramientas es la que describe §4: pruebas que corren sin
+infraestructura, pruebas de una frontera concreta con la petición en memoria,
+pruebas de integración contra un motor real en contenedor y, en el frontend,
+componentes renderizados en un DOM simulado. Esa gradación es lo que permite
+atribuir un fallo a la pieza correcta.
 
 El orden conceptual también ayuda a diagnosticar: si falla una función pura, no
 conviene atribuir el problema a PostgreSQL; si pasa la lógica pero falla una
@@ -192,9 +220,9 @@ se ejecuta realmente:
 | Unitaria (frontend) | Vitest | Solo Node: ejecuta cada `it(...)` y compara con `expect`; sin DOM ni backend |
 | Capa web | Spring Boot Test (`@WebMvcTest`) + MockMvc | El contexto web aislado —MVC, JSON, validación, errores— con el servicio mockeado; la petición HTTP va en memoria |
 | Componente | Vitest + React Testing Library + `jsdom` + `userEvent` | Un DOM simulado en Node: renderiza el componente, consulta por rol o etiqueta y reproduce la interacción |
-| Integración | Spring Boot Test + Testcontainers | Un PostgreSQL 17 real en contenedor, con Flyway aplicando el esquema; acceso por JPA o JDBC |
-| Extremo a extremo | Playwright (proyecto `interface`) | Un navegador real contra la pila levantada; afirma sobre el DOM y lee el oráculo del sistema de archivos |
-| Corpus | Playwright (proyecto `corpus`) | El mismo motor sin navegador: `APIRequestContext` conduce la API del chat y agrega un tablero |
+| Integración | Spring Boot Test + Testcontainers | Un motor PostgreSQL real en contenedor, con Flyway aplicando el esquema; acceso por JPA o JDBC |
+| Extremo a extremo | Playwright | Un navegador real contra la pila levantada; afirma sobre el DOM y lee el oráculo del sistema de archivos |
+| Corpus | Playwright, como cliente de la API | El mismo motor sin navegador: conduce la API y agrega un tablero |
 
 ### 4.1 Prueba unitaria
 
@@ -309,10 +337,10 @@ una **instantánea de contenido** —nombre y hash de cada documento— antes y
 después del turno, de modo que «la historia clínica queda exactamente como
 estaba» signifique que nada se añadió, se modificó ni se borró.
 
-Los recorridos viven en `frontend/e2e/playwright/` y se ejecutan con
-`pnpm test:e2e`. Antes de contar con ellos hay que levantar la pila: el backend
-con el asistente real y PostgreSQL en marcha, y `CAREME_EVENTS_DIRECTORY`
-apuntando al directorio que la prueba inspecciona.
+Las pruebas de este nivel se ejecutan con `pnpm test:e2e`, y antes de contar con
+ellas hay que levantar la pila: el backend con el asistente real, PostgreSQL en
+marcha y acceso directo al directorio que actúa como oráculo, que es lo que
+permite leer el efecto del turno sin pasar por la interfaz.
 
 **Herramienta y mecanismo.** **Playwright** lanza un navegador real (Chromium) y lo
 conduce: navega, escribe, hace clic y espera a que la interfaz se estabilice antes
@@ -347,22 +375,23 @@ gluten»—, así que buscar por subcadena confundiría la negación con una
 afirmación. La medición mira si el término aparece **fuera de una negación o de
 una lista de términos buscados**.
 
-En Careme el corpus vive en `frontend/e2e/corpus/` y se ejecuta con
-`pnpm test:e2e:corpus`. Lo conduce la **API** y no el navegador, porque lo que
-mide —el estado del turno y cuántas operaciones necesitó— forma parte del
-contrato del backend y la interfaz no lo muestra entero; por eso
-`playwright.config.ts` declara dos proyectos, uno para la interfaz y otro para el
-corpus.
+El corpus se ejecuta con `pnpm test:e2e:corpus` y en Careme lo conduce la **API** y
+no el navegador, porque lo que mide —el estado del turno y cuántas operaciones
+necesitó— forma parte del contrato del backend y la interfaz no lo muestra entero.
+Es el mismo motor de extremo a extremo usado como cliente de la API en lugar de
+como navegador.
 
-**Herramienta y mecanismo.** El mismo Playwright, en el proyecto `corpus`, pero sin
-navegador: `APIRequestContext` envía las peticiones directamente a la API del chat
-y el resultado se agrega en un tablero en lugar de afirmarse caso a caso. Sin
-navegador, recorrer un conjunto grande de preguntas es mucho más barato que
-hacerlo con la interfaz.
+**Herramienta y mecanismo.** El mismo motor de Playwright, pero sin navegador:
+`APIRequestContext` envía las peticiones directamente a la API y el resultado se
+agrega en un tablero en lugar de afirmarse caso a caso. Sin navegador, recorrer un
+conjunto grande de preguntas es mucho más barato que hacerlo con la interfaz.
 
 Su veredicto puede quedar en rojo a propósito: cuando el corpus encuentra
 un fallo real de recuperación, se archiva como hallazgo documentado en lugar de
 rebajarse la expectativa para que pase.
+
+El problema general —por qué el texto generado no se compara con un valor esperado
+y qué estrategias existen para evaluarlo— se trata en §9.
 
 ## 5. Ejemplos del backend
 
@@ -606,11 +635,11 @@ comparten un límite: ven lo que el código **declara**, no lo que ocurre al
 ejecutarlo. Por eso se sitúan antes que las pruebas en la cadena de verificación,
 como un primer filtro que evita gastar una ejecución en un error de forma.
 
-En Careme, el frontend ejecuta `pnpm typecheck` (TypeScript) y `pnpm lint` (ESLint)
-antes de construir: el orden es `test -> typecheck -> lint -> build` (§2.2). El
-backend no tiene un linter aparte: su verificación estática la ejerce el compilador
-de Java y el modo `validate` de Hibernate, que rechaza al arrancar un modelo de
-persistencia que no coincida con el esquema migrado.
+En Careme, el frontend ejecuta `pnpm typecheck` (TypeScript) y `pnpm lint`
+(ESLint) antes de construir: el orden es `test -> typecheck -> lint -> build`
+(§2.2). El backend no tiene un linter aparte: su verificación estática la ejerce
+el compilador de Java y el modo `validate` de Hibernate, que rechaza al arrancar
+un modelo de persistencia que no coincida con el esquema migrado.
 
 ### 8.2 Otras verificaciones no funcionales
 
@@ -622,3 +651,95 @@ PostgreSQL, cobertura del backend, la verificación estática del frontend (§8.
 el recorrido de extremo a extremo con la medición sobre un corpus de evaluación
 (§4.5 y §4.6); las demás categorías sirven como contexto para ampliar la
 estrategia cuando el producto o su operación lo requieran.
+
+## 9. Evaluación de texto generado por un modelo
+
+Las secciones anteriores suponen un **valor esperado**: un resultado, una
+excepción, un código de estado. Cuando la salida del sistema es una frase
+redactada por un modelo de lenguaje, esa suposición se rompe, y el problema no es
+de herramienta sino de **oráculo**: no existe *la* respuesta correcta, existen
+respuestas sostenidas por la evidencia y respuestas que no lo están.
+
+Tres causas lo producen:
+
+1. **Multiplicidad.** Una misma pregunta admite muchas respuestas correctas que no
+   comparten palabras, así que ninguna de ellas puede ser el valor esperado.
+2. **No determinismo.** El mismo mensaje produce salidas distintas entre
+   ejecuciones, y la variación depende del muestreo y de la versión del modelo.
+   Fijar la semilla o la temperatura reduce la varianza, no la elimina, y la
+   reduce a costa de la variedad que el sistema necesita.
+3. **Deriva del proveedor.** Cambiar la versión del modelo invalida una línea base
+   medida con la anterior sin que ningún requisito haya cambiado.
+
+La consecuencia práctica es un desplazamiento del oráculo: de «el texto es este»
+a «el texto cumple esto».
+
+### 9.1 La decisión previa: ¿existe una referencia?
+
+```mermaid
+flowchart TB
+    Out["Salida en lenguaje natural"] --> Ref{"¿Existe una única respuesta aceptable?"}
+    Ref -->|sí| Comp["Comparar con la referencia"]
+    Ref -->|no| Prop{"¿La propiedad deseada se enuncia sin referencia?"}
+    Prop -->|sí| Inv["Evaluar invariantes sobre un conjunto de datos"]
+    Prop -->|no| Judge["Juzgar: con otro modelo o con personas"]
+    Comp --> Which["Igualdad normalizada, instantánea, n-gramas, similitud semántica"]
+```
+
+La rama de la izquierda mide **parecido**; la del centro, **cumplimiento**; la de
+la derecha, **calidad percibida**. Confundirlas es el error más común: un sistema
+puede dar una respuesta correcta y suspender una comparación de palabras, o dar
+una respuesta bien redactada y falsa que una métrica de parecido aprueba.
+
+### 9.2 Estrategias que comparan con una referencia
+
+| Estrategia | Qué mide | Qué exige | Límite |
+| --- | --- | --- | --- |
+| Igualdad normalizada | Si la salida coincide con la esperada tras normalizar mayúsculas, espacios y acentos | Una única salida aceptable | Solo sirve para tareas cerradas: clasificar, extraer, rellenar un campo |
+| Instantánea (*golden*) | Si la salida **cambió** respecto de la guardada | Almacenar salidas y revisar cada diferencia | Detecta cambios, no corrección; el ruido del modelo y la deriva del proveedor obligan a re-aprobar |
+| Métricas de n-gramas (BLEU, ROUGE, chrF) | Solapamiento de palabras o de caracteres con el texto de referencia | Uno o varios textos de referencia | Correlaciona poco con el juicio humano en texto abierto; penaliza paráfrasis correctas |
+| Similitud semántica | Cercanía de significado mediante incrustaciones vectoriales | Referencia y un umbral | El umbral es un supuesto, y la referencia sigue siendo una entre muchas respuestas válidas |
+
+### 9.3 Estrategias que no necesitan referencia
+
+| Estrategia | Qué mide | Límite |
+| --- | --- | --- |
+| Contrato estructurado | Que la salida encaje en un esquema y que sus campos sean aceptables | Hay que diseñar el esquema; no dice nada del texto que no cabe en él |
+| Invariantes de la respuesta | Propiedades que deben cumplirse siempre: cada referencia existe, ninguna afirmación carece de respaldo, el formato se respeta | Solo cubre lo que se sabe enunciar; lo inesperado sigue sin detectarse |
+| Métricas del sistema de recuperación | Si lo recuperado era pertinente y si la respuesta se apoya en ello | Miden el sistema, no la redacción |
+| Suites adversarias | Si el sistema se mantiene en su cometido ante inyección de instrucciones, peticiones fuera de dominio o intentos de obtener lo prohibido | Hay que mantener el conjunto de ataques, y envejece |
+| Juicio con modelo | Calidad según una rúbrica aplicada por otro modelo | Aporta sesgos propios —prefiere respuestas largas, se prefiere a sí mismo, depende del orden— y no es determinista: es medición, no puerta |
+| Evaluación humana | Calidad según personas, con rúbrica y acuerdo entre evaluadores | Es el patrón de referencia y no escala: cara, lenta y con variación entre evaluadores |
+
+### 9.4 Cuando la propiedad debe ser fiable, se constriñe el sistema
+
+Hay comportamientos que no admiten una tasa de acierto: no dar un diagnóstico, no
+recomendar un tratamiento, no inventar un valor. Probabilizar su cumplimiento y
+medirlo no es una garantía, y la observación de que el comportamiento se cumple en
+una muestra no autoriza a prometerlo. La salida robusta es **quitarle la decisión al
+modelo**: comprobarla después, restringir lo que puede devolver, o mover la frase a
+la aplicación, que sí es determinista. Entonces lo que se prueba es la guarda, y
+una guarda se prueba como cualquier otra regla.
+
+En Careme ese camino está **reservado, no recorrido**: la negativa ante una
+petición de recomendación depende hoy de la redacción del prompt, se ha medido con
+una sola muestra, y la respuesta prevista ante una regresión es precisamente una
+guarda determinista en la aplicación.
+
+### 9.5 Qué se aplica en Careme y qué no
+
+| Estrategia | Estado | Por qué |
+| --- | --- | --- |
+| Contrato estructurado | En uso | La respuesta se pide con una forma fija —incluido el veredicto de cuánto de la pregunta queda cubierto— y se afirma el contrato, no la redacción |
+| Invariantes sobre un conjunto de datos | En uso | La pregunta que importa —¿está sostenida la respuesta?— se enuncia sin referencia; es la medición sobre un corpus de §4.6 |
+| Transporte fingido | En uso | Permite afirmar el adaptador del proveedor con la misma entrada y la misma salida en cada ejecución, sin depender del modelo |
+| Guarda determinista | Reservada | Es la salida prevista si una negativa deja de cumplirse; no es una medida actual |
+| Igualdad, instantánea, n-gramas, similitud semántica | No aplican | No existe una respuesta ideal: el asistente redacta, y dos respuestas correctas no comparten palabras |
+| Juicio con modelo y evaluación humana | No aplican | No hay evaluación humana en este proyecto, y un juez modelo añadiría su propio no determinismo sin aportar independencia: quien escribe la implementación escribe también su oráculo |
+| Comparación en producción | No aplica | No hay tráfico instrumentado con el que comparar variantes |
+| Repetición para estimar varianza | No aplica hoy | Una sola ejecución basta para registrar un hallazgo y no para sostener una garantía, y así se anota cuando se mide |
+
+La lección que más se generaliza de esta sección es la última: **en un dominio donde
+inventar es la falla grave, no se evalúa el parecido con una respuesta ideal sino la
+relación de la respuesta con su evidencia.** Esa relación sí se puede enunciar como
+invariante, y por eso sí se puede automatizar.

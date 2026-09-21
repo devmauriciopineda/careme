@@ -272,6 +272,9 @@ Testcontainers, so the container runtime is required but `docker-compose.yml`
 does not need to be running. The frontend tests run in jsdom and need neither the
 backend nor the database.
 
+The strategy behind these suites — levels, quality gates and regression scope — is
+documented in [`docs/testing/`](./docs/testing/README.md).
+
 ### Run the end-to-end tests (Playwright)
 
 The scenarios under `frontend/e2e/playwright/` drive the real interface against a

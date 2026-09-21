@@ -30,7 +30,7 @@ impedir que una decisión interna se convierta accidentalmente en una dependenci
 externa. En Careme, el frontend, el backend y PostgreSQL son componentes de
 ejecución; `docs/` y `openspec/` son componentes de conocimiento y evolución.
 
-El repositorio describe un sistema compuesto por **dos servicios desplegables** y una **base de datos**:
+El repositorio describe un sistema compuesto por **servicios desplegables** y una **base de datos**:
 
 - un **frontend** que renderiza la interfaz,
 - un **backend** que expone la API y contiene las reglas,

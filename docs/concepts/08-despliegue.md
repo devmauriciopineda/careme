@@ -196,15 +196,21 @@ entorno:
 Imagen inmutable + variables del entorno = instancia configurada
 ```
 
-Careme usa variables como:
+Careme distingue varias clases de configuración, y cada clase protege una
+propiedad distinta:
 
-| Variable | Función | Valor o regla |
-| --- | --- | --- |
-| `SPRING_DATASOURCE_URL` | Conexión backend → PostgreSQL | URL interna de Compose |
-| `CAREME_EVENTS_DIRECTORY` | Ubicación de la fuente Markdown | `/app/data/events` en contenedor |
-| `CAREME_LLM_MODE` | Modo `fake` u `openai` | `openai` por defecto (asistente real); `fake` es el modo de pruebas |
-| `CAREME_LLM_API_KEY` | Credencial del proveedor | Solo backend, nunca frontend |
-| `API_BASE_URL` | URL que usa el frontend server-side | `http://backend:8080` en Compose |
+- la **conexión a la base de datos**, que cambia con el entorno;
+- la **ubicación de las fuentes de verdad**, que en un contenedor apunta a un
+  volumen y en desarrollo local a un directorio del repositorio;
+- el **modo del asistente**, que decide si se habla con el proveedor real o con el
+  doble de pruebas;
+- la **credencial del proveedor**, que solo conoce el backend;
+- la **dirección interna entre servicios**, que solo tiene sentido dentro de la
+  red del entorno de ejecución.
+
+Ninguna de ellas se hornea en la imagen: todas se inyectan al crear la instancia.
+Eso es lo que permite mover la misma imagen entre entornos y mantener la credencial
+fuera del artefacto y fuera del navegador.
 
 Los valores por defecto sirven para desarrollo local, pero una producción debe
 revisar explícitamente credenciales, contraseñas, origen permitido, URLs y

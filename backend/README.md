@@ -531,57 +531,23 @@ running.
 ./mvnw verify      # tests + JaCoCo report + coverage gate
 ```
 
-The suite is 58 test classes, organized by layer:
+The suite is organized by layer. The classes live in
+[`src/test/java/com/careme/backend/`](./src/test/java/com/careme/backend) — that
+tree is the list, and any list kept here would be stale as soon as a test was
+added. What each layer carries:
 
-| Class                                      | Covers                                                     |
-| ------------------------------------------ | ---------------------------------------------------------- |
-| `CaremeBackendApplicationTests`            | Full stack: real database, envelope, ordering, CORS preflight |
-| `CorsConfigTest`                           | The CORS verbs the interface uses stay listed                |
-| `ApiExceptionHandlerTest`                  | Upload-limit error contract, enforced before the controller  |
-| `MeasurementControllerTest`                | `@WebMvcTest`: envelope shape, success and error mappings   |
-| `MeasurementImportControllerTest`          | `@WebMvcTest`: preview and import endpoints                 |
-| `ClinicalEventIndexControllerTest`         | `@WebMvcTest`: inspection list/detail and the reindex endpoint |
-| `MeasurementServiceTest`                   | Ordering, mapping, empty dataset, error pass-through        |
-| `MeasurementImportServiceTest`             | All-or-nothing import, preview counts                       |
-| `MeasurementCsvParserTest`                 | CSV parsing, headers, per-row validation                    |
-| `MetricMeasurementTest` / `MetricTest`     | Metric domain invariants, components and admissible ranges   |
-| `MetricCatalogServiceTest`                 | Metric catalogue, unit resolution and exact unit conversion  |
-| `MeasurementRegistrationServiceTest`       | Registration at the close, per-metric-and-day replacement    |
-| `MetricBackedMeasurementRepositoryTest`    | The legacy daily view composed over the metric model         |
-| `MigrationV5BackfillsLegacyMeasurementsTest` | The V5 migration copies the legacy rows and retires its table |
-| `MeasurementTest` / `MeasurementDraftTest` | Domain invariants                                           |
-| `ChatControllerTest`                       | `@WebMvcTest`: chat contract, absence reason and offered actions, close endpoint |
-| `ChatOrchestratorTest`                     | Operation → status mapping, idempotency by message id       |
-| `ClinicalEventTest`                        | Clinical-event domain invariants                            |
-| `ClinicalEventIntentTest`                  | Intent variants, query payload and rejected combinations    |
-| `EncounterTest`                            | Consultation life cycle invariants: notes, close, no reopening |
-| `ClinicalEventDateNormalizerTest`          | Exact, relative, approximate and unknown dates              |
-| `ClinicalEventIntentValidatorTest`         | Rejection of non-registrable or invalid intents             |
-| `ClinicalEventMarkdownStoreTest`           | Markdown round-trip, code reservation, atomic publish       |
-| `EncounterMarkdownStoreTest`               | Encounter round-trip: notes, motive and derived summary     |
-| `ClinicalEventRegistrationServiceTest`     | Registration at the close, dedup within conversation, rollback on failure |
-| `EncounterServiceTest`                     | Open, collect notes without writing, close, retry and interruption |
-| `AgentOperationTest`                       | Declared operation set and name resolution                  |
-| `AgentOperationExecutorTest`               | Argument validation and per-operation execution              |
-| `AgentToolContractTest`                    | Wire shape of the declared tools and tool calls              |
-| `AgentTurnRunnerTest`                      | Turn loop, operation budget and failure mapping              |
-| `AgentTurnOutcomeTest`                     | Operation list and turn status precedence                    |
-| `FakeClinicalAgentTest`                    | Deterministic offline agent that also chooses operations     |
-| `OpenAiAgentProviderTest`                  | Startup guard on the credential and prompt loading           |
-| `ClinicalAnswerResultTest`                 | Answer-kind normalization and collection null-safety         |
-| `ClinicalEventQueryRepositoryTest`         | Lexical and metadata retrieval, absence counts on a real index |
-| `ClinicalHistoryQueryServiceTest`          | Absence reason ladder, partial answers, failure vs absence  |
-| `ClinicalEventInspectionServiceTest`       | Inspection ordering, filters and read-failure mapping       |
-| `ConversationStateStoreTest`               | Recent-turn buffer bounds, eviction and expiry              |
-| `ClinicalHistoryQueryFlowIntegrationTest`  | Register → ask cycle, every absence reason leaves the history untouched |
-| `ClinicalHistoryUnsupportedRetrievalIntegrationTest` | A retrieved event that does not answer the question declares the absence |
-| `ClinicalEventInspectionIntegrationTest`   | Inspection reads leave Markdown and the derived index untouched |
-| `ClinicalEventProvenanceIntegrationTest`   | The consultation of origin survives the index rebuild from Markdown |
-| `ClinicalEventSurvivesLaterFailureIntegrationTest` | A noted fact survives a later failure of the same turn |
-| `EncounterIndexRebuilderIntegrationTest`   | Encounter index rebuild, upsert and closed-consultation recovery |
-| `OpenAiClinicalAnswerComposerTest`         | Grounded composition, citations, reported coverage          |
-| `FakeClinicalAnswerComposerTest`           | Deterministic offline composition and reported coverage     |
-| `ClinicalConversationIntegrationTest`      | Conversational outcomes leave the index and the documents untouched, with no repository read |
+- **Unit tests** cover domain invariants, date normalization, intent validation,
+  parsers, the services' decisions with their collaborators replaced, and the wire
+  shape of what the assistant declares and calls.
+- **Web-layer tests** cover the HTTP contract of a controller — route, envelope,
+  request validation and error mapping — with `@WebMvcTest` and MockMvc, and the
+  service replaced.
+- **Integration tests** run against a real PostgreSQL engine. They carry what the
+  composition produces: entity mapping, SQL, full-text search, migrations, and the
+  effect of a turn on the documents and the index.
+
+Which layer has to carry the evidence for a given behaviour is decided by the
+selection rule in [`docs/testing/test-process.md`](../docs/testing/test-process.md).
 
 Integration tests extend `PostgresIntegrationTest`, which starts one
 `postgres:17-alpine` container per JVM and reuses it. They run the real Flyway
@@ -591,6 +557,9 @@ at the default location Testcontainers uses.
 
 The coverage gate runs at `verify`, not `test`, so a quick `mvn test` is not
 blocked by coverage while a full build is.
+
+The strategy behind this suite — levels, quality gates and regression scope — is
+documented in [`docs/testing/`](../docs/testing/README.md).
 
 ## Additional notes
 
