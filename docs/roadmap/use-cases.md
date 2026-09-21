@@ -2,7 +2,7 @@
 
 > **MVP cerrado el 2026-09-18.** 8 de 11 implementados · 3 cubiertos.
 >
-> Implementación actual: **UC-001 → UC-004, UC-007, UC-008, UC-010, UC-011, UC-012, UC-013 y UC-013b**.
+> Implementación actual: **UC-001 → UC-004, UC-007, UC-008, UC-010, UC-011, UC-012, UC-013, UC-013b y UC-014**.
 >
 > Todos los casos de uso del MVP están implementados o cubiertos.
 >
@@ -111,8 +111,8 @@ Casos de uso previstos para la Fase 4 del
 —agente con herramientas, consulta y modelo de mediciones—, el perfil del paciente y la ampliación del
 modelo clínico.
 
-Se enuncian aquí para fijar el alcance de la fase. **UC-012, UC-013 y UC-013b ya están
-implementados; los demás siguen pendientes de escribir.**
+Se enuncian aquí para fijar el alcance de la fase. **UC-012, UC-013, UC-013b y UC-014 ya están
+implementados; UC-014b está documentado; los demás siguen pendientes de escribir.**
 
 ## UC-012 — Operar el asistente como agente con herramientas y proveedor LLM real por defecto
 
@@ -130,7 +130,7 @@ La conversación es una consulta con identidad y ciclo de vida; el asistente pre
 toma notas de lo que la persona menciona. El registro de lo recogido con su procedencia hacia la
 consulta, al cerrarse esta, se documenta como UC-013b.
 
-Documento: [`UC-013.md`](../use-cases/UC-013.md) — «Sostener una consulta» · [criterios de aceptación](../use-cases/UC-013-acceptance-criteria.md).
+Documento: [`UC-013.md`](../use-cases/UC-013.md) — «Sostener una consulta» · [criterios de aceptación](../use-cases/UC-013-acceptance-criteria.md) · Cambio archivado: `openspec/changes/archive/2026-09-20-uc-013/`.
 
 ## UC-013b — Registrar con procedencia los hechos de la consulta
 
@@ -139,13 +139,33 @@ Documento: [`UC-013.md`](../use-cases/UC-013.md) — «Sostener una consulta» �
 Al cerrar la consulta, los hechos recogidos se registran con la información disponible declarando de
 dónde proceden, y la consulta conserva un resumen de lo tratado. Formaliza `RN-031`.
 
-Documento: [`UC-013b.md`](../use-cases/UC-013b.md) · [criterios de aceptación](../use-cases/UC-013b-acceptance-criteria.md).
+Documento: [`UC-013b.md`](../use-cases/UC-013b.md) · [criterios de aceptación](../use-cases/UC-013b-acceptance-criteria.md) · Cambio archivado: `openspec/changes/archive/2026-09-20-uc-013/`.
 
-## UC-014 — Registrar y consultar mediciones por lenguaje natural
+## UC-014 — Registrar una medición por lenguaje natural
 
-**Estado:** ⬜ Pendiente
+**Estado:** ✅ Implementado
 
-Peso, circunferencia abdominal, presión arterial y colesterol, sobre un modelo con dimensión de métrica referenciado a la consulta.
+Peso, circunferencia abdominal, presión arterial y colesterol, sobre un modelo de mediciones con
+dimensión de métrica y con procedencia hacia la consulta. Catálogo de métricas extensible. Se registra
+al cerrar la consulta y exige una fecha exacta.
+
+Documento: [`UC-014.md`](../use-cases/UC-014.md) · [criterios de aceptación](../use-cases/UC-014-acceptance-criteria.md).
+
+## UC-014b — Consultar las mediciones por lenguaje natural
+
+**Estado:** 📝 Documentado
+
+Responder con los valores y las fechas registrados, con los mismos límites de trazabilidad y de límite
+clínico que las consultas de la historia. El análisis de evolución dedicado sigue en la Fase 7.3.
+
+Documento: [`UC-014b.md`](../use-cases/UC-014b.md) · [criterios de aceptación](../use-cases/UC-014b-acceptance-criteria.md).
+
+> **Revisión prevista de UC-001.** La vista `/measurements` sigue mostrando el peso y la circunferencia
+> abdominal por defecto, y podrá incorporar dinámicamente gráficas de las métricas nuevas. No es un caso
+> de uso aparte: mismo actor, mismo objetivo y mismo disparador que [`UC-001`](../use-cases/UC-001.md),
+> con más métricas en pantalla. `UC-001`, `UC-002` y `UC-003` siguen vigentes; su almacenamiento cambia
+> por dentro y las mediciones ya registradas se migran al modelo nuevo (condición de compatibilidad del
+> cambio, no un caso de uso).
 
 ## UC-015 — Construir y actualizar el perfil del paciente
 

@@ -82,7 +82,7 @@ class ClinicalEventRegistrationServiceTest {
                                 ClinicalEvent.DatePrecision.UNKNOWN,
                                 null),
                         new ClinicalEventIntent.Candidate(
-                                ClinicalEvent.ClinicalEventType.MEASUREMENT,
+                                ClinicalEvent.ClinicalEventType.NOTE,
                                 "Presion 145/92",
                                 LocalDate.of(2026, 9, 13),
                                 ClinicalEvent.DatePrecision.EXACT,

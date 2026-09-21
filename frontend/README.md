@@ -103,9 +103,10 @@ conversation, failure, answered history queries with supporting events, and
 no-records outcomes distinctly, with the absence reason the backend reported and
 the continuation it offered. It also offers the **Terminar consulta** action,
 which closes the consultation through a Server Action, exposes a busy state
-without creating a second request, and shows the close outcome — the facts
-registered, none registered, or a retryable failure — while keeping the
-consultation identifier, its summary and its motive out of the surface. The
+without creating a second request, and shows the close outcome — the measurements
+and the facts the backend reports as registered, nothing registered, or a
+retryable failure — while keeping the consultation identifier, its summary and
+its motive out of the surface. The
 clinical-event inspection lives at `src/app/clinical-events/page.tsx`, and the
 body-tracking view lives at `src/app/measurements/page.tsx`.
 

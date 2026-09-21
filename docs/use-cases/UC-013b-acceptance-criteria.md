@@ -158,3 +158,17 @@ And nada queda registrado a medias
   RN-025, RN-030 y RN-031 son reglas transversales que se verifican en los escenarios de sus casos de
   uso de origen; `RN-031` se ejercita a través de `UC-013b-R1`, ya cubierta por el escenario principal
   y por `A3`.
+- **Pruebas que cubren los escenarios:**
+  - `Registrar al cerrar los hechos de la consulta con su procedencia` → `EncounterServiceTest.closesRegisteringTheAdmissibleNotesWithTheirProvenance`, `EncounterMarkdownStoreTest.preservesTheClosedConsultationWithItsSummary`, `EncounterIndexRebuilderIntegrationTest.recoversAClosedConsultationWithItsMotiveAndSummary`, `ClinicalEventProvenanceIntegrationTest.keepsTheConsultationOfOriginWhenTheIndexIsRebuiltFromMarkdown`; recorrido `e2e/playwright/uc-013.spec.ts` → `C1 · recoge un hecho sin tocar la historia y lo registra al cerrar`.
+  - `Cerrar una consulta sin hechos clínicos` → `EncounterServiceTest.closesAConsultationWithNoFactsWithoutRegisteringAnything`; recorrido `uc-013.spec.ts` → `C2 · cierra sin hechos sin confundirlo con un fallo`.
+  - `No registrar un hecho que no alcanza la información mínima` → `AgentOperationExecutorTest.validatesTheNoteBeforeItReachesTheEncounterService`, `EncounterTest.rejectsANoteWithoutContent`, `EncounterTest.rejectsANoteWithAnExactDateAndNoDate`.
+  - `Registrar varios hechos admisibles de la misma consulta` → `EncounterServiceTest.closesRegisteringMoreThanOneFact`, `ClinicalEventRegistrationServiceTest.registersMultipleEventsAndRejectsConversationDuplicate`.
+  - `No duplicar un hecho ya registrado` → `EncounterServiceTest.reportsDuplicateWhenEverythingWasAlreadyRegistered`, `ClinicalEventRegistrationServiceTest.registersMultipleEventsAndRejectsConversationDuplicate`; el escenario «No alterar la procedencia de un hecho ya registrado» de `clinical-fact-provenance`.
+  - `Registrar y cerrar cuando la consulta se cierra sin que la persona lo pida` → `EncounterServiceTest.openingANewConversationClosesThePreviousConsultation`, `EncounterServiceTest.closesEveryConsultationLeftOpenBeforeTheProcessEnded`.
+  - `Registrar un hecho con fecha aproximada o desconocida` → `EncounterTest.collectsNotesPreservingTheTemporalPrecision`, `EncounterServiceTest.collectsANotePreservingTheTemporalPrecision`.
+  - `Registrar una sola vez un hecho mencionado varias veces` → `EncounterServiceTest.registersARepeatedNoteOnlyOnce`, `EncounterServiceTest.refusesToCollectTheSameFactTwiceInTheSameConsultation`.
+  - `No incorporar un hecho que no supera la comprobación previa` → `ClinicalEventRegistrationServiceTest.leavesNoPublishedEventWhenIndexWriteFails`.
+  - `Informar de un hecho que falla tras otro ya registrado` → `EncounterServiceTest.reportsNothingToRegisterWhenTheRegistrationProducedNoFacts`, `AgentTurnOutcomeTest.reportsAFailureWhenAnyOperationDidNotComplete`.
+  - `Cerrar la consulta cuando el resumen no puede guardarse` → `EncounterTest.acceptsACloseWithoutSummaryBecauseItMightNotBeStorable`.
+  - `Consulta que no se da por cerrada porque el cierre no pudo completarse` → `EncounterServiceTest.aCloseThatCannotCompleteLeavesTheConsultationOpenToRetry`.
+  - Frontera de la superficie: `ChatControllerTest` (`closesTheConsultationInProgress`, `repeatingTheCloseReturnsTheSameOutcome`, `keepsTheConsultationInternalsOutOfTheCloseOutcome`) y `ChatWorkspace.test.tsx` (`ends the consultation and shows the close outcome`, `keeps a failed close retryable without leaking transport detail`).

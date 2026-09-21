@@ -43,15 +43,16 @@ Careme usa dos medios:
   canónicos.
 
 La elección depende de la forma del dato. Las mediciones tienen columnas,
-tipos, rangos y unicidad por fecha. Un hecho clínico conserva texto y metadatos
-en un documento, por lo que su representación original es más importante que
-su descomposición en muchas columnas.
+tipos, rangos y unicidad por métrica y día. Un hecho clínico conserva texto y
+metadatos en un documento, por lo que su representación original es más
+importante que su descomposición en muchas columnas.
 
 ```mermaid
 flowchart LR
     App["Aplicación"] --> Rel[("PostgreSQL")]
     App --> Files["Markdown"]
-    Rel --> Measurements["measurements<br/>fuente de verdad"]
+    Rel --> Measurements["measurements +<br/>measurement_values<br/>fuente de verdad"]
+    Rel --> Admitted["admitted_metrics<br/>métricas admitidas"]
     Rel --> Index["clinical_event_index<br/>índice derivado"]
     Rel --> EncIndex["encounter_index<br/>índice derivado"]
     Files --> Events["data/events/*.md<br/>fuente de verdad"]
@@ -67,11 +68,11 @@ determinado.
 
 ```text
 Tabla measurements
-┌────────────┬────────────┬───────────┬─────────┐
-│ id         │ date       │ weight_kg │ waist_cm│  <- columnas
-├────────────┼────────────┼───────────┼─────────┤
-│ 7d...       │ 2026-09-18 │ 78.40     │ 92.10   │  <- fila
-└────────────┴────────────┴───────────┴─────────┘
+┌────────────┬───────────┬────────────┬───────┐
+│ id         │ metric    │ date       │ unit  │  <- columnas
+├────────────┼───────────┼────────────┼───────┤
+│ 7d...      │ weight    │ 2026-09-18 │ kg    │  <- fila
+└────────────┴───────────┴────────────┴───────┘
 ```
 
 El término **relacional** no significa simplemente “datos en tablas”. Significa
@@ -86,8 +87,9 @@ Una **clave primaria** identifica de forma única cada fila. En `measurements`,
 `id` es un UUID y no puede ser nulo ni repetirse.
 
 Una **clave candidata** es cualquier conjunto mínimo de columnas que podría
-identificar una fila. En Careme, la fecha es candidata para las mediciones porque
-solo se permite una por día; se expresa mediante `UNIQUE (date)`.
+identificar una fila. En Careme, la **métrica y la fecha** son candidatas para las
+mediciones porque solo se admite una por métrica y día; se expresa mediante
+`UNIQUE (metric, date)`.
 
 Una **restricción** es una regla que el motor comprueba al insertar o modificar
 datos. Ejemplos:
@@ -112,7 +114,7 @@ cómo PostgreSQL los almacena y compara. Careme usa, entre otros:
 | `UUID` | Identificadores | Identidad sin depender de un contador visible |
 | `DATE` | Día de una medición o hecho | No incluye hora ni zona horaria |
 | `TIMESTAMPTZ` | Momento de creación | Representa un instante con normalización de zona |
-| `NUMERIC(5, 2)` | Peso y cintura | Decimal exacto con precisión y escala |
+| `NUMERIC(p, s)` | Valores de una medición | Decimal exacto con precisión y escala declaradas |
 | `VARCHAR` | Códigos y valores acotados | Texto con límite declarado |
 | `TEXT` | Contenido clínico | Texto largo sin límite pequeño impuesto por la columna |
 | `tsvector` | Índice lógico de texto | Lexemas normalizados con posiciones y pesos |
@@ -165,11 +167,21 @@ migraciones aplicadas y ejecuta las pendientes en orden. En Careme:
 - `V3__create_encounter_index.sql` crea el índice derivado de las consultas.
 - `V4__add_provenance_to_clinical_event_index.sql` añade al índice de hechos la
   consulta de la que procede cada uno.
+- `V5__create_metric_measurements.sql` sustituye la tabla de mediciones por el
+  modelo de métrica: crea las tablas nuevas, **copia** las filas existentes y retira
+  la tabla antigua.
 - Hibernate usa `ddl-auto: validate`, por lo que comprueba el esquema pero no lo
   crea ni lo modifica.
 
 Esta división hace explícito quién posee cada cambio: Flyway transforma la base
 de datos; Hibernate verifica que el modelo de persistencia sea compatible.
+
+Una migración no siempre **añade**: puede **transformar**. `V5` cambia la forma de
+un dato que ya existía, así que no basta con crear tablas nuevas: hay que **copiar**
+las filas antes de retirar la estructura antigua, porque Flyway solo avanza y no
+existe una marcha atrás automática. Ese tipo de migración se planifica con una copia
+de seguridad y un procedimiento de retorno explícitos, y no confiando en que el
+esquema vuelva solo a su forma anterior.
 
 ## 4. Spring Data JPA, JPA e Hibernate
 
@@ -205,19 +217,22 @@ flowchart TB
 
 ### 4.1 Ejemplo en Careme
 
-`MeasurementJpaDao` extiende `JpaRepository<MeasurementEntity, UUID>`. Spring
-Data JPA proporciona operaciones como `findAll`, `findById` y `save`; además,
-deriva una consulta para `findByDate` y otra para `findByDateIn`.
+`MetricMeasurementJpaDao` extiende `JpaRepository<MetricMeasurementEntity, UUID>`.
+Spring Data JPA proporciona operaciones como `findAll`, `findById` y `save`;
+además, **deriva consultas a partir del nombre del método**, como la que busca una
+medición por su métrica y su fecha.
 
-`MeasurementJpaRepository` es otra capa: traduce `MeasurementEntity` al tipo de
-dominio `Measurement`, declara los límites transaccionales y expone el contrato
-que necesita el servicio. Así, el dominio no depende directamente de JPA.
+`MetricMeasurementJpaRepository` es otra capa: traduce `MetricMeasurementEntity`
+al tipo de dominio `MetricMeasurement`, declara los límites transaccionales y
+expone el contrato que necesita el servicio. Sobre ella,
+`MetricBackedMeasurementRepository` compone la vista diaria del contrato legado a
+partir de esas mediciones. Así, el dominio no depende directamente de JPA.
 
 ```java
-public interface MeasurementJpaDao
-        extends JpaRepository<MeasurementEntity, UUID> {
-    Optional<MeasurementEntity> findByDate(LocalDate date);
-    List<MeasurementEntity> findByDateIn(Collection<LocalDate> dates);
+public interface MetricMeasurementJpaDao
+        extends JpaRepository<MetricMeasurementEntity, UUID> {
+    Optional<MetricMeasurementEntity> findByMetricAndDate(
+            String metric, LocalDate date);
 }
 ```
 
@@ -232,10 +247,10 @@ Una entidad JPA no es necesariamente el modelo de dominio ni el DTO HTTP. En
 Careme se distinguen:
 
 ```text
-MeasurementRequest -> entrada JSON
-Measurement         -> dominio
-MeasurementEntity   -> entidad JPA
-MeasurementResponse -> salida JSON
+MeasurementRequest      -> entrada JSON del contrato legado
+MetricMeasurement       -> dominio del modelo de métrica
+MetricMeasurementEntity -> entidad JPA
+MeasurementResponse     -> salida JSON
 ```
 
 Esta separación evita que una anotación de persistencia defina por accidente el
@@ -264,22 +279,46 @@ La tabla de mediciones es una fuente de verdad relacional:
 
 ```sql
 CREATE TABLE measurements (
-    id        UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
-    date      DATE          NOT NULL,
-    weight_kg NUMERIC(5, 2) NOT NULL,
-    waist_cm  NUMERIC(5, 2) NOT NULL,
-    CONSTRAINT uq_measurements_date UNIQUE (date),
-    CONSTRAINT ck_measurements_weight_kg_positive CHECK (weight_kg > 0),
-    CONSTRAINT ck_measurements_waist_cm_positive CHECK (waist_cm > 0)
+    id             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    metric         VARCHAR(40) NOT NULL,
+    unit           VARCHAR(10) NOT NULL,
+    date           DATE        NOT NULL,
+    encounter_code VARCHAR(20),
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT uq_measurements_metric_date UNIQUE (metric, date)
+);
+
+CREATE TABLE measurement_values (
+    measurement_id UUID           NOT NULL REFERENCES measurements (id) ON DELETE CASCADE,
+    component      VARCHAR(20)    NOT NULL,
+    value          NUMERIC(12, 4) NOT NULL,
+    CONSTRAINT uq_measurement_values_component UNIQUE (measurement_id, component),
+    CONSTRAINT ck_measurement_values_positive CHECK (value > 0)
 );
 ```
 
 Cada decisión tiene una consecuencia:
 
-- `UNIQUE (date)` hace que una medición por día sea una propiedad del dato.
-- `NUMERIC(5, 2)` almacena un decimal exacto con dos posiciones decimales.
-- `CHECK` impide pesos y perímetros no positivos.
+- `UNIQUE (metric, date)` hace que **una medición por métrica y día** sea una
+  propiedad del dato, no una convención del código.
+- Los valores viven en una **tabla hija** (`measurement_values`), un componente por
+  fila: una métrica simple tiene un valor y una **métrica compuesta** —la presión
+  arterial— tiene dos, pero siguen siendo **una sola** medición. Con dos columnas
+  fijas en `measurements` el esquema inmovilizaría esa métrica y no admitiría
+  ninguna otra compuesta.
+- `NUMERIC(12, 4)` almacena un decimal exacto con precisión y escala declaradas.
+- `CHECK` impide valores no positivos.
 - `PRIMARY KEY` proporciona identidad estable e índice único.
+
+Un tercer elemento completa el modelo: **las métricas que el sistema admite** se
+registran aparte, en la tabla `admitted_metrics`, sembrada con peso, circunferencia
+abdominal, presión arterial y colesterol. La distinción importa: el conjunto admitido
+es un dato que la persona puede ampliar cuando confirma que quiere registrar una
+métrica nueva, mientras que la **definición** de cada métrica —su unidad de
+referencia, sus componentes y su rango admisible— vive en el código, porque no puede
+deducirse de lo que la persona dice. Normalizar un dato no es solo repartir
+columnas: es decidir qué parte es configurable y qué parte es conocimiento del
+sistema.
 
 Los hechos clínicos tienen otra forma: `clinical_event_index` contiene `id`,
 `code`, `type`, fechas, contenido y metadatos suficientes para consultar, pero no
@@ -376,6 +415,21 @@ Markdown, se actualiza el índice y, si la segunda parte falla, se eliminan los
 documentos recién creados. Una **compensación** es una operación posterior que
 revierte el efecto de una operación anterior cuando no existe una transacción
 única que abarque todos los sistemas.
+
+### 7.2 Una vista derivada que conserva un contrato
+
+Cambiar la forma de un dato no obliga a romper el contrato que ya consumían sus
+clientes. En Careme, la tabla antigua de mediciones desaparece, pero el contrato
+`/api/v1/measurements` —una fila por día con peso y circunferencia— se conserva
+como una **vista derivada**: el repositorio **compone** la pareja del día a partir
+de las métricas almacenadas y hace *upsert* de esas dos métricas al escribir, de
+modo que el cliente no cambia y el seguimiento sigue teniendo una sola fuente.
+
+Una vista de ese tipo tiene un coste que conviene declarar, no ocultar: solo puede
+componer lo que su contrato exige, así que un día con **una sola** de las dos
+métricas queda íntegro en el modelo pero no aparece en ella. Reconocer ese hueco
+es parte del diseño; suponer que la vista es completa porque el contrato no admite
+nulos sería el error.
 
 ## 8. Búsqueda full-text de PostgreSQL
 

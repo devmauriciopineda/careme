@@ -57,7 +57,7 @@ referencia en su sección 8 los identificadores `RN-` que le aplican y conserva 
 | ID | Regla | Alcance | Origen |
 | --- | --- | --- | --- |
 | RN-018 | Ningún hecho se incorpora a la historia sin una comprobación previa; una propuesta no comprobada no produce escritura. | UC-004, UC-012 | `mvp_alcance` §8 |
-| RN-019 | Registrar no modifica lo ya registrado, salvo el reemplazo previsto para una medición del mismo día. | UC-002, UC-003 | UC-002 §8; UC-003 §8 |
+| RN-019 | Registrar no modifica lo ya registrado, salvo el reemplazo previsto para una medición de la misma métrica y el mismo día. | UC-002, UC-003, UC-014 | UC-002 §8; UC-003 §8; UC-014 §8 (UC-014-R8) |
 | RN-020 | Una operación de escritura es de todo o nada: o queda completa, o la historia permanece exactamente como estaba. | UC-003, UC-004, UC-012 | UC-003 §8; UC-004 §7 |
 | RN-021 | No se registran creencias, sospechas ni inferencias como si fueran hechos. | UC-004, UC-012 | `mvp_alcance` §10.2; UC-004 §8 |
 | RN-022 | Volver a registrar un hecho ya registrado no crea un duplicado. | UC-004, UC-012 | UC-004 §8 |

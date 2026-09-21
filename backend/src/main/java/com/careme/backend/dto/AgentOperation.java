@@ -10,13 +10,16 @@ import java.util.Optional;
 /**
  * The closed set of operations the assistant may ask the application to run.
  *
- * <p>The set has exactly two members —consulting the clinical history and
-taking note of a clinical fact— and that is the structural guarantee that the
- * assistant never diagnoses and never recommends treatment: there is no third
- * operation it could ask for. Neither member names a path, a file or any other
- * storage detail, because the assistant is never told how the clinical history
- * is stored. Registering is not an operation of the turn: the notes are
- * registered when the consultation is closed.
+ * <p>The set has exactly three members —consulting the clinical history, taking note
+of a clinical fact and taking note of a measurement— and that is the structural
+guarantee that the assistant never diagnoses and never recommends treatment: there
+is no other operation it could ask for. Neither member names a path, a file or any
+other storage detail, because the assistant is never told how the clinical history
+or the tracking is stored. Registering is not an operation of the turn: the notes
+are registered when the consultation is closed.
+ *
+ * <p>The clinical-fact types offered are the admissible ones only: a measurement is
+ * not a clinical fact, so it is not among them.
  */
 public enum AgentOperation {
 
@@ -35,7 +38,7 @@ public enum AgentOperation {
                                     "description", "Términos con los que buscar en la historia."),
                             "type", Map.of(
                                     "type", "string",
-                                    "enum", lowerCased(ClinicalEvent.ClinicalEventType.values()),
+                                    "enum", codes(ClinicalEvent.ClinicalEventType.admissible()),
                                     "description", "Tipo de hecho consultado, cuando la pregunta lo acota."),
                             "date_from", Map.of(
                                     "type", "string",
@@ -57,7 +60,7 @@ public enum AgentOperation {
                     "properties", Map.of(
                             "type", Map.of(
                                     "type", "string",
-                                    "enum", lowerCased(ClinicalEvent.ClinicalEventType.values()),
+                                    "enum", codes(ClinicalEvent.ClinicalEventType.admissible()),
                                     "description", "Tipo del hecho registrado."),
                             "content", Map.of(
                                     "type", "string",
@@ -72,7 +75,31 @@ public enum AgentOperation {
                             "date_text", Map.of(
                                     "type", "string",
                                     "description", "La expresión temporal original de la persona, cuando la hubo.")),
-                    "required", List.of("type", "content", "date_precision")));
+                    "required", List.of("type", "content", "date_precision"))),
+
+    RECORD_MEASUREMENT(
+            "record_measurement",
+            "Anota una medición que la persona menciona —peso, circunferencia abdominal, presión arterial, colesterol u otra métrica admitida— con su valor, su unidad cuando la indicó y su fecha exacta, para que quede en su seguimiento al cerrar la consulta.",
+            Map.of(
+                    "type", "object",
+                    "properties", Map.of(
+                            "metric", Map.of(
+                                    "type", "string",
+                                    "description", "La métrica de la medición, por su código (weight, waist, blood_pressure, cholesterol)."),
+                            "values", Map.of(
+                                    "type", "object",
+                                    "description", "Los valores, con el componente como clave: value para una métrica simple, systolic y diastolic para la presión arterial.",
+                                    "additionalProperties", Map.of("type", "number")),
+                            "unit", Map.of(
+                                    "type", "string",
+                                    "description", "La unidad que la persona indicó, cuando la indicó."),
+                            "date", Map.of(
+                                    "type", "string",
+                                    "description", "Fecha exacta de la medición, en formato ISO."),
+                            "date_text", Map.of(
+                                    "type", "string",
+                                    "description", "La expresión temporal original de la persona, cuando la hubo.")),
+                    "required", List.of("metric", "values")));
 
     private final String operationName;
     private final String description;
@@ -116,5 +143,9 @@ public enum AgentOperation {
 
     private static <E extends Enum<E>> List<String> lowerCased(E[] values) {
         return Arrays.stream(values).map(value -> value.name().toLowerCase(Locale.ROOT)).toList();
+    }
+
+    private static List<String> codes(List<ClinicalEvent.ClinicalEventType> values) {
+        return values.stream().map(value -> value.name().toLowerCase(Locale.ROOT)).toList();
     }
 }

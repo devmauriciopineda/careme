@@ -2,6 +2,8 @@ package com.careme.backend.entity;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.Arrays;
+import java.util.List;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
@@ -57,11 +59,29 @@ public record ClinicalEvent(
         }
     }
 
+    /**
+     * The types a clinical fact can have.
+     *
+     * <p>{@code MEASUREMENT} is retired: a measurement has its own tracking now and is
+     * never registered as a clinical fact. It stays in the catalogue so a document
+     * already written with it can still be read back, and it is never admissible for a
+     * new fact.
+     */
     public enum ClinicalEventType {
         DIAGNOSIS,
         MEDICATION,
         MEASUREMENT,
-        NOTE
+        NOTE;
+
+        /** @return whether a new clinical fact may be registered with this type */
+        public boolean isAdmissible() {
+            return this != MEASUREMENT;
+        }
+
+        /** @return the types a new clinical fact may be registered with */
+        public static List<ClinicalEventType> admissible() {
+            return Arrays.stream(values()).filter(ClinicalEventType::isAdmissible).toList();
+        }
     }
 
     public enum DatePrecision {

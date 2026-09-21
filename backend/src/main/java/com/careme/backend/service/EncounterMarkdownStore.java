@@ -2,9 +2,11 @@ package com.careme.backend.service;
 
 import com.careme.backend.entity.ClinicalEvent;
 import com.careme.backend.entity.Encounter;
+import com.careme.backend.entity.EncounterMeasurementNote;
 import com.careme.backend.entity.EncounterNote;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystemException;
 import java.nio.file.Files;
@@ -14,6 +16,7 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -33,6 +36,10 @@ import org.springframework.stereotype.Service;
 public class EncounterMarkdownStore {
 
     private static final String NOTE_BLOCK = "\n## Nota\n\n";
+
+    private static final String MEASUREMENT_NOTE_BLOCK = "\n## Medición\n\n";
+
+    private static final String VALUE_PREFIX = "value_";
 
     private final Path encountersDirectory;
 
@@ -208,6 +215,19 @@ public class EncounterMarkdownStore {
                     .append("- date_text: ").append(quoted(note.dateText())).append('\n')
                     .append("- content: ").append(quoted(note.content())).append('\n');
         }
+        for (EncounterMeasurementNote note : encounter.measurementNotes()) {
+            markdown.append(MEASUREMENT_NOTE_BLOCK)
+                    .append("- metric: ").append(note.metricCode()).append('\n')
+                    .append("- declared_unit: ").append(quoted(note.declaredUnit())).append('\n')
+                    .append("- date: ").append(note.date() == null ? "" : note.date().toString()).append('\n')
+                    .append("- date_precision: ")
+                    .append(note.datePrecision().name().toLowerCase())
+                    .append('\n')
+                    .append("- date_text: ").append(quoted(note.dateText())).append('\n');
+            note.values().forEach((component, value) -> markdown
+                    .append("- ").append(VALUE_PREFIX).append(component).append(": ")
+                    .append(value.toPlainString()).append('\n'));
+        }
         return markdown.toString();
     }
 
@@ -226,7 +246,32 @@ public class EncounterMarkdownStore {
                 optional(metadata, "motive").map(EncounterMarkdownStore::unquoted).orElse(null),
                 optional(metadata, "summary").map(EncounterMarkdownStore::unquoted).orElse(null),
                 OffsetDateTime.parse(required(metadata, "created_at")),
-                optional(metadata, "closed_at").map(OffsetDateTime::parse).orElse(null));
+                optional(metadata, "closed_at").map(OffsetDateTime::parse).orElse(null),
+                measurementNotes(sections[1]));
+    }
+
+    /** The measurement notes of the document body, in the order they were collected. */
+    private static List<EncounterMeasurementNote> measurementNotes(String body) {
+        List<EncounterMeasurementNote> notes = new ArrayList<>();
+        String[] blocks = body.split(MEASUREMENT_NOTE_BLOCK);
+        for (int index = 1; index < blocks.length; index++) {
+            Map<String, String> fields = parseFields(blocks[index]);
+            Map<String, BigDecimal> values = new LinkedHashMap<>();
+            fields.forEach((key, value) -> {
+                if (key.startsWith(VALUE_PREFIX)) {
+                    values.put(key.substring(VALUE_PREFIX.length()), new BigDecimal(value));
+                }
+            });
+            notes.add(new EncounterMeasurementNote(
+                    required(fields, "metric"),
+                    values,
+                    optional(fields, "declared_unit").map(EncounterMarkdownStore::unquoted).orElse(null),
+                    optional(fields, "date").map(LocalDate::parse).orElse(null),
+                    ClinicalEvent.DatePrecision.valueOf(
+                            required(fields, "date_precision").toUpperCase()),
+                    optional(fields, "date_text").map(EncounterMarkdownStore::unquoted).orElse(null)));
+        }
+        return notes;
     }
 
     /** The notes of the document body, in the order they were collected. */

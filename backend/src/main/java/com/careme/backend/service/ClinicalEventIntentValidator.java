@@ -36,6 +36,9 @@ public class ClinicalEventIntentValidator {
         if (query.scope() == null) {
             throw new IllegalArgumentException("Query scope must not be null");
         }
+        if (query.type() != null && !query.type().isAdmissible()) {
+            throw new IllegalArgumentException("Query names a type a clinical fact cannot have");
+        }
         boolean hasSearchTerm = query.searchTerms().stream().anyMatch(term -> term != null && !term.isBlank());
         boolean hasFilter = query.type() != null || query.fromDate() != null || query.toDate() != null;
         if (!hasSearchTerm && !hasFilter) {
@@ -49,6 +52,9 @@ public class ClinicalEventIntentValidator {
         }
         if (candidate.type() == null) {
             throw new IllegalArgumentException("Clinical event candidate type must not be null");
+        }
+        if (!candidate.type().isAdmissible()) {
+            throw new IllegalArgumentException("Clinical event candidate names a retired type");
         }
         if (candidate.content() == null || candidate.content().isBlank()) {
             throw new IllegalArgumentException("Clinical event candidate content must not be blank");

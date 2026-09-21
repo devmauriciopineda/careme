@@ -71,7 +71,10 @@ class EncounterServiceTest {
                 new EncounterMarkdownStore(encountersDirectory),
                 indexWriter,
                 registrationService,
-                new ClinicalEventDateNormalizer());
+                new ClinicalEventDateNormalizer(),
+                new MeasurementRegistrationService(
+                        mock(com.careme.backend.repository.MetricMeasurementRepository.class),
+                        mock(MetricCatalogService.class)));
     }
 
     private EncounterMarkdownStore store() {

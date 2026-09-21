@@ -95,10 +95,46 @@ class FakeClinicalAgentTest {
         agent.respond("Hoy me tomaron la presión y fue 145/92.", CONTEXT);
 
         AgentOperationCall call = capturedCall();
-        assertThat(call.operation()).isEqualTo(AgentOperation.RECORD_NOTE);
-        assertThat(call.arguments().path("date_precision").asText()).isEqualTo("exact");
+        assertThat(call.operation()).isEqualTo(AgentOperation.RECORD_MEASUREMENT);
+        assertThat(call.arguments().path("metric").asText()).isEqualTo("blood_pressure");
+        assertThat(call.arguments().path("values").path("systolic").asInt()).isEqualTo(145);
+        assertThat(call.arguments().path("values").path("diastolic").asInt()).isEqualTo(92);
         assertThat(call.arguments().path("date").asText()).isEqualTo("2026-09-19");
-        assertThat(call.arguments().path("type").asText()).isEqualTo("measurement");
+    }
+
+    @Test
+    void readsAWeightStatedInAnotherUnitThroughTheMeasurementChannel() {
+        when(executor.execute(any(), any(), any())).thenReturn(noted());
+
+        agent.respond("Mi peso hoy es 154 libras.", CONTEXT);
+
+        AgentOperationCall call = capturedCall();
+        assertThat(call.operation()).isEqualTo(AgentOperation.RECORD_MEASUREMENT);
+        assertThat(call.arguments().path("metric").asText()).isEqualTo("weight");
+        assertThat(call.arguments().path("values").path("value").asInt()).isEqualTo(154);
+        assertThat(call.arguments().path("unit").asText()).isEqualTo("lb");
+    }
+
+    @Test
+    void readsAWaistThroughTheMeasurementChannelWithoutInventingAUnit() {
+        when(executor.execute(any(), any(), any())).thenReturn(noted());
+
+        agent.respond("Mi circunferencia de cintura es 94 cm.", CONTEXT);
+
+        AgentOperationCall call = capturedCall();
+        assertThat(call.operation()).isEqualTo(AgentOperation.RECORD_MEASUREMENT);
+        assertThat(call.arguments().path("metric").asText()).isEqualTo("waist");
+        assertThat(call.arguments().path("values").path("value").asInt()).isEqualTo(94);
+        assertThat(call.arguments().has("unit")).isFalse();
+    }
+
+    @Test
+    void fallsBackToAFactNoteWhenAMeasurementWordCarriesNoValue() {
+        when(executor.execute(any(), any(), any())).thenReturn(noted());
+
+        agent.respond("Ayer me dijeron que tengo que vigilar la circunferencia abdominal.", CONTEXT);
+
+        assertThat(capturedCall().operation()).isEqualTo(AgentOperation.RECORD_NOTE);
     }
 
     @Test

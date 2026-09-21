@@ -252,6 +252,15 @@ y con la estrategia de actualización elegida. En sistemas con versiones
 simultáneas suele usarse el patrón expand-and-contract: primero se añade una
 forma compatible, luego se migra el uso y finalmente se elimina lo antiguo.
 
+Careme aplica ese patrón dentro de un mismo despliegue cuando cambia la **forma** de
+un dato: `V5__create_metric_measurements.sql` **expande** creando las tablas del
+modelo nuevo, **migra** copiando las filas de la tabla antigua y **contrata**
+retirándola. La copia de las filas es la parte crítica, porque eliminar la
+estructura antigua es irreversible: el retorno se apoya en la copia de seguridad
+previa a la migración, no en una migración inversa. Y la comprobación de que el
+dato sobrevivió —que el seguimiento conserva los valores que ya existían— es tan
+necesaria como la migración misma.
+
 ### 6.2 Healthcheck, readiness y liveness
 
 Un **healthcheck** ejecuta una comprobación automática. La **liveness** responde a

@@ -10,15 +10,21 @@ Define the structured, provider-neutral boundary that converts natural-language 
 
 The adapter MUST send the user message together with the current reference date, the applicable timezone
 context, the recent turns of the active conversation, and the set of operations the assistant is allowed
-to request. The set MUST contain only consulting the clinical history and registering clinical facts. The
+to request. The set MUST contain only consulting the clinical history, collecting clinical-fact notes and
+collecting measurement notes. The
 provider MUST choose which of those operations it needs and MAY request more than one within the same
 turn, and MAY use the result of one operation to decide the next. The adapter MUST execute every requested
 operation through the application, which validates it before producing any effect, and MUST NOT let the
 provider reach clinical persistence, the filesystem, or any operation outside the set. The adapter MUST
 continue until the provider produces the user-facing response or an operation does not complete. Event
 candidates MUST contain only the supported type, user-expressed content, date when known, date precision,
-and original date text when present. A history-consulting operation MUST contain the question the user
-asked and MUST NOT contain event candidates. The adapter MUST treat as a clinical history question every
+and original date text when present. Measurement candidates MUST contain the metric the user expressed,
+its value or values, the unit when the user stated it, and the date with its precision, and MUST NOT
+contain a clinical-event type. A candidate that carries a measurement MUST NOT be treated as a clinical
+fact: the adapter MUST route a message that contains a measurement through the measurement channel and
+MUST NOT offer it as a clinical-fact candidate. A history-consulting operation MUST contain the question
+the user asked and MUST NOT contain event candidates. A measurement-collecting operation MUST NOT write
+to the tracking: measurements are incorporated when the consultation closes. The adapter MUST treat as a clinical history question every
 message in which any part depends on the clinical history, including a colloquial reformulation of a
 recorded fact, and MUST NOT answer such a message as general conversation. When a message also contains a
 general part, the adapter MUST preserve that general part so it can be answered as conversation instead of
@@ -29,6 +35,17 @@ history, it MUST ask for clarification and MUST NOT guess a channel.
 - **WHEN** the provider requests a registration operation with valid structured content
 - **THEN** the application validates the operation and registers one event per distinct fact
 - **AND** the provider never reaches clinical persistence directly
+
+#### Scenario: Map a measurement candidate
+- **WHEN** the provider requests a measurement-collecting operation with a metric, its value or values and a date
+- **THEN** the application collects it as a measurement of the active consultation
+- **AND** the provider never reaches the measurement tracking directly
+
+#### Scenario: Route a measurement message through the measurement channel
+- **WHEN** a message contains a measurement
+- **THEN** the adapter routes it through the measurement channel
+- **AND** it does not offer the measurement as a clinical-fact candidate
+- **AND** it does not register the measurement as a clinical event
 
 #### Scenario: Preserve temporal uncertainty
 - **WHEN** the provider identifies an approximate, relative, or unknown date

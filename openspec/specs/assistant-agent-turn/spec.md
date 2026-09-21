@@ -13,7 +13,8 @@ El sistema MUST determinar qué operaciones necesita un mensaje y ejecutarlas de
 intercambio, y MUST poder servirse del resultado de una operación para decidir la siguiente. El sistema
 MUST NOT exigir a la persona que declare qué operación debe realizarse y MUST NOT pedirle que confirme
 cada operación antes de ejecutarla. Las operaciones de un turno MUST limitarse a consultar la historia
-clínica y a recoger en notas los hechos clínicos que la persona menciona, dentro de la consulta en curso.
+clínica y a recoger en notas los hechos clínicos y las mediciones que la persona menciona, dentro de la
+consulta en curso.
 
 #### Scenario: Atender un mensaje que necesita más de una operación
 
@@ -29,6 +30,13 @@ clínica y a recoger en notas los hechos clínicos que la persona menciona, dent
 - **AND** la persona recibe una sola respuesta
 - **AND** el hecho se registra al cerrar la consulta, no dentro del turno
 
+#### Scenario: Recoger una medición mencionada en el turno
+
+- **WHEN** la persona menciona una medición en un mensaje
+- **THEN** el sistema la deja recogida en una nota de la consulta
+- **AND** no la incorpora al seguimiento dentro del turno
+- **AND** la persona recibe una sola respuesta
+
 #### Scenario: No exigir a la persona que declare la operación
 
 - **WHEN** la persona cuenta o pregunta algo con sus propias palabras, sin decir qué quiere que el sistema haga
@@ -38,11 +46,11 @@ clínica y a recoger en notas los hechos clínicos que la persona menciona, dent
 ### Requirement: Acotar las operaciones disponibles
 
 Las operaciones a disposición del asistente durante una consulta MUST limitarse a consultar la historia
-clínica y a recoger en notas los hechos clínicos que la persona menciona. Registrar hechos MUST NOT ser
-una operación del turno: la incorporación a la historia ocurre al cerrar la consulta. Una operación fuera
-de ese conjunto MUST NOT ejecutarse y MUST NOT presentarse como resultado. Cuando el mensaje pida algo que
-ninguna operación disponible puede producir, el sistema MUST declararlo en español y MUST NOT responderlo
-con una suposición.
+clínica y a recoger en notas los hechos clínicos y las mediciones que la persona menciona. Registrar
+hechos y registrar mediciones MUST NOT ser operaciones del turno: la incorporación a la historia y al
+seguimiento ocurre al cerrar la consulta. Una operación fuera de ese conjunto MUST NOT ejecutarse y MUST
+NOT presentarse como resultado. Cuando el mensaje pida algo que ninguna operación disponible puede
+producir, el sistema MUST declararlo en español y MUST NOT responderlo con una suposición.
 
 #### Scenario: No ejecutar una operación fuera del conjunto disponible
 
@@ -63,6 +71,13 @@ con una suposición.
 - **THEN** el asistente lo deja recogido en una nota de la consulta
 - **AND** no solicita el registro del hecho dentro del turno
 - **AND** la historia clínica no cambia durante el turno
+
+#### Scenario: No incorporar una medición durante el turno
+
+- **WHEN** el mensaje contiene una medición
+- **THEN** el asistente la deja recogida en una nota de la consulta
+- **AND** no la incorpora al seguimiento durante el turno
+- **AND** el seguimiento de mediciones no cambia hasta el cierre de la consulta
 
 ### Requirement: Validar y escribir dentro del camino de la operación
 

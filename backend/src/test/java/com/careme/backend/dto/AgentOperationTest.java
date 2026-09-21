@@ -8,9 +8,28 @@ import org.junit.jupiter.api.Test;
 class AgentOperationTest {
 
     @Test
-    void offersExactlyTheTwoOperationsTheAssistantMayAskFor() {
+    void offersExactlyTheOperationsTheAssistantMayAskFor() {
         assertThat(AgentOperation.values())
-                .containsExactlyInAnyOrder(AgentOperation.CONSULT_HISTORY, AgentOperation.RECORD_NOTE);
+                .containsExactlyInAnyOrder(
+                        AgentOperation.CONSULT_HISTORY,
+                        AgentOperation.RECORD_NOTE,
+                        AgentOperation.RECORD_MEASUREMENT);
+    }
+
+    @Test
+    void doesNotOfferTheRetiredFactTypeToTheAssistant() {
+        assertThat(typeEnumOf(AgentOperation.RECORD_NOTE))
+                .containsExactlyInAnyOrder("diagnosis", "medication", "note");
+        assertThat(typeEnumOf(AgentOperation.CONSULT_HISTORY))
+                .containsExactlyInAnyOrder("diagnosis", "medication", "note");
+    }
+
+    @SuppressWarnings("unchecked")
+    private static java.util.List<String> typeEnumOf(AgentOperation operation) {
+        java.util.Map<String, Object> properties =
+                (java.util.Map<String, Object>) operation.arguments().get("properties");
+        java.util.Map<String, Object> type = (java.util.Map<String, Object>) properties.get("type");
+        return (java.util.List<String>) type.get("enum");
     }
 
     @Test

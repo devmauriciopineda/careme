@@ -18,13 +18,13 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.web.servlet.MockMvc;
 
-import com.careme.backend.entity.MeasurementEntity;
+import com.careme.backend.repository.MeasurementRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
- * Full-stack check of the only endpoint: real database, real Flyway schema, real
- * wiring.
+ * Full-stack check of the legacy body-tracking endpoint: real database, real Flyway
+ * schema, real wiring. The endpoint composes its daily view from the metric model.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -36,17 +36,19 @@ class CaremeBackendApplicationTests extends PostgresIntegrationTest {
     @Autowired
     private ObjectMapper objectMapper;
 
-    private static MeasurementEntity measurement(String date, String weightKg, String waistCm) {
-        return new MeasurementEntity(
+    @Autowired
+    private MeasurementRepository measurementRepository;
+
+    private void store(String date, String weightKg, String waistCm) {
+        measurementRepository.upsert(
                 LocalDate.parse(date), new BigDecimal(weightKg), new BigDecimal(waistCm));
     }
 
     @Test
     void servesEveryStoredMeasurementInChronologicalOrder() throws Exception {
-        measurementJpaDao.saveAll(List.of(
-                measurement("2026-09-10", "80.1", "94.8"),
-                measurement("2026-09-06", "81.1", "96.0"),
-                measurement("2026-09-08", "80.4", "95.2")));
+        store("2026-09-10", "80.1", "94.8");
+        store("2026-09-06", "81.1", "96.0");
+        store("2026-09-08", "80.4", "95.2");
 
         String body = mockMvc.perform(get("/api/v1/measurements"))
                 .andExpect(status().isOk())

@@ -492,7 +492,7 @@ comparten recursos. En Careme:
 - la **consulta** se persiste en Markdown desde que se abre, así que las notas
   recogidas sobreviven a un reinicio aunque el búfer de turnos no;
 - PostgreSQL protege reglas persistentes mediante transacciones y restricciones,
-  como `UNIQUE(date)`;
+  como la unicidad de `(metric, date)` en el seguimiento de mediciones;
 - los hechos clínicos sobreviven a reinicios porque están en Markdown, no en el
   estado de conversación.
 
@@ -509,8 +509,8 @@ repetirlo devuelve el mismo resultado de cierre y no registra nada nuevo.
 
 Ese cierre es, además, **reintentable**. Si una parte no se completa, la consulta
 no se da por cerrada: conserva sus notas, sigue abierta y el cierre puede
-repetirse sin dejar trabajo a medias. Cada hecho mantiene su propia atomicidad,
-así que un fallo no revierte los hechos ya registrados.
+repetirse sin dejar trabajo a medias. Cada cauce mantiene su propia atomicidad,
+así que un fallo no revierte lo que otro cauce ya registró.
 
 ## 10. Errores y operaciones compuestas
 
@@ -534,6 +534,16 @@ Una **operación compuesta** produce efectos en más de un recurso o sistema. El
 registro clínico combina filesystem y PostgreSQL; como no existe una transacción
 distribuida entre ambos, la implementación ordena las acciones y define una
 compensación para fallos parciales.
+
+El **cierre de la consulta** es la operación compuesta más ancha del sistema:
+escribe por **dos cauces**. El lote de mediciones se incorpora al seguimiento en
+una **transacción de PostgreSQL**, y los hechos clínicos en su **publicación
+Markdown** con el índice derivado. Cada cauce es de todo o nada por sí mismo, y
+no hay una transacción única que los abarque: por eso el resultado del cierre se
+declara **por cauce**, distinguiendo lo que quedó registrado de lo que no, sin
+presentar un fallo como una ausencia y sin revertir lo que ya se completó. La
+segunda escritura no se piensa como “lo mismo, en otro sitio”: son dos resultados
+distintos que la persona debe poder distinguir.
 
 ## 11. Dos formas de leer los hechos clínicos
 

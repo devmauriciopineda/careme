@@ -10,9 +10,9 @@ The document distinguishes two states:
   (`docs/roadmap/mvp_alcance_asistente_historia_clinica.md`) that does not exist
   in the code yet.
 
-Body tracking (`Measurement`), clinical-event registration (`ClinicalEvent`,
-UC-004) and the history query through the derived index (UC-007) are implemented
-today; `Patient` remains implicit.
+Body tracking (the metric model of §1.1 and its legacy daily view), clinical-event
+registration (`ClinicalEvent`, UC-004), the consultation (UC-013) and the history query
+through the derived index (UC-007) are implemented today; `Patient` remains implicit.
 
 ---
 
@@ -22,48 +22,69 @@ The implemented model covers body tracking (UC-001, UC-002 and UC-003),
 clinical-event registration (UC-004) and the history query through lexical
 retrieval from the derived index (UC-007).
 
-### 1.1 Measurement
+### 1.1 MetricMeasurement
 
-Represents a body measurement recorded on a specific day. It is the persisted
-entity of body tracking; it coexists with the assistant's derived table
+Represents a measurement of one metric on one day. It is the persisted entity of body
+tracking, implemented by UC-014; it coexists with the assistant's derived table
 `clinical_event_index` (see §2).
 
 **Fields:**
 
 - `id`: Unique identifier of the measurement (Primary Key, UUID)
-- `date`: Day of the measurement (required, unique)
-- `weightKg`: Weight in kilograms (required, positive)
-- `waistCm`: Abdominal circumference in centimetres (required, positive)
+- `metric`: Which quantity was measured, by its catalogue code (`weight`, `waist`,
+  `blood_pressure`, `cholesterol`, …)
+- `unit`: The metric's reference unit, in which the values are expressed
+- `date`: Exact calendar day of the measurement (required)
+- `encounter_code`: The consultation the measurement came from, or absent when it did
+  not come from one
+- `created_at`: Date and time the record was created
 
 **Validation rules:**
 
-- The date is a calendar day, without time, and cannot be in the future.
-- At most one measurement per day is allowed; the date is unique.
-- Both values are required and must be strictly positive.
-- Both values are expressed with a single decimal (`NUMERIC(5, 2)`).
-- Weight cannot exceed 500 kg and abdominal circumference cannot exceed 400 cm.
-- Registering a day that already has a measurement replaces its values; it does
-  not duplicate it.
+- The date is a calendar day, without time, and the metric is one of the catalogue's.
+- The unit is the reference unit of that metric: a value stated in another unit of the
+  same metric is converted before it is stored.
+- Every value is strictly positive and inside the admissible range of its component.
+- A composite metric carries all of its components: a blood pressure is one measurement
+  with `systolic` and `diastolic`, never two measurements.
+- At most one measurement per metric and day is allowed; registering that metric and day
+  again replaces its values.
 
 **Database constraints:**
 
-- `uq_measurements_date`: unique on `date`.
-- `ck_measurements_weight_kg_positive`: `weight_kg > 0`.
-- `ck_measurements_waist_cm_positive`: `waist_cm > 0`.
+- `uq_measurements_metric_date`: unique on `(metric, date)`.
+- `uq_measurement_values_component`: unique on `(measurement_id, component)`.
+- `ck_measurement_values_positive`: `value > 0`.
 
-**Relationships:** none. It is an independent entity; there is no user or owner
-in the current model.
+**Relationships:** many-to-one with the consultation the measurement came from, declared
+as its provenance. There is still no user or owner in the current model.
 
-> **Superseded in Fase 4.** The `measurements` table and the "one measurement per
-> day" rule give way to the metric model of §6.2: a measurement carries a metric,
-> a value, a unit and its date precision, so blood pressure, cholesterol, weight
-> and abdominal circumference share one model. `/measurements` becomes a derived
-> view over it.
+**Metric catalogue:** the metrics the tracking admits live in `admitted_metrics`, seeded
+with weight (kg), abdominal circumference (cm), blood pressure (mmHg) and cholesterol
+(mg/dL). The catalogue itself —reference unit, components, admissible range, exact unit
+equivalences and the unit a value without an explicit unit resolves to— is described in
+code, because a metric's unit and range cannot be invented from what the person says.
+
+### 1.1b The legacy daily view
+
+`Measurement` (record) and its repository remain as the **derived daily view** over the
+metric model: one row per day with `weightKg` and `waistCm`. It exists so the
+`/api/v1/measurements` contract, the registration form (UC-002) and the file import
+(UC-003) keep working unchanged against a single tracking store.
+
+- `GET` composes the weight and the abdominal circumference of each day; `POST` stores
+  those two metrics for that day.
+- A day is part of the view only when it carries **both** metrics: the legacy contract
+  requires both values, so a day with a single metric stays in the tracking and is not
+  shown here. Closing that gap is the sibling change `metric-tracking-view`.
+- The legacy request rules (date not in the future, positive values, one decimal, limits
+  of 500 kg and 400 cm) are kept by the view, not by the metric model.
 
 ### 1.2 MeasurementDraft
 
-Represents a measurement that has no database identity yet. It is used when
-several measurements are written at once, as in the file import.
+Represents one day of the legacy daily view that has no database identity yet. It is used
+when several measurements are written at once, as in the file import, and the view turns
+each draft into one measurement per metric.
 
 **Fields:**
 
@@ -74,8 +95,8 @@ several measurements are written at once, as in the file import.
 **Validation rules:** the same as `Measurement` (date present and positive
 values), but without `id`.
 
-**Relationships:** none. It is not persisted on its own; it becomes a
-`Measurement` when it is stored.
+**Relationships:** none. It is not persisted on its own; storing it writes the `weight`
+and `waist` measurements of that day.
 
 ### 1.3 API models
 
@@ -112,9 +133,10 @@ They are not persisted; they describe the HTTP contract.
   support, so a client can tell what was completed from what was not. Those fields
   are optional and additive.
 - **AgentOperation**: the closed set of operations the assistant may ask for —
-  `consult_history` and `record_note` — declared to the provider and executed by
-  the application, which validates before writing. Registering is not a turn
-  operation: the turn collects notes and only the consultation close registers.
+  `consult_history`, `record_note` and `record_measurement` — declared to the
+  provider and executed by the application, which validates before writing.
+  Registering is not a turn operation: the turn collects notes and only the
+  consultation close registers.
 - **ClinicalEventIntent**: the structured contract the application builds for a
   registration or a query; `kind` (`events`, `query`, `clarification`,
   `conversation`), with the search criteria in the query. It is what the
@@ -174,8 +196,9 @@ by UC-004 (`backend/src/main/java/com/careme/backend/entity/ClinicalEvent.java`)
 
 **Validation rules:**
 
-- The type must be one of the four supported ones: `diagnosis`, `medication`,
-  `measurement`, `note`.
+- The type must be one of the supported ones: `diagnosis`, `medication` or `note`.
+  `measurement` was retired by UC-014 (see §1.1): it is still readable in a document
+  written before the change, but nothing new can be registered with it.
 - Every event has a type, content and date with its degree of precision; the date
   may be missing when the user does not state it.
 - `date_precision` must be `exact`, `approximate` or `unknown`.
@@ -188,9 +211,9 @@ by UC-004 (`backend/src/main/java/com/careme/backend/entity/ClinicalEvent.java`)
   create events.
 - The same fact is not registered twice.
 
-> **Reviewed in Fase 4.** `measurement` leaves the catalogue, so the remaining
-> supported types are `diagnosis`, `medication` and `note`, plus the clinical
-> types Fase 4 adds. Events also reference the encounter they came from (§6.1).
+> **`measurement` retired by UC-014.** It is no longer an admissible type, and a
+> measurement is not a clinical fact: it has its own tracking (§1.1) and its own channel in
+> the consultation. Events also reference the encounter they came from (§2.3).
 
 **Persistence notes:**
 
@@ -213,8 +236,10 @@ by UC-004 (`backend/src/main/java/com/careme/backend/entity/ClinicalEvent.java`)
 
 The conversation as a record with its own identity and life cycle, implemented by
 UC-013 (`backend/src/main/java/com/careme/backend/entity/Encounter.java`). It opens
-with the conversation, collects in **notes** what the person mentions, and at its
-close registers the admissible notes as clinical events with their provenance.
+with the conversation, collects in **notes** what the person mentions —clinical-fact
+notes and measurement notes—, and at its close registers the admissible notes of each
+channel with their provenance: the facts as clinical events and the measurements in
+the metric model of §1.1.
 
 **Fields:**
 
@@ -222,7 +247,9 @@ close registers the admissible notes as clinical events with their provenance.
 - `code`: Readable and stable identifier (`enc_NNN`, file-name Primary Key)
 - `conversation_id`: The conversation the consultation belongs to, so it survives a restart
 - `status`: `open` or `closed`
-- `notes`: The clinical facts collected while it is open
+- `notes`: The clinical-fact notes collected while it is open
+- `measurement_notes`: The measurement notes collected while it is open
+  (`EncounterMeasurementNote`)
 - `motive`: The title the close derives from the registered facts
 - `summary`: The close's **derived** summary of the registered facts; it may be absent
 - `created_at`: Date and time the consultation opened
@@ -232,6 +259,11 @@ close registers the admissible notes as clinical events with their provenance.
 `date_text`. It is not a registered fact: it carries the temporal fidelity the
 person gave so the close can register it, but it never reaches the clinical
 history on its own and never carries an event code.
+
+**EncounterMeasurementNote** carries the metric, the values already converted to the
+metric's reference unit, the unit the person stated, the date with its precision and
+the original temporal expression. It is not a registered measurement either: it stays
+in the consultation until the close, and it never becomes a clinical event.
 
 **Life cycle:**
 
@@ -267,6 +299,8 @@ history on its own and never carries an event code.
 - `conversation`: the conversation the consultation belongs to
 - `events`: the clinical events registered at the close, which declare the consultation
   they came from as their provenance
+- `measurements`: the metric measurements registered at the close (§1.1), which also
+  declare the consultation as their provenance
 
 ---
 
@@ -274,11 +308,19 @@ history on its own and never carries an event code.
 
 ```mermaid
 erDiagram
-    Measurement {
+    MetricMeasurement {
         UUID id PK
-        DATE date UK
-        DECIMAL weight_kg
-        DECIMAL waist_cm
+        String metric
+        String unit
+        DATE date
+        String encounter_code FK
+        DATETIME created_at
+    }
+
+    MeasurementValue {
+        UUID measurement_id FK
+        String component
+        DECIMAL value
     }
 
     ClinicalEvent {
@@ -313,18 +355,30 @@ erDiagram
         String date_text
     }
 
+    EncounterMeasurementNote {
+        String metric
+        String unit
+        DATE date
+        String date_precision
+        String date_text
+    }
+
     Patient ||--o{ ClinicalEvent : "owns"
     Encounter ||--o{ EncounterNote : "collects"
+    Encounter ||--o{ EncounterMeasurementNote : "collects"
     Encounter ||--o{ ClinicalEvent : "registers"
+    Encounter ||--o{ MetricMeasurement : "registers"
+    MetricMeasurement ||--o{ MeasurementValue : "holds"
 ```
 
-> The `Measurement` block corresponds to the implemented body tracking. The
-> `Patient` / `ClinicalEvent` block corresponds to the clinical history
-> assistant, implemented for fact registration (UC-004) and its query (UC-007);
-> `Patient` remains implicit. The `Encounter` block is implemented by UC-013 —the
-> provenance its close registers is UC-013b— and its notes are never events. In
-> PostgreSQL only the derived indexes `clinical_event_index` and
-> `encounter_index` exist, never as the source of truth.
+> The `MetricMeasurement` / `MeasurementValue` block is the implemented body tracking,
+> and the legacy `Measurement` view is composed from it. The `Patient` / `ClinicalEvent`
+> block corresponds to the clinical history assistant, implemented for fact registration
+> (UC-004) and its query (UC-007); `Patient` remains implicit. The `Encounter` block is
+> implemented by UC-013 —the provenance its close registers is UC-013b— and its notes are
+> never events. In PostgreSQL only the derived indexes `clinical_event_index` and
+> `encounter_index` exist, never as the source of truth; the tracking itself does live in
+> PostgreSQL, because a measurement is a numeric record and not a narrated fact.
 
 ---
 
@@ -333,11 +387,10 @@ erDiagram
 1. **Stable identity**: every record has a unique identifier; for measurements it
    is a UUID and for clinical events a readable `code` is added, which also names
    the file.
-2. **One measurement per day**: the date identifies the measurement within the
-   day, so registering a day again updates instead of duplicating. The rule
-   describes the implemented model; §6.2 replaces it with a metric model where
-   several metrics and several readings per day are possible.
-3. **Domain invariants**: the domain type (`Measurement`) rejects any invalid
+2. **One measurement per metric and day**: the metric and the date identify a
+   measurement, so registering that metric and day again replaces its value instead of
+   duplicating it. Several metrics can be recorded on the same day.
+3. **Domain invariants**: the domain type (`MetricMeasurement`) rejects any invalid
    value when it is constructed, so an invalid record cannot exist.
 4. **Contract separated from storage**: the API DTOs and the persistence entity
    are kept apart, so the HTTP contract does not change when the table changes.
@@ -360,23 +413,27 @@ erDiagram
 - Required fields guarantee the core information, and optional fields allow
   flexible input without losing that core.
 - The schemas are defined by the Flyway migrations:
-  `V1__create_measurements_table.sql` (the `measurements` table),
+  `V1__create_measurements_table.sql` (the legacy daily table),
   `V2__create_clinical_event_index.sql` (the derived index
   `clinical_event_index`), `V3__create_encounter_index.sql` (the derived index
-  `encounter_index`) and `V4__add_provenance_to_clinical_event_index.sql` (the
-  consultation a registered fact came from); the JPA mapping is validated against
-  them.
-- §6 records the target model of the roadmap's Fase 4. It is **not implemented**:
-  nothing in §1 to §5 depends on it, and no table or migration exists for it yet.
+  `encounter_index`), `V4__add_provenance_to_clinical_event_index.sql` (the
+  consultation a registered fact came from) and `V5__create_metric_measurements.sql`
+  (the metric model of §1.1, which migrates the legacy rows and retires its table); the
+  JPA mapping is validated against them.
+- §6 records what the roadmap's Fase 4 still has ahead. The encounter (§6.1) and the
+  metric model (§6.2) are already implemented and live in §2.3 and §1.1.
 
 ---
 
 ## 6. Fase 4 target model
 
-The model the roadmap's Fase 4 introduces. Most of it is **not implemented**: it is
-recorded here so the implemented model above and the target one are not confused.
-The exception is the encounter (§6.1): UC-013 implemented it, and it now lives in
-§2.3 with its own life cycle.
+The model the roadmap's Fase 4 introduces. Part of it is already implemented and lives in the
+sections above; what remains target-only is recorded here so the implemented model and the
+target one are not confused.
+
+- §6.1 encounter: **implemented by UC-013**, documented in §2.3.
+- §6.2 metric model: **implemented by UC-014**, documented in §1.1 and §1.1b.
+- §6.3 patient profile and §6.4 extended profile: **not implemented**.
 
 ### 6.1 Encounter (consulta)
 
@@ -385,43 +442,33 @@ in-memory state and became a record with an identifier and a life cycle. The fac
 the person reports are registered with their **provenance**, referencing the
 consultation they came from, and the registration happens at the close.
 
-What remains target-only is the link between the consultation and the metric model
-of §6.2.
+The link between the consultation and the metric model of §6.2 is implemented too:
+a registered measurement declares the consultation it came from as its provenance
+(§1.1).
 
 **Relationships:**
 
 - `events`: one-to-many with ClinicalEvent
 - `measurements`: one-to-many with the metric model of §6.2
 
-### 6.2 Measurement (metric model)
+### 6.2 Measurement (metric model) — implemented by UC-014
 
-One model for weight, abdominal circumference, blood pressure, cholesterol and any
-other metric.
+One model for weight, abdominal circumference, blood pressure, cholesterol and any other
+metric. It is documented as implemented in §1.1, with the legacy daily view in §1.1b.
 
-**Fields:**
+Two points where what was planned and what was implemented differ, both decided by
+[UC-014](../docs/use-cases/UC-014.md):
 
-- `id`: Unique identifier
-- `metric`: Which quantity was measured (`weight`, `waist`, `systolic`,
-  `diastolic`, `cholesterol`…)
-- `value`: Numeric value
-- `unit`: Unit of the value
-- `date`: Date of the measurement, with the same precision rules as an event
-- `date_precision`: `exact`, `approximate` or `unknown`
-- `date_text`: The user's original temporal expression, when there was one
-- `encounter_id`: The encounter it came from
-- `created_at`: Date and time the record was created
-
-**Validation rules:**
-
-- The value is numeric and strictly positive.
-- Both `value` and `unit` are required.
-- The temporal fidelity rules of ClinicalEvent apply unchanged.
-- Several metrics, and several readings of the same metric, may exist on the same
-  day: the uniqueness of `date` disappears.
+- The date of a measurement is **exact**. The temporal fidelity rules of `ClinicalEvent` do
+  not apply unchanged: an approximate or unknown date is asked for and, without it, the
+  measurement is not registered, because its value only means something on a concrete day
+  (UC-014-R7).
+- **One measurement per metric and day**, not several readings: registering that metric and
+  day again replaces the value instead of adding a row (UC-014-R8).
 
 **Relationships:**
 
-- `encounter`: many-to-one with Encounter
+- `encounter`: many-to-one with Encounter, as the provenance of a registered measurement
 
 ### 6.3 Patient profile
 
@@ -470,10 +517,10 @@ rebuildable from the facts, never a source of truth.
 | `Patient` is implicit: no entity and no table | materialised as the profile of §6.3 |
 | No patient attributes to read | the assistant has the profile and the extended profile of §6.4 |
 | Family history has no category of its own | event type `family_history`, with the relative in the content |
-| `measurements` table with `weight_kg` and `waist_cm`, both required | metric model of §6.2 |
-| One row per day (`uq_measurements_date`) | several metrics and readings per day |
-| `measurement` is a clinical event type | it leaves the catalogue; the remaining types are `diagnosis`, `medication` and `note`, plus the new ones |
+| `measurements` table with `weight_kg` and `waist_cm`, both required | metric model of §6.2, implemented in §1.1; the legacy pair survives as a derived daily view |
+| One row per day (`uq_measurements_date`) | one measurement per metric and day (`uq_measurements_metric_date`); several metrics per day |
+| `measurement` is a clinical event type | it leaves the catalogue (UC-014); the remaining types are `diagnosis`, `medication` and `note` |
 | `/measurements` reads its own table | `/measurements` is a derived view over the metric model |
-| The assistant redirects weight and waist questions | it registers and queries them like any other metric |
+| The assistant redirects weight and waist questions | it registers them like any other metric (UC-014); reading them in the conversation is `UC-014b` |
 | The conversation lives in memory with a TTL | **implemented by UC-013**: the consultation is a persisted record and gives provenance |
 | No numeric comparison across time | Fase 7.3 can compare values over time |

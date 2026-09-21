@@ -494,10 +494,43 @@ sistema, también pueden usarse:
 | Resiliencia | Comprobar recuperación frente a fallos de red, procesos o dependencias |
 | Compatibilidad | Verificar navegadores, sistemas, versiones de API o motores soportados |
 
-No todas tienen que ejecutarse en cada cambio. Su selección depende del riesgo,
-la frecuencia de cambio, el coste de ejecución y la propiedad que se necesita
-evidenciar. En Careme, la suite existente prioriza reglas de dominio, contratos
-HTTP, componentes de interfaz, integración con PostgreSQL, cobertura del backend,
-y el recorrido de extremo a extremo con la medición sobre un corpus de evaluación
+### 8.1 Verificación estática: linting y tipado
+
+No toda verificación ejecuta el programa. Hay dos que analizan el **código fuente**
+y detectan defectos sin llegar a correrlo:
+
+- El **linting** es un análisis estático de reglas. Un *linter* comprueba un
+  conjunto de convenciones y patrones —código o variables sin usar, dependencias
+  innecesarias, usos propensos a error, reglas de estilo— y señala lo que las
+  incumple. No juzga si el comportamiento es correcto: juzga si el código respeta
+  lo acordado. Su valor está en volver explícito lo que de otro modo queda al
+  criterio de cada persona, y en atrapar errores triviales antes de la revisión.
+- El **tipado estático** (*typechecking*) comprueba que los valores y las
+  operaciones se usan según los tipos declarados. El compilador de TypeScript, por
+  ejemplo, verifica esas relaciones antes de ejecutar nada y detecta un campo mal
+  escrito o un argumento de tipo equivocado. No sustituye a la validación en
+  tiempo de ejecución: los datos que llegan por HTTP siguen necesitando un
+  validador, porque el tipo describe el código, no lo que un tercero envía.
+
+Ambos comparten una propiedad: son **baratos y locales**. No necesitan
+infraestructura, señalan la línea exacta y pueden ejecutarse en cada cambio. Y
+comparten un límite: ven lo que el código **declara**, no lo que ocurre al
+ejecutarlo. Por eso se sitúan antes que las pruebas en la cadena de verificación,
+como un primer filtro que evita gastar una ejecución en un error de forma.
+
+En Careme, el frontend ejecuta `pnpm typecheck` (TypeScript) y `pnpm lint` (ESLint)
+antes de construir: el orden es `test -> typecheck -> lint -> build` (§2.2). El
+backend no tiene un linter aparte: su verificación estática la ejerce el compilador
+de Java y el modo `validate` de Hibernate, que rechaza al arrancar un modelo de
+persistencia que no coincida con el esquema migrado.
+
+### 8.2 Otras verificaciones no funcionales
+
+No todas las categorías de la tabla tienen que ejecutarse en cada cambio: su
+selección depende del riesgo, la frecuencia de cambio, el coste de ejecución y la
+propiedad que se necesita evidenciar. En Careme, la suite existente prioriza
+reglas de dominio, contratos HTTP, componentes de interfaz, integración con
+PostgreSQL, cobertura del backend, la verificación estática del frontend (§8.1) y
+el recorrido de extremo a extremo con la medición sobre un corpus de evaluación
 (§4.5 y §4.6); las demás categorías sirven como contexto para ampliar la
 estrategia cuando el producto o su operación lo requieran.

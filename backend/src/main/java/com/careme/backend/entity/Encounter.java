@@ -25,9 +25,27 @@ public record Encounter(
         String motive,
         String summary,
         OffsetDateTime createdAt,
-        OffsetDateTime closedAt) {
+        OffsetDateTime closedAt,
+        List<EncounterMeasurementNote> measurementNotes) {
 
     private static final Pattern CODE_PATTERN = Pattern.compile("enc_[0-9]{3,}");
+
+    /**
+     * A consultation with no measurement notes yet, so the call sites that only deal
+     * with clinical facts keep working unchanged.
+     */
+    public Encounter(
+            UUID id,
+            String code,
+            String conversationId,
+            Status status,
+            List<EncounterNote> notes,
+            String motive,
+            String summary,
+            OffsetDateTime createdAt,
+            OffsetDateTime closedAt) {
+        this(id, code, conversationId, status, notes, motive, summary, createdAt, closedAt, List.of());
+    }
 
     public Encounter {
         if (id == null) {
@@ -52,6 +70,7 @@ public record Encounter(
             throw new IllegalArgumentException("An open consultation must not record a close time");
         }
         notes = notes == null ? List.of() : List.copyOf(notes);
+        measurementNotes = measurementNotes == null ? List.of() : List.copyOf(measurementNotes);
     }
 
     public enum Status {
@@ -61,7 +80,8 @@ public record Encounter(
 
     /** A consultation that has just started, with no notes and no close. */
     public static Encounter opened(UUID id, String code, String conversationId, OffsetDateTime createdAt) {
-        return new Encounter(id, code, conversationId, Status.OPEN, List.of(), null, null, createdAt, null);
+        return new Encounter(
+                id, code, conversationId, Status.OPEN, List.of(), null, null, createdAt, null, List.of());
     }
 
     /** The same consultation with one more note collected during the conversation. */
@@ -69,7 +89,17 @@ public record Encounter(
         requireOpen();
         List<EncounterNote> collected = new ArrayList<>(notes);
         collected.add(note);
-        return new Encounter(id, code, conversationId, status, collected, motive, summary, createdAt, closedAt);
+        return new Encounter(
+                id, code, conversationId, status, collected, motive, summary, createdAt, closedAt, measurementNotes);
+    }
+
+    /** The same consultation with one more measurement collected during the conversation. */
+    public Encounter withMeasurementNote(EncounterMeasurementNote note) {
+        requireOpen();
+        List<EncounterMeasurementNote> collected = new ArrayList<>(measurementNotes);
+        collected.add(note);
+        return new Encounter(
+                id, code, conversationId, status, notes, motive, summary, createdAt, closedAt, collected);
     }
 
     /**
@@ -80,7 +110,8 @@ public record Encounter(
     public Encounter closed(String motive, String summary, OffsetDateTime closedAt) {
         requireOpen();
         return new Encounter(
-                id, code, conversationId, Status.CLOSED, notes, motive, summary, createdAt, closedAt);
+                id, code, conversationId, Status.CLOSED, notes, motive, summary, createdAt, closedAt,
+                measurementNotes);
     }
 
     public boolean isOpen() {

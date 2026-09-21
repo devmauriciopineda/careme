@@ -4,6 +4,7 @@ import com.careme.backend.dto.ChatMessageResponse;
 import com.careme.backend.dto.ClinicalEventIntent;
 import com.careme.backend.entity.ClinicalEvent;
 import com.careme.backend.entity.Encounter;
+import com.careme.backend.entity.EncounterMeasurementNote;
 import com.careme.backend.entity.EncounterNote;
 import java.io.IOException;
 import java.time.LocalDate;
@@ -15,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,6 +39,10 @@ public class EncounterService {
     private static final String COLLECTED =
             "Lo he anotado. Quedará registrado en tu historia cuando cierres la consulta.";
     private static final String ALREADY_COLLECTED = "Ese hecho ya estaba anotado en esta consulta.";
+    private static final String MEASUREMENT_COLLECTED =
+            "Lo he anotado. Quedará en tu seguimiento cuando cierres la consulta.";
+    private static final String MEASUREMENT_ALREADY_COLLECTED =
+            "Esa medición ya estaba anotada en esta consulta.";
     private static final String COULD_NOT_COLLECT =
             "No he podido anotar ese hecho. Puedes volver a intentarlo.";
     private static final String COULD_NOT_CLOSE =
@@ -48,10 +54,15 @@ public class EncounterService {
 
     private static final int MOTIVE_LIMIT = 60;
 
+    private static final String PARTIAL_CLOSE =
+            "He registrado las mediciones en tu seguimiento, pero no he podido completar el registro"
+                    + " de los hechos. Puedes volver a intentarlo.";
+
     private final EncounterMarkdownStore markdownStore;
     private final EncounterIndexWriter indexWriter;
     private final ClinicalEventRegistrationService registrationService;
     private final ClinicalEventDateNormalizer dateNormalizer;
+    private final MeasurementRegistrationService measurementRegistrationService;
 
     /** Close outcomes already produced, so repeating a close has no new effect. */
     private final Map<String, ChatMessageResponse> closeOutcomes = new HashMap<>();
@@ -62,11 +73,13 @@ public class EncounterService {
             EncounterMarkdownStore markdownStore,
             EncounterIndexWriter indexWriter,
             ClinicalEventRegistrationService registrationService,
-            ClinicalEventDateNormalizer dateNormalizer) {
+            ClinicalEventDateNormalizer dateNormalizer,
+            MeasurementRegistrationService measurementRegistrationService) {
         this.markdownStore = markdownStore;
         this.indexWriter = indexWriter;
         this.registrationService = registrationService;
         this.dateNormalizer = dateNormalizer;
+        this.measurementRegistrationService = measurementRegistrationService;
     }
 
     /**
@@ -140,6 +153,40 @@ public class EncounterService {
     }
 
     /**
+     * Collects one measurement the person mentioned in the notes of the open
+     * consultation. It is not registered here: the close is what writes into the
+     * tracking, exactly as it does for clinical facts.
+     */
+    public synchronized EncounterMeasurementResult collectMeasurement(
+            String conversationId, EncounterMeasurementNote note) {
+        Encounter encounter = current(conversationId);
+        Optional<EncounterMeasurementNote> already = encounter.measurementNotes().stream()
+                .filter(collected -> fingerprint(collected).equals(fingerprint(note)))
+                .findFirst();
+        if (already.isPresent()) {
+            return new EncounterMeasurementResult(
+                    EncounterMeasurementResult.Kind.DUPLICATE, already.get(), MEASUREMENT_ALREADY_COLLECTED);
+        }
+
+        try {
+            Encounter updated = encounter.withMeasurementNote(note);
+            markdownStore.replace(updated);
+            indexWriter.write(updated);
+        } catch (Exception exception) {
+            log.error("Could not collect the measurement conversationId={}", conversationId, exception);
+            return new EncounterMeasurementResult(
+                    EncounterMeasurementResult.Kind.FAILURE, null, COULD_NOT_COLLECT);
+        }
+        return new EncounterMeasurementResult(
+                EncounterMeasurementResult.Kind.COLLECTED, note, MEASUREMENT_COLLECTED);
+    }
+
+    /** Two mentions of the same metric, day and values are the same measurement. */
+    private static String fingerprint(EncounterMeasurementNote note) {
+        return note.metricCode() + "|" + note.date() + "|" + new TreeMap<>(note.values());
+    }
+
+    /**
      * Closes the consultation of a conversation, registering the facts it collected
      * with their provenance and keeping the derived summary.
      *
@@ -204,6 +251,14 @@ public class EncounterService {
                         note.type(), note.content(), note.date(), note.datePrecision(), note.dateText()))
                 .toList();
 
+        // The tracking is written first: if the batch cannot be stored, nothing of the
+        // close has been written yet and the consultation stays open so it can be retried.
+        MeasurementRegistrationResult measurements = measurementRegistrationService.register(
+                encounter.code(), distinctMeasurements(encounter));
+        if (measurements.kind() == MeasurementRegistrationResult.Kind.FAILURE) {
+            return failure(encounter.conversationId(), COULD_NOT_CLOSE);
+        }
+
         ClinicalEventRegistrationResult registration = candidates.isEmpty()
                 ? new ClinicalEventRegistrationResult(
                         ClinicalEventRegistrationResult.Kind.REGISTERED, List.of(), "")
@@ -213,7 +268,11 @@ public class EncounterService {
                         referenceDate,
                         encounter.code());
         if (registration.kind() == ClinicalEventRegistrationResult.Kind.FAILURE) {
-            return failure(encounter.conversationId(), COULD_NOT_CLOSE);
+            // A registration that completed is never reverted because a later one failed,
+            // so the person is told what was registered and what was not.
+            return failure(
+                    encounter.conversationId(),
+                    measurements.registered() > 0 ? PARTIAL_CLOSE : COULD_NOT_CLOSE);
         }
 
         List<ClinicalEvent> registered = registration.events();
@@ -223,18 +282,33 @@ public class EncounterService {
             indexWriter.write(markdownStore.read(encounter.code()));
         } catch (Exception exception) {
             log.error("Could not close the consultation code={}", encounter.code(), exception);
-            return failure(encounter.conversationId(), COULD_NOT_CLOSE);
+            return failure(
+                    encounter.conversationId(),
+                    measurements.registered() > 0 ? PARTIAL_CLOSE : COULD_NOT_CLOSE);
         }
 
-        return outcome(encounter.conversationId(), registered, registration);
+        return outcome(encounter.conversationId(), registered, registration, measurements);
+    }
+
+    /** The measurements the consultation collected, with a repeated mention counted once. */
+    private static List<EncounterMeasurementNote> distinctMeasurements(Encounter encounter) {
+        List<EncounterMeasurementNote> distinct = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        for (EncounterMeasurementNote note : encounter.measurementNotes()) {
+            if (seen.add(fingerprint(note))) {
+                distinct.add(note);
+            }
+        }
+        return distinct;
     }
 
     private ChatMessageResponse outcome(
             String conversationId,
             List<ClinicalEvent> registered,
-            ClinicalEventRegistrationResult registration) {
+            ClinicalEventRegistrationResult registration,
+            MeasurementRegistrationResult measurements) {
         ChatMessageResponse.Status status;
-        if (registered.isEmpty()) {
+        if (registered.isEmpty() && measurements.registered() == 0) {
             status = registration.kind() == ClinicalEventRegistrationResult.Kind.DUPLICATE
                     ? ChatMessageResponse.Status.DUPLICATE
                     : ChatMessageResponse.Status.NOTHING_TO_REGISTER;
@@ -247,22 +321,46 @@ public class EncounterService {
             operations.add(ChatMessageResponse.OperationSummary.of(
                     ChatMessageResponse.Status.REGISTERED, registered, null, List.of()));
         }
+        if (measurements.registered() > 0) {
+            operations.add(ChatMessageResponse.OperationSummary.of(
+                    ChatMessageResponse.Status.REGISTERED, List.of(), null, List.of()));
+        }
 
         return ChatMessageResponse.of(
-                        conversationId, null, status, message(status, registered), registered,
-                        null, List.of())
+                        conversationId, null, status, message(status, registered, measurements),
+                        registered, null, List.of())
                 .withOperations(operations);
     }
 
-    private static String message(ChatMessageResponse.Status status, List<ClinicalEvent> registered) {
-        return switch (status) {
-            case REGISTERED -> registered.size() == 1
-                    ? "He registrado en tu historia clínica el hecho que hablamos. Ya puedes consultarlo."
-                    : "He registrado en tu historia clínica los " + registered.size()
-                            + " hechos que hablamos. Ya puedes consultarlos.";
-            case DUPLICATE -> "Lo que hablamos ya estaba registrado en tu historia clínica.";
-            default -> NOTHING_TO_REGISTER;
-        };
+    private static String message(
+            ChatMessageResponse.Status status,
+            List<ClinicalEvent> registered,
+            MeasurementRegistrationResult measurements) {
+        if (status == ChatMessageResponse.Status.DUPLICATE) {
+            return "Lo que hablamos ya estaba registrado en tu historia clínica.";
+        }
+        if (status != ChatMessageResponse.Status.REGISTERED) {
+            return NOTHING_TO_REGISTER;
+        }
+
+        List<String> registeredThings = new ArrayList<>();
+        if (!registered.isEmpty()) {
+            registeredThings.add(registered.size() == 1
+                    ? "un hecho en tu historia clínica"
+                    : registered.size() + " hechos en tu historia clínica");
+        }
+        if (measurements.registered() > 0) {
+            registeredThings.add(measurements.registered() == 1
+                    ? "una medición en tu seguimiento"
+                    : measurements.registered() + " mediciones en tu seguimiento");
+        }
+
+        String confirmation = "He registrado " + String.join(" y ", registeredThings)
+                + ". Ya queda disponible para consulta.";
+        if (measurements.replaced() > 0) {
+            confirmation += " Esa medición de ese día ya la tenías: he actualizado su valor.";
+        }
+        return confirmation;
     }
 
     private static ChatMessageResponse failure(String conversationId, String message) {

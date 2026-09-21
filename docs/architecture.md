@@ -9,11 +9,13 @@
 ## 1. Executive summary
 
 Careme is a personal clinical assistant and body-tracking application: its entry
-point is a chat where a person states medical facts in natural language —
-diagnoses, medications, measurements and notes — and the system records them or
-answers questions about the clinical history from retrieved facts, preserving
-temporal precision; it also records one weight and one abdominal circumference per
-day and shows them as a trend and as a per-date detail. It is made of two
+point is a chat where a person states clinical facts in natural language —
+diagnoses, medications and notes — and the measurements they mention, and the
+system records what the person narrates or answers questions about the clinical
+history from retrieved facts, preserving temporal precision. The facts become
+clinical events; the measurements go to the metric tracking, one measurement per
+metric and day —weight, abdominal circumference, blood pressure and cholesterol
+among the catalogue's metrics— and are shown as a trend and as a per-date detail. It is made of two
 independent services — a Next.js frontend and a Spring Boot backend — plus a
 PostgreSQL database. The backend is the source of truth for the HTTP contract; the
 frontend does not own the data. (Query contract:
@@ -21,19 +23,22 @@ frontend does not own the data. (Query contract:
 
 **Value proposition:** a faithful personal clinical history — facts keep the
 person's own wording and temporal precision — and minimal body tracking, with no
-user accounts, one measurement per day and data precision owned by the domain
-(invariants in the record constructor) instead of the interface.
+user accounts, one measurement per metric and day, and data precision owned by the domain
+(invariants in the domain records) instead of the interface.
 
 **Ubiquitous language:**
 
 | Term | Meaning | Evidence |
 | --- | --- | --- |
-| **Measurement** | One weight and one abdominal circumference for a specific day | `backend/src/main/java/com/careme/backend/entity/Measurement.java` |
-| **Day** | The date identifies the measurement within the table; it is unique and cannot be in the future | `backend/src/main/resources/db/migration/V1__create_measurements_table.sql` |
-| **Abdominal circumference** (waist) | Abdominal perimeter in centimetres | `backend/src/main/java/com/careme/backend/dto/MeasurementRequest.java` |
-| **Weight** | Weight in kilograms, one decimal, at most 500 | `backend/src/main/java/com/careme/backend/dto/MeasurementRequest.java` |
-| **Register** | Store the measurement of a day: create it when the day did not exist, replace it when it did | `backend/src/main/java/com/careme/backend/service/MeasurementService.java` |
-| **MeasurementDraft** | A measurement without database identity, used by bulk loads | `backend/src/main/java/com/careme/backend/entity/MeasurementDraft.java` |
+| **Measurement** | One metric on one exact day, with its values in the metric's reference unit | `backend/src/main/java/com/careme/backend/entity/MetricMeasurement.java` |
+| **Metric** | A quantity the tracking admits, with its reference unit, components, range and unit equivalences | `backend/src/main/java/com/careme/backend/entity/Metric.java` |
+| **Admitted metric** | A metric the tracking actually records, which the person confirms | `backend/src/main/java/com/careme/backend/repository/AdmittedMetricRepository.java` |
+| **Day** | The metric and the date identify a measurement; there is one per metric and day | `backend/src/main/resources/db/migration/V5__create_metric_measurements.sql` |
+| **Abdominal circumference** (waist) | Abdominal perimeter in centimetres | `backend/src/main/java/com/careme/backend/entity/Metric.java` |
+| **Weight** | Weight in kilograms, at most 500 | `backend/src/main/java/com/careme/backend/entity/Metric.java` |
+| **Register** | Store the measurement of a metric and day: create it when it did not exist, replace it when it did | `backend/src/main/java/com/careme/backend/service/MeasurementRegistrationService.java` |
+| **Daily view** | The legacy weight-and-circumference pair of a day, composed from the metric model | `backend/src/main/java/com/careme/backend/repository/MetricBackedMeasurementRepository.java` |
+| **MeasurementDraft** | One day of the legacy view without database identity, used by bulk loads | `backend/src/main/java/com/careme/backend/entity/MeasurementDraft.java` |
 | **Load / import** | Read measurements from a CSV file and persist them | `backend/src/main/java/com/careme/backend/service/MeasurementImportService.java` |
 | **Preview** | A report of what a load would do, storing nothing | `backend/src/main/java/com/careme/backend/dto/ImportPreviewResponse.java` |
 | **Response envelope** (ApiResponse) | The single wrapper for every response, success or error | `backend/src/main/java/com/careme/backend/dto/ApiResponse.java` |
@@ -86,7 +91,7 @@ remaining runtime dependencies are PostgreSQL and the local filesystem.
 - OpenSpec convention — ✅ RESOLVED: `openspec/` exists with `config.yaml`,
   `openspec/specs/` (current capabilities) and `openspec/changes/archive/`
   (archived changes). It coexists with the functional documentation in
-  `docs/use-cases/` (UC-001…UC-004, UC-007, UC-008, UC-010…UC-013b) and
+  `docs/use-cases/` (UC-001…UC-004, UC-007, UC-008, UC-010…UC-014b) and
   `docs/roadmap/`, which records the closed MVP scope
   (`mvp_alcance_asistente_historia_clinica.md`) and the roadmap that continues from it
   (`roadmap_asistente_historia_clinica.md`), including the use cases of Fase 4.
@@ -140,7 +145,7 @@ flowchart TB
 | --- | --- | --- |
 | **Frontend** | Render the trend and the daily detail; validate payloads before sending them; refresh the view after registering | Node server: server-side `fetch` to the API (`frontend/src/services/measurementService.ts`). Serves HTML/JS to the browser |
 | **Backend** | Own the HTTP contract, validate, apply invariants, persist and sort | Exposes HTTP/JSON under `/api/v1/**` (`backend/.../controller/MeasurementController.java`); speaks JDBC to PostgreSQL |
-| **PostgreSQL** | Store one measurement row per day (`UNIQUE(date)`, `CHECK > 0`) and the derived indexes `clinical_event_index` and `encounter_index` | Volume `careme-pgdata`; `pg_isready` healthcheck (`docker-compose.yml`) |
+| **PostgreSQL** | Store one measurement row per metric and day (`UNIQUE(metric, date)`, `CHECK value > 0`) with its component values, and the derived indexes `clinical_event_index` and `encounter_index` | Volume `careme-pgdata`; `pg_isready` healthcheck (`docker-compose.yml`) |
 
 **Protocols:** everything is synchronous, with no queues or events. The frontend
 consumes the API from the server (not from the browser), so CORS is not strictly
@@ -168,10 +173,10 @@ flowchart TB
         imp["MeasurementImportService<br/>preview + load"]
         parser["MeasurementCsvParser<br/>CSV reading and validation"]
         port["MeasurementRepository<br/>(port)"]
-        adapter["MeasurementJpaRepository<br/>(@Transactional adapter)"]
-        dao["MeasurementJpaDao<br/>Spring Data JPA"]
-        entity["MeasurementEntity<br/>@Entity → measurements table"]
-        domain["Measurement / MeasurementDraft<br/>domain records, invariants"]
+        adapter["MetricBackedMeasurementRepository<br/>composes the daily view"]
+        metricDao["MetricMeasurementJpaDao<br/>Spring Data JPA"]
+        metricEntity["MetricMeasurementEntity<br/>@Entity → measurements table"]
+        domain["MetricMeasurement / Metric<br/>domain records, invariants"]
         chatCtrl["ChatController<br/>POST /api/v1/chat/messages"]
         orchestrator["ChatOrchestrator<br/>turn + conversation state"]
         agent["ClinicalAgent<br/>Fake · OpenAI · turn loop"]
@@ -244,7 +249,7 @@ flowchart TB
 | `service/` (clinical) | Chat and registration: the agent decides among a closed set of declared operations — consult the history, take note of a fact — and each operation validates its arguments and writes inside its own path; the turn ends in one single reply | `backend/.../service/ChatOrchestrator.java`, `ClinicalAgent.java`, `AgentOperation*.java`, `AgentToolContract.java`, `ClinicalHistoryQueryService.java`, `ClinicalEvent*.java` |
 | `service/` (consultation) | The consultation life cycle: it opens with the conversation, collects the facts the person mentions as notes without touching the history, and only the close registers the admissible notes as clinical events with their provenance | `backend/.../service/EncounterService.java`, `EncounterMarkdownStore.java`, `EncounterIndexWriter.java` |
 | `repository/` | Port (`MeasurementRepository`) + JPA adapters. Isolates the persistence engine | `backend/.../repository/` |
-| `entity/` | Domain/mapping separation: `MeasurementEntity` (mapping), `Measurement` and `MeasurementDraft` (annotation-free domain), `ClinicalEvent` (assistant domain) | `backend/.../entity/` |
+| `entity/` | Domain/mapping separation: `MetricMeasurementEntity` (mapping), `MetricMeasurement`, `Metric` and `MeasurementDraft` (annotation-free domain), `ClinicalEvent` (assistant domain) | `backend/.../entity/` |
 | `dto/` | HTTP contract, independent of the schema | `backend/.../dto/` |
 | `config/` | Explicit CORS, bounded by origin | `backend/.../config/CorsConfig.java` |
 | `exception/` | Global handler: uniform 400/500 | `backend/.../exception/ApiExceptionHandler.java` |
@@ -360,10 +365,10 @@ careme/
 │   ├── src/features/measurements/  # Body-tracking module
 │   ├── src/services/               # Data boundary (fetch + Zod)
 │   ├── src/test/                   # Test setup
-│   ├── e2e/playwright/             # End-to-end scenarios (UC-012, UC-013)
+│   ├── e2e/playwright/             # End-to-end scenarios (UC-012, UC-013, UC-014)
 ├── docs/                           # Project documentation
 │   ├── standards/                  # Java/Spring and Next standards
-│   ├── use-cases/                  # UC-001…UC-004, UC-007, UC-008, UC-010…UC-013b
+│   ├── use-cases/                  # UC-001…UC-004, UC-007, UC-008, UC-010…UC-014b
 │   ├── roadmap/                    # Roadmap, MVP scope and use-case status
 │   ├── data-model.md               # Data model
 │   └── architecture.md             # This document
@@ -394,21 +399,21 @@ hexagonal).**
 - The backend follows `controller → service → repository`, stated in
   `backend/README.md` and verifiable in the packages of
   `backend/src/main/java/com/careme/backend/`.
-- The domain (`Measurement`) is a `record` with no persistence annotations and with
-  invariants in its compact constructor
-  (`backend/.../entity/Measurement.java`). `MeasurementEntity` maps the table and
-  nothing else; `MeasurementResponse` is the HTTP contract. Three types, three
-  responsibilities.
+- The domain (`MetricMeasurement`) is a `record` with no persistence annotations and
+  with invariants in its compact constructor
+  (`backend/.../entity/MetricMeasurement.java`). `MetricMeasurementEntity` maps the
+  table and nothing else; `MeasurementResponse` is the HTTP contract. Three types,
+  three responsibilities.
 - `MeasurementRepository` is a **port** (`backend/.../repository/MeasurementRepository.java`)
-  implemented by `MeasurementJpaRepository`; the service depends on the interface,
-  not on JPA. That is the evidence of the hexagonal component.
+  implemented by `MetricBackedMeasurementRepository`; the service depends on the
+  interface, not on JPA. That is the evidence of the hexagonal component.
 
 **Dependency rules:**
 
 | From | May import | May not import |
 | --- | --- | --- |
 | `controller` | `dto`, `service`, `exception` | `repository`, `entity` (JPA) |
-| `service` | `dto`, `entity` (domain), `repository` (interface) | `controller`, `MeasurementJpaDao` |
+| `service` | `dto`, `entity` (domain), `repository` (interface) | `controller`, `MetricMeasurementJpaDao` |
 | `repository` (adapter) | `entity`, JPA | `controller`, `service` |
 | `entity` (domain) | JDK only | Any application layer |
 
@@ -441,9 +446,9 @@ the code and the READMEs.
 | ID | Decision | Status | Context | Consequences |
 | --- | --- | --- | --- | --- |
 | ADR-001 | Flyway owns the schema; Hibernate only validates (`ddl-auto: validate`) | Current | Avoid implicit DDL | A mismatch between mapping and migration fails at startup instead of silently |
-| ADR-002 | Separate domain (`Measurement`), mapping (`MeasurementEntity`) and contract (`MeasurementResponse`) | Current | The JSON contract must not move when the schema changes | More classes per entity; real isolation between layers |
+| ADR-002 | Separate domain (`MetricMeasurement`), mapping (`MetricMeasurementEntity`) and contract (`MeasurementResponse`) | Current | The JSON contract must not move when the schema changes | More classes per entity; real isolation between layers |
 | ADR-003 | `MeasurementRepository` as an interface (port) in front of JPA | Current | Change the persistence engine without touching the contract | Extra indirection; high testability |
-| ADR-004 | One measurement per day: unique `date`; registering replaces | Current | Avoid duplicates and the ambiguity of "the one for the day" | Registering twice a day overwrites; changing it requires a migration |
+| ADR-004 | One measurement per metric and day: unique `(metric, date)`; registering replaces | Current | Avoid duplicates and the ambiguity of "the one of that metric on that day" | Registering that metric and day again overwrites; several metrics fit in a day; changing it requires a migration |
 | ADR-005 | A single `ApiResponse` envelope for every result | Current | Predictable responses for the client | The client must always unwrap |
 | ADR-006 | The frontend consumes the API from the server; `API_BASE_URL` without the `NEXT_PUBLIC_` prefix | Current | The browser never needs the backend URL | CORS is not needed today; document it when browser calls are added |
 | ADR-007 | Server Components by default; minimal client islands | Current | Avoid sending logic and `Date` to the browser | Date labels do not shift because of the time zone |
@@ -453,7 +458,7 @@ the code and the READMEs.
 | ADR-011 | Java 21 pinned by `maven-enforcer-plugin` and a committed Maven wrapper | Current | Reproducible build | Builds with another JDK fail explicitly |
 | ADR-012 | User-facing text in Spanish isolated in `strings.ts`; code in English | Current | Future i18n without a refactor | Manual discipline; no automated check |
 | ADR-013 | Implicit `Patient` and clinical events in Markdown as the source of truth + derived PostgreSQL index | Current | MVP of the clinical history assistant | Markdown rules; PostgreSQL indexes and is rebuilt; the query is read-only and there is no edit or delete |
-| ADR-014 | The assistant is an agent with tools behind a port (`ClinicalAgent`): the model chooses from a **closed** set of declared operations (`consult_history`, `record_note`), which the backend validates and executes — writing inside the operation — until one single reply closes the turn; adapters with `fake`/`openai` mode | Current | Keep the LLM provider out of the domain while letting the model handle language variation instead of classifying it in code | Supersedes the intent-interpreter/conversational-composer split. `openai` is the default and requires `CAREME_LLM_API_KEY`, otherwise the backend refuses to start; `fake` is a test double that also chooses operations. The model never reaches the filesystem and cannot invoke an undeclared operation. Registering is not a turn operation: the turn collects notes and only the consultation close writes (`openspec/specs/assistant-agent-turn/spec.md`, *Acotar las operaciones disponibles*) |
+| ADR-014 | The assistant is an agent with tools behind a port (`ClinicalAgent`): the model chooses from a **closed** set of declared operations (`consult_history`, `record_note`, `record_measurement`), which the backend validates and executes — writing inside the operation — until one single reply closes the turn; adapters with `fake`/`openai` mode | Current | Keep the LLM provider out of the domain while letting the model handle language variation instead of classifying it in code | Supersedes the intent-interpreter/conversational-composer split. `openai` is the default and requires `CAREME_LLM_API_KEY`, otherwise the backend refuses to start; `fake` is a test double that also chooses operations. The model never reaches the filesystem and cannot invoke an undeclared operation. Registering is not a turn operation: the turn collects notes and only the consultation close writes (`openspec/specs/assistant-agent-turn/spec.md`, *Acotar las operaciones disponibles*) |
 
 > ADR-013 describes the implemented model. The roadmap's Fase 4.4 materialises `Patient` as a patient
 > profile, which will supersede it.
@@ -493,10 +498,11 @@ and must not be reused outside it.
 | --- | --- | --- |
 | `POST /api/v1/measurements` | Bean Validation: date not in the future, positive metrics, limits 500/400, one decimal | `backend/.../dto/MeasurementRequest.java` |
 | Domain invariants | The record's compact constructor rejects null or non-positive values | `backend/.../entity/Measurement.java` |
-| Database | `UNIQUE(date)` + `CHECK (weight_kg > 0)` + `CHECK (waist_cm > 0)` | `db/migration/V1__create_measurements_table.sql` |
+| Database | `UNIQUE(metric, date)` + `CHECK (value > 0)` on the measurement values | `db/migration/V5__create_metric_measurements.sql` |
 | File upload | Multipart capped at 10 MB (11 MB request), at most 10000 rows, exact headers, row-by-row validation before persisting | `application.yml`, `MeasurementCsvParser.java` |
 | Errors | Global handler: 400 `VALIDATION_ERROR` / `INVALID_REQUEST`, 500 `INTERNAL_ERROR`; no internal detail reaches the client | `backend/.../exception/ApiExceptionHandler.java` |
 | `POST /api/v1/chat/messages` | Bean Validation: message not empty and ≤ 4000 characters, required `messageId`; deterministic validation of the intent before registering | `backend/.../dto/ChatMessageRequest.java`, `ClinicalEventIntentValidator.java` |
+| `POST /api/v1/chat/conversations/{conversationId}/consultation/close` | Deterministic check before writing: an admitted metric, a valid value, an unambiguous unit and an exact date; the measurement batch is all-or-nothing and idempotent per metric and day | `backend/.../service/EncounterService.java`, `MeasurementRegistrationService.java` |
 | `POST /api/v1/clinical-events/reindex` | No body; rebuilds the derived index from `data/events/` | `backend/.../controller/ClinicalEventIndexController.java` |
 | `GET /api/v1/clinical-events` | Read-only list with type/date filters and record/occurrence-date sorting | `backend/.../controller/ClinicalEventIndexController.java`, `ClinicalEventInspectionService.java` |
 | `GET /api/v1/clinical-events/{code}` | Read-only detail lookup by event code; missing events return `404 EVENT_NOT_FOUND` | `backend/.../controller/ClinicalEventIndexController.java`, `ClinicalEventInspectionService.java` |

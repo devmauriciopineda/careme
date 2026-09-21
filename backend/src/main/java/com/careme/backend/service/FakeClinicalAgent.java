@@ -5,10 +5,12 @@ import com.careme.backend.entity.ClinicalEvent;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
@@ -53,9 +55,15 @@ public class FakeClinicalAgent implements ClinicalAgent {
     /**
      * The words that name a measurement. Word-bounded on purpose: "hipertensión"
      * contains "tensión", and reading a diagnosis as a blood-pressure measurement
-     * would file it under the wrong type.
+     * would file it under the wrong metric.
      */
     private static final Pattern MEASUREMENT_WORDS = Pattern.compile("\\b(presi[óo]n|tensi[óo]n)\\b");
+
+    /** A composite value as it is usually said or written: "145/92" or "145 92". */
+    private static final Pattern BLOOD_PRESSURE = Pattern.compile("(\\d{2,3})\\s*[/\\s]\\s*(\\d{2,3})");
+
+    /** A single numeric value, with a dot or a comma as the decimal separator. */
+    private static final Pattern SINGLE_VALUE = Pattern.compile("(\\d+(?:[.,]\\d+)?)");
 
     /** Words too common to help retrieval on their own. */
     private static final List<String> STOP_WORDS = List.of(
@@ -117,6 +125,12 @@ public class FakeClinicalAgent implements ClinicalAgent {
         }
         if (normalized.length() < 12) {
             return AgentTurn.completed(NOTHING_REGISTERED, List.of());
+        }
+        // A message that mentions a measurement goes through the measurement channel:
+        // it is never collected as a clinical fact.
+        AgentOperationCall measurement = measurement(message, normalized, context.referenceDate());
+        if (measurement != null) {
+            return run(measurement, context);
         }
         return run(registration(message, normalized, context.referenceDate()), context);
     }
@@ -187,6 +201,74 @@ public class FakeClinicalAgent implements ClinicalAgent {
                 .orElseGet(() -> List.of("historia"));
     }
 
+    /**
+     * The measurement the message mentions, or {@code null} when it mentions none that
+     * the simulated assistant can name with a value.
+     */
+    private static AgentOperationCall measurement(String message, String normalized, LocalDate referenceDate) {
+        String metric = metricOf(normalized);
+        if (metric == null) {
+            return null;
+        }
+
+        ObjectNode arguments = OBJECT_MAPPER.createObjectNode();
+        arguments.put("metric", metric);
+        ObjectNode values = arguments.putObject("values");
+        if ("blood_pressure".equals(metric)) {
+            Matcher matcher = BLOOD_PRESSURE.matcher(normalized);
+            if (!matcher.find()) {
+                return null;
+            }
+            values.put("systolic", new BigDecimal(matcher.group(1)));
+            values.put("diastolic", new BigDecimal(matcher.group(2)));
+        } else {
+            Matcher matcher = SINGLE_VALUE.matcher(normalized);
+            if (!matcher.find()) {
+                return null;
+            }
+            values.put("value", new BigDecimal(matcher.group(1).replace(',', '.')));
+        }
+
+        LocalDate date = dateOf(normalized, referenceDate);
+        if (date != null) {
+            arguments.put("date", date.toString());
+            arguments.put("date_text", normalized.contains("ayer") ? "ayer" : "hoy");
+        }
+        String unit = unitOf(normalized);
+        if (unit != null) {
+            arguments.put("unit", unit);
+        }
+        return new AgentOperationCall(AgentOperation.RECORD_MEASUREMENT, arguments);
+    }
+
+    /** The metric the message names, or {@code null} when it names none. */
+    private static String metricOf(String normalized) {
+        if (MEASUREMENT_WORDS.matcher(normalized).find()) {
+            return "blood_pressure";
+        }
+        if (normalized.contains("cintura") || normalized.contains("circunferencia")) {
+            return "waist";
+        }
+        if (normalized.contains("peso") || normalized.contains("pesa")) {
+            return "weight";
+        }
+        return null;
+    }
+
+    /** The unit the message names, or {@code null} when it names none. */
+    private static String unitOf(String normalized) {
+        if (normalized.contains("libras") || normalized.contains(" libra") || normalized.contains("lb")) {
+            return "lb";
+        }
+        if (normalized.contains("pulgadas")) {
+            return "in";
+        }
+        if (normalized.contains("mmhg")) {
+            return "mmHg";
+        }
+        return null;
+    }
+
     private static ClinicalEvent.ClinicalEventType typeOf(String normalized) {
         if (normalized.contains("medic")) {
             return ClinicalEvent.ClinicalEventType.MEDICATION;
@@ -194,9 +276,7 @@ public class FakeClinicalAgent implements ClinicalAgent {
         if (normalized.contains("diagnostic")) {
             return ClinicalEvent.ClinicalEventType.DIAGNOSIS;
         }
-        if (MEASUREMENT_WORDS.matcher(normalized).find()) {
-            return ClinicalEvent.ClinicalEventType.MEASUREMENT;
-        }
+        // A measurement is no longer a clinical fact, so it never resolves to a type.
         return null;
     }
 

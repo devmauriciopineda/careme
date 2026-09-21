@@ -78,7 +78,10 @@ MUST NOT construir hechos que no estén registrados.
 El sistema MUST elaborar una respuesta en español usando únicamente los hechos
 recuperados, conservando su contenido y la precisión temporal registrada. Cuando
 la pregunta necesite varios hechos, el sistema MUST ofrecer una sola respuesta
-coherente apoyada en todos ellos.
+coherente apoyada en todos ellos. Los valores de una medición MUST NOT
+presentarse como hechos clínicos ni recuperarse de la historia clínica: las
+mediciones tienen su propio seguimiento y una pregunta sobre ellas MUST
+atenderse por el cauce de las mediciones.
 
 #### Scenario: Responder una pregunta con hechos registrados
 - **WHEN** la persona envía una pregunta sobre su propia historia clínica y existen hechos que la responden
@@ -92,9 +95,10 @@ coherente apoyada en todos ellos.
 - **AND** presenta la fecha con el grado de precisión con que quedó registrada
 
 #### Scenario: Preguntar por valores o mediciones registradas
-- **WHEN** la persona pregunta qué valores tiene registrados
-- **THEN** el sistema encuentra los hechos de medición correspondientes
-- **AND** responde con los valores tal como quedaron registrados
+- **WHEN** la persona pregunta qué valores tiene registrados, por ejemplo su peso o su circunferencia abdominal
+- **THEN** el sistema indica que ese seguimiento tiene su propio espacio
+- **AND** no presenta los valores como hechos clínicos
+- **AND** no inventa valores ni responde con los de otra medición
 
 #### Scenario: Conservar la imprecisión temporal
 - **WHEN** la persona pregunta por un hecho cuya fecha quedó registrada como aproximada

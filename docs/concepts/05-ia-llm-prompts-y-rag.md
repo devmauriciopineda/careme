@@ -39,6 +39,74 @@ Términos que hay que retener:
 
 Una distinción importante de vocabulario: este sistema **sí** es un **agente con herramientas**. El modelo no escribe en la persistencia ni consulta la base de datos —eso lo hace el código—, pero **decide** cuál de las operaciones declaradas atiende el mensaje, con qué argumentos, y puede encadenar más de una en un mismo turno. Lo que lo mantiene acotado es que el conjunto de operaciones es **cerrado y declarado**: el modelo no puede invocar una capacidad que la aplicación no haya publicado. Ver [`UC-012`](../use-cases/UC-012.md) y el catálogo de [reglas de negocio](../use-cases/reglas-de-negocio.md).
 
+### 1.1 Qué es un agente
+
+Un **agente**, en el sentido que interesa aquí, es un sistema en el que un LLM no
+se limita a redactar: **decide acciones intermedias** dentro de un ciclo. En
+lugar de producir la respuesta en un solo paso, el modelo recibe la entrada,
+elige una acción de un conjunto acotado, recibe el resultado de esa acción y
+vuelve a decidir, hasta que considera que ya puede responder.
+
+La diferencia con una **cadena fija** (un *pipeline*) no está en el número de
+pasos, sino en quién los decide. En una cadena fija el programa codifica la
+secuencia —extraer, buscar, redactar—. En un agente la secuencia la propone el
+modelo, pero **dentro de un presupuesto**: el máximo de operaciones por turno está
+acotado por configuración, de modo que un bucle no puede crecer sin límite.
+
+Esa libertad tiene una contrapartida que define el resto del capítulo: **el agente
+decide, pero no ejecuta**. El modelo nombra una acción; el código es quien la
+resuelve, la valida y la lleva a cabo. Sin esa separación, un agente con acceso a
+un sistema clínico sería un riesgo en lugar de una capacidad.
+
+### 1.2 Qué son las herramientas y cómo las usa un agente
+
+Una **herramienta** (o **función**) es una capacidad acotada que la aplicación
+publica para que el modelo pueda pedirla. Cada herramienta se declara con tres
+elementos:
+
+| Elemento | Función |
+| --- | --- |
+| Nombre | Identifica la capacidad; el modelo lo usa para pedirla |
+| Descripción | Explica para qué sirve, en lenguaje natural, para que el modelo elija bien |
+| Esquema de argumentos | Declara qué datos acompañan a la petición y con qué forma |
+
+El modelo **no ejecuta** la herramienta: lo que hace es *llamarla*, es decir,
+devolver una **llamada a función** —el nombre de la operación elegida y los
+argumentos con los que quiere invocarla—. Esa llamada es un dato más, y por eso el
+programa puede leerla, validarla y rechazarla.
+
+El mecanismo completo, paso a paso:
+
+```text
+1. el código envía al modelo el prompt, el mensaje y las herramientas declaradas
+2. el modelo responde con una o más llamadas a función, no con el texto final
+3. el código valida cada llamada y, si es admisible, la ejecuta
+4. el resultado vuelve al modelo como mensaje de rol `tool`
+5. el modelo decide otra vez: pedir otra herramienta o responder
+6. el bucle termina cuando el modelo responde sin pedir nada más
+```
+
+Ese ciclo se conoce como **uso de herramientas** (*tool use*) o **llamada a
+funciones** (*function calling*), y el bucle que lo envuelve como **bucle de
+decisión**. Cuando el modelo alterna razonamiento y acción —razonar, actuar,
+observar y volver a razonar— la literatura lo describe como patrón **ReAct**;
+Careme implementa esa forma con un límite explícito de operaciones por turno.
+
+Dos consecuencias prácticas del patrón:
+
+- **Encadenar es natural.** El resultado de una operación puede ser lo que el
+  modelo necesita para decidir la siguiente, así que un mensaje que requiere
+  consultar y además recoger algo se atiende en el mismo intercambio.
+- **El coste crece con cada paso.** Cada vuelta del bucle es una llamada más al
+  proveedor; de ahí que el presupuesto de operaciones por turno sea una decisión
+  de diseño y no un detalle.
+
+En Careme el puerto que nombra esta capacidad es `ClinicalAgent`, y el conjunto de
+herramientas es **cerrado**: tres operaciones declaradas —consultar la historia y
+recoger notas de hecho y de medición—. La aplicación declara, el modelo elige y el
+código ejecuta; lo que no está declarado no existe para el modelo. El detalle de
+roles, ejecución y validación está en §3.2.1 y §3.3.
+
 ---
 
 ## 2. Por qué se utiliza aquí
@@ -117,16 +185,17 @@ herramientas, y es el que implementa Careme.
 
 ### 3.3 De lenguaje a operaciones: las funciones declaradas
 
-El turno empieza cuando el modelo convierte el mensaje en una o más **operaciones** elegidas de un conjunto cerrado. Son dos:
+El turno empieza cuando el modelo convierte el mensaje en una o más **operaciones** elegidas de un conjunto cerrado. Son tres:
 
 | Operación | Significado |
 | --- | --- |
 | `consult_history` | El mensaje pregunta por la historia clínica |
 | `record_note` | El mensaje menciona hechos clínicos que la persona afirma y deben quedar recogidos en la consulta |
+| `record_measurement` | El mensaje menciona una medición —métrica, valor y fecha— que debe quedar recogida en la consulta |
 
-Una operación de consulta lleva la pregunta, un **ámbito** (historia o seguimiento corporal), los **términos de búsqueda** y, cuando la persona los mencionó, filtros de tipo y de fecha. Una operación de nota lleva los hechos candidatos con su tipo, su contenido y su precisión temporal. Ni una ni otra expone rutas, archivos ni almacenamiento: el modelo nombra una capacidad, no un recurso.
+Una operación de consulta lleva la pregunta, un **ámbito** (historia o seguimiento corporal), los **términos de búsqueda** y, cuando la persona los mencionó, filtros de tipo y de fecha. Una operación de nota lleva los hechos candidatos con su tipo, su contenido y su precisión temporal. Una operación de medición lleva la métrica que la persona nombró, su valor o sus valores, la unidad cuando la dijo y la fecha con su precisión, y **no** se declara como hecho clínico: la medición viaja por su propio cauce. Ninguna de las tres expone rutas, archivos ni almacenamiento: el modelo nombra una capacidad, no un recurso.
 
-**Registrar no es una operación del turno.** Un hecho mencionado durante la conversación se recoge como **nota** de la consulta; la incorporación a la historia clínica ocurre al **cerrar** la consulta. Mientras la consulta está en curso, ninguna operación del turno escribe: el turno y el cierre son dos momentos distintos, y el resultado del turno declara lo recogido, no lo registrado.
+**Registrar no es una operación del turno.** Un hecho mencionado durante la conversación se recoge como **nota** de la consulta, y una medición como **nota de medición**; la incorporación a la historia clínica y al seguimiento de mediciones ocurre al **cerrar** la consulta. Mientras la consulta está en curso, ninguna operación del turno escribe: el turno y el cierre son dos momentos distintos, y el resultado del turno declara lo recogido, no lo registrado.
 
 **Qué decide el turno.** El modelo elige cuántas operaciones necesita y en qué orden: un mensaje que menciona un hecho y además pregunta por lo ya registrado produce **dos operaciones en un mismo turno**, y las dos se atienden. Lo que el modelo no puede hacer es declarar una operación que la aplicación no haya publicado, ni ejecutar nada por su cuenta.
 
@@ -137,7 +206,8 @@ Antes de ejecutar nada, el código **valida** la operación solicitada:
 - la operación tiene que estar **declarada**; si no lo está, no se resuelve y no se ejecuta;
 - una consulta **no puede** traer hechos candidatos, y necesita al menos un término de búsqueda o un filtro;
 - una consulta sobre el seguimiento corporal —peso y circunferencia— no se atiende por este cauce, que es la historia clínica, y se responde con la indicación de dónde sí consta;
-- un hecho con precisión exacta **necesita** una fecha.
+- un hecho con precisión exacta **necesita** una fecha;
+- una medición **necesita** una métrica admitida, un valor válido para ella, una unidad inequívoca y una fecha **exacta**; una fecha aproximada o desconocida no se convierte en exacta.
 
 Si la respuesta del proveedor no se puede interpretar o no cumple estas reglas, el turno termina en un **fallo controlado** —sin inventar— y **sin escribir nada**. La validación ocurre **dentro** de la ejecución de la operación, antes de devolver el resultado al modelo; la escritura clínica, en cambio, ocurre en el **cierre de la consulta**. Por eso el turno nunca presenta como registrado lo que solo quedó recogido.
 
@@ -151,6 +221,8 @@ El modelo puede devolver una fecha ISO o una **expresión** ("hoy", "ayer", "hac
 - cualquier otra expresión → se conserva el texto original y **no se aumenta la precisión**.
 
 Ese último punto es el importante: el sistema **nunca convierte una fecha aproximada o desconocida en exacta**. Si la persona dijo "el mes pasado", el hecho queda como aproximado y así se responde después. La precisión es un dato del dominio, no un adorno.
+
+Una **medición** lleva esa distinción a su extremo: su fecha es **exacta o no se registra**. Un valor de peso o de presión solo significa algo sobre un día concreto, así que una fecha aproximada o desconocida no se convierte en exacta: el sistema pide la fecha y, si no la obtiene, no registra la medición. Cuando la persona no indicó ninguna fecha, se usa el día en que se atiende el mensaje —o se pide confirmación antes de guardar—, pero nunca se inventa un día.
 
 ### 3.5 El adaptador como frontera
 
@@ -268,6 +340,12 @@ y    filtros de metadatos, y devuelve ese conjunto acotado como resultado de la 
 4. el agente redacta una **sola** respuesta sobre los resultados, y el backend valida
     cobertura y referencias antes de devolverla.
 
+Solo el paso de consulta **recupera**. Las operaciones de recogida —una nota de
+hecho y una nota de medición— no buscan nada: solo dejan constancia en la consulta
+para que el cierre la registre. En el mismo bucle conviven, por tanto, una
+operación que **lee** y dos que **recogen**, y ninguna de las tres escribe en la
+historia clínica ni en el seguimiento.
+
 La parte conversacional se limita a usar turnos recientes para interpretar una
 pregunta de seguimiento. No se envía todo el historial clínico al modelo ni se
 permite que el modelo elija libremente una consulta SQL: la recuperación sigue
@@ -334,9 +412,9 @@ la fuente de una afirmación sobre la historia.
 
 Junto a esa memoria efímera, cada conversación mantiene una **consulta**
 (`Encounter`): un registro con identidad propia, persistido como Markdown en
-`data/encounters/`, que va recogiendo en **notas** los hechos clínicos que la
-persona menciona. Se diferencia del búfer de turnos en dos propiedades que
-importan:
+`data/encounters/`, que va recogiendo en **notas** lo que la persona menciona: los
+hechos clínicos y las mediciones. Se diferencia del búfer de turnos en dos
+propiedades que importan:
 
 - **Sobrevive al reinicio.** Es un registro persistido, no memoria del proceso:
   una interrupción de la conversación no pierde lo que la persona ya contó.
@@ -347,7 +425,8 @@ importan:
 Solo hay una consulta en curso: abrir una conversación nueva cierra la anterior,
 que se cierra también cuando la persona la da por terminada o cuando el proceso
 se detiene. El **cierre** es el momento en que las notas admisibles se registran
-como hechos clínicos, declarando de qué consulta proceden, y en que la consulta
+—los hechos clínicos como eventos con su procedencia, y las mediciones en su
+seguimiento, cada cauce con su propia atomicidad— y en que la consulta
 guarda un resumen derivado de lo tratado. Distinguir «recogido» de «registrado»
 es lo que permite que el turno no escriba y que la escritura siga siendo
 determinista y gobernable. Ver [`UC-013`](../use-cases/UC-013.md).

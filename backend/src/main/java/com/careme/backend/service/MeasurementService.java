@@ -41,19 +41,14 @@ public class MeasurementService {
     }
 
     /**
-     * Records the measurement of a day. At most one measurement exists per day,
-     * so a day that already has one is updated in place instead of duplicated.
+     * Records the measurement of a day. At most one measurement exists per day, so a
+     * day that already has one is updated in place instead of duplicated.
      *
      * @return the stored measurement
      */
     public MeasurementResponse register(MeasurementRequest request) {
-        Optional<Measurement> existing = measurementRepository.findByDate(request.date());
-
-        Measurement saved = existing
-                .map(current -> measurementRepository.update(
-                        current.id(), request.weightKg(), request.waistCm()))
-                .orElseGet(() -> measurementRepository.create(
-                        request.date(), request.weightKg(), request.waistCm()));
+        Measurement saved = measurementRepository.upsert(
+                request.date(), request.weightKg(), request.waistCm());
 
         log.debug("Registered measurement {} for {}", saved.id(), saved.date());
         return toResponse(saved);

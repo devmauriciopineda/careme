@@ -2,15 +2,11 @@ package com.careme.backend.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
@@ -88,11 +84,9 @@ class MeasurementServiceTest {
     }
 
     @Test
-    void createsTheMeasurementWhenTheDayHasNone() {
+    void storesTheMeasurementOfTheDay() {
         MeasurementRequest request = request("2026-09-10", "80.1", "94.8");
-        when(measurementRepository.findByDate(LocalDate.of(2026, 9, 10)))
-                .thenReturn(Optional.empty());
-        when(measurementRepository.create(
+        when(measurementRepository.upsert(
                 LocalDate.of(2026, 9, 10), new BigDecimal("80.1"), new BigDecimal("94.8")))
                 .thenReturn(measurement("2026-09-10", "80.1", "94.8"));
 
@@ -101,15 +95,13 @@ class MeasurementServiceTest {
         assertThat(response.date()).isEqualTo(LocalDate.of(2026, 9, 10));
         assertThat(response.weightKg()).isEqualByComparingTo("80.1");
         assertThat(response.waistCm()).isEqualByComparingTo("94.8");
-        verify(measurementRepository, never()).update(any(), any(), any());
     }
 
     @Test
-    void replacesTheValuesOfADayThatAlreadyHasAMeasurement() {
+    void returnsTheIdentityTheStoredDayKeeps() {
         MeasurementRequest request = request("2026-09-10", "79.5", "93.0");
-        when(measurementRepository.findByDate(LocalDate.of(2026, 9, 10)))
-                .thenReturn(Optional.of(measurement("2026-09-10", "80.1", "94.8")));
-        when(measurementRepository.update(ID, new BigDecimal("79.5"), new BigDecimal("93.0")))
+        when(measurementRepository.upsert(
+                LocalDate.of(2026, 9, 10), new BigDecimal("79.5"), new BigDecimal("93.0")))
                 .thenReturn(measurement("2026-09-10", "79.5", "93.0"));
 
         MeasurementResponse response = measurementService.register(request);
@@ -117,13 +109,13 @@ class MeasurementServiceTest {
         assertThat(response.id()).isEqualTo(ID);
         assertThat(response.weightKg()).isEqualByComparingTo("79.5");
         assertThat(response.waistCm()).isEqualByComparingTo("93.0");
-        verify(measurementRepository, never()).create(any(), any(), any());
     }
 
     @Test
     void propagatesAFailureWhileRegistering() {
         MeasurementRequest request = request("2026-09-10", "80.1", "94.8");
-        when(measurementRepository.findByDate(LocalDate.of(2026, 9, 10)))
+        when(measurementRepository.upsert(
+                LocalDate.of(2026, 9, 10), new BigDecimal("80.1"), new BigDecimal("94.8")))
                 .thenThrow(new IllegalStateException("database is unreachable"));
 
         assertThatThrownBy(() -> measurementService.register(request))

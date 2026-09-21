@@ -6,17 +6,17 @@ Spring Boot REST service for the Careme personal clinical assistant and body-tra
 application. It exposes the chat flow and the measurements that the frontend renders.
 
 It exists as its own service so the UI does not own the data. Measurements are
-stored in PostgreSQL, one row per day, and the persistence layer is isolated
-behind an interface so the storage engine can change without touching the HTTP
-contract.
+stored in PostgreSQL, one measurement per metric and day, and the persistence layer
+is isolated behind an interface so the storage engine can change without touching
+the HTTP contract.
 
 ## General functionality
 
 - `GET /api/v1/measurements` returns every measurement ordered from the oldest to
   the most recent date.
-- `POST /api/v1/measurements` registers the measurement of a day. Because at most
-  one measurement exists per day, re-registering a day replaces its values
-  instead of adding a row.
+- `POST /api/v1/measurements` registers the legacy pair of a day —weight and
+  abdominal circumference—. On the metric model behind it, re-registering that
+  metric and day replaces its value instead of adding a row.
 - Request validation rejects a future date, a missing or non-positive metric, a
   value above the allowed limit and any value with more than one decimal.
 - One response envelope for every outcome, success or failure, plus a global
@@ -43,14 +43,17 @@ contract.
   recorded fact. A request for a diagnosis, a recommendation or an interpretation
   of the user's own case is declined in the reply, which states that the assistant
   does not diagnose and does not recommend treatment.
-- **A turn never writes to the clinical history.** The clinical fact a message
-  mentions is collected as a *note* of the open consultation and reported as
-  `noted`; the consultation is persisted from the moment it opens, so an
+- **A turn never writes to the clinical history.** What a message mentions is
+  collected as a *note* of the open consultation and reported as `noted` —the
+  clinical fact, as a clinical-fact note, and the measurement, as a measurement
+  note—; the consultation is persisted from the moment it opens, so an
   interruption keeps what the person narrated. A consultation holds at most one
   open consultation per conversation: opening a new conversation closes the
-  previous one. The admissible notes are registered as clinical events, with their
-  provenance, only when the consultation is closed with
-  `POST /api/v1/chat/conversations/{conversationId}/consultation/close`.
+  previous one. The admissible notes of each channel are registered only when the
+  consultation is closed with
+  `POST /api/v1/chat/conversations/{conversationId}/consultation/close`: the facts
+  as clinical events with their provenance, the measurements in the metric
+  tracking.
 - Consultations are Markdown files under `data/encounters/`, configurable with
   `careme.encounters.directory`, with a derived, rebuildable PostgreSQL index.
 - Clinical events are Markdown files under `data/events/`, configurable with
@@ -62,38 +65,42 @@ contract.
 ```text
 Controller   MeasurementController      maps HTTP ↔ DTOs, no business logic
     │
-Service      MeasurementService         sorts by date, maps entity → DTO
+Service      MeasurementService         sorts by date, maps view → DTO
     │
-Repository   MeasurementRepository      data access contract
-             MeasurementJpaRepository   rows ↔ domain types, transactional
-             MeasurementJpaDao          Spring Data JPA interface
+Repository   MeasurementRepository         data access contract (legacy view)
+             MetricBackedMeasurement…      composes the daily view over the model
+             MetricMeasurementJpaDao       Spring Data JPA interface
     │
-Domain       Measurement (record)       identity + invariants
-             MeasurementEntity          JPA mapping of the measurements table
+Domain       MetricMeasurement / Metric   domain records of the metric model
+             MetricMeasurementEntity       JPA mapping of the measurements table
+             Measurement (record)          legacy daily view, identity + invariants
 ```
 
-- **Request flow**: controller → service → `MeasurementJpaRepository` →
-  `MeasurementJpaDao` → PostgreSQL. The service sorts ascending by date and maps
-  each `Measurement` to a `MeasurementResponse`, which the controller wraps in
-  `ApiResponse`. For a write, the controller validates the payload, then the
-  service asks the repository whether the day already has a measurement
-  (`findByDate`) and either updates it in place or creates it.
+- **Request flow**: controller → service → `MetricBackedMeasurementRepository` →
+  `MetricMeasurementJpaDao` → PostgreSQL. The repository composes the legacy daily
+  view over the metric model: `GET` pairs the `weight` and `waist` measurements of
+  each day, and `POST` upserts those two metrics of that day. The service sorts
+  ascending by date and maps each view row to a `MeasurementResponse`, which the
+  controller wraps in `ApiResponse`.
 - **Failure flow**: an invalid payload surfaces through `ApiExceptionHandler` as
   HTTP 400 — `VALIDATION_ERROR` for a field that breaks a rule, `INVALID_REQUEST`
   for a body that cannot be read — and an unexpected failure as HTTP 500. There
   is no 404 path, because no resource can go missing.
-- **Invariants** live in the `Measurement` record's compact constructor, so an
-  invalid measurement cannot be constructed. The table mirrors them with `CHECK`
-  constraints and a unique constraint on `date`. The rules that only apply to a
-  registration — date not in the future, metric limits, a single decimal — are
-  enforced by Bean Validation on `MeasurementRequest` before the service runs.
+- **Invariants** live in the metric model's domain records (`MetricMeasurement`,
+  `Metric`), so an invalid measurement cannot be constructed: every value is
+  positive and inside its component's admissible range, and a composite metric
+  carries all of its components. The table mirrors them with `CHECK` constraints
+  and the uniqueness of `(metric, date)`. The rules that only apply to the legacy
+  registration — date not in the future, limits of 500 kg and 400 cm, a single
+  decimal — are enforced by Bean Validation on `MeasurementRequest` before the
+  service runs.
 - **The schema is not generated by Hibernate**: `spring.jpa.hibernate.ddl-auto`
   is `validate` and `db/migration/` is the single source of truth. A drift between
   the mapping and the migration fails at startup instead of silently altering the
   database.
-- **Three types, three jobs**: `MeasurementEntity` (table mapping), `Measurement`
-  (domain, no annotations) and `MeasurementResponse` (HTTP contract), so a schema
-  change does not move the JSON contract.
+- **Three types, three jobs**: `MetricMeasurementEntity` (table mapping),
+  `MetricMeasurement` (domain, no annotations) and `MeasurementResponse` (HTTP
+  contract), so a schema change does not move the JSON contract.
 - **Every request hits the database.** There is no cache, so a row inserted
   outside the application is visible on the next request.
 
@@ -107,7 +114,7 @@ Domain       Measurement (record)       identity + invariants
   `maven-enforcer-plugin` requiring JDK 21
 - JUnit 5, Mockito, AssertJ, MockMvc, Spring Boot Test and Testcontainers
   (`postgres:17-alpine`) for the integration tests
-- JaCoCo with a gate of 90% branches and 90% lines, bound to `verify`
+- JaCoCo with a gate of 85% branches and 85% lines, bound to `verify`
 - Docker multi-stage image (`maven:3.9-eclipse-temurin-21` →
   `eclipse-temurin:21-jre-alpine`, non-root user)
 
@@ -151,9 +158,10 @@ creates one and opens the consultation for that conversation. The response conta
 a generated conversation id, the message id, a status (`noted`, `registered`,
 `nothing_to_register`, `answered`, `no_records`, `clarification_required`,
 `general_conversation`, `duplicate` or `failed`) and a Spanish user-facing message.
-A turn reports `noted` when it collected one or more clinical facts as notes: the
-facts are **not** part of the clinical history yet, and `message` says the note will
-be registered when the consultation is closed. `registered` only appears in the
+A turn reports `noted` when it collected one or more clinical-fact or measurement
+notes: the facts are **not** part of the clinical history yet and the measurements
+are **not** in the tracking yet, and `message` says the note will be registered
+when the consultation is closed. `registered` only appears in the
 close outcome, never in a message turn. An `answered` response includes supporting
 clinical events in `events`; `no_records` includes none, and instead reports:
 
@@ -182,14 +190,28 @@ documents are the source of truth.
 ### `POST /api/v1/chat/conversations/{conversationId}/consultation/close`
 
 Ends the consultation of a conversation and returns the same outcome envelope as a
-message turn. The close registers the admissible notes as clinical events with their
-provenance, keeps the consultation's derived summary and never exposes the
-consultation's identifier, summary or motive through the API. The operation is
-idempotent for the same consultation: repeating it returns the outcome it already
-produced and registers nothing new. Closing a consultation that collected no
-clinical facts reports `nothing_to_register` and leaves the clinical history exactly
-as it was. A close that cannot complete reports `failed` and leaves the consultation
-open, so it can be retried.
+message turn. The close registers the admissible notes of both channels: the facts
+as clinical events with their provenance, and the measurements in the tracking. It
+keeps the consultation's derived summary and never exposes the consultation's
+identifier, summary or motive through the API. The operation is idempotent for the
+same consultation: repeating it returns the outcome it already produced and
+registers nothing new. Closing a consultation that collected neither facts nor
+measurements reports `nothing_to_register` and leaves the clinical history and the
+tracking exactly as they were. A close that cannot complete reports `failed` and
+leaves the consultation open, so it can be retried.
+
+The close registers **both channels** of what the consultation collected:
+
+- The clinical facts, as events with their provenance, exactly as before.
+- The measurements, in the tracking, each in its metric's reference unit and with the
+  consultation as its provenance. The batch is one write: either every admissible
+  measurement of the consultation is stored or the tracking stays exactly as it was, and
+  a metric and day that already had one gets its value replaced.
+- The confirmation names what was registered in each channel, so the person can tell what
+  was registered from what was not. Because the tracking is written first, a close that
+  cannot store the batch registers nothing at all and stays open; a later failure while
+  registering the facts does not revert the measurements already stored, and is reported
+  as such.
 
 ## API
 
@@ -273,6 +295,38 @@ created. There is never more than one measurement per day.
 
 - `400 VALIDATION_ERROR` when a field breaks a rule; `details` lists the offending
   fields.
+
+### Measurement tracking and its metric model
+
+`/api/v1/measurements` is a **derived view**, not a table. The tracking itself is the metric
+model: a measurement is one metric on one exact day, with its values in the metric's reference
+unit and the consultation it came from as its provenance. `GET` composes the weight and the
+abdominal circumference of each day; `POST` stores those two metrics for that day. The contract
+above is unchanged for the client.
+
+- **Metric catalogue.** A metric is described by its reference unit, its components, its
+  admissible range, its exact unit equivalences and, when it has one, the unit a value without
+  an explicit unit resolves to. The catalogue ships weight (kg), abdominal circumference (cm),
+  blood pressure (mmHg, composite: one measurement with systolic and diastolic) and cholesterol
+  (mg/dL), and knows creatinine, fasting glucose and triglycerides without admitting them yet.
+- **Admitted metrics** live in `admitted_metrics`. A metric the person confirms starts to be
+  recorded by being admitted there; a metric the catalogue does not know cannot be admitted,
+  because its unit and its range would have to be invented.
+- **Unit conversion** happens when the measurement is collected: a value stated in another unit
+  of the same metric is converted to the reference unit with the catalogue's single equivalence,
+  and only then stored.
+- **One measurement per metric and day** (`uq_measurements_metric_date`). Registering that metric
+  and day again replaces the value and says so; it never creates a second measurement.
+- **A measurement is not a clinical fact.** `measurement` is retired from the clinical-event types
+  and a message that mentions a measurement is attended by the measurement channel (`record_measurement`
+  in the chat contract). Registrations happen at the close of the consultation, and a document
+  written before the change with `type: measurement` is still readable and never rewritten.
+
+> **Known gap.** The legacy contract requires `weightKg` and `waistCm` together, so a day that
+> carries only one of the two metrics —a weight mentioned in the conversation, for example— stays
+> whole in the tracking but is not shown by this endpoint. Closing that gap is the sibling change
+> `metric-tracking-view`, which brings the per-metric read contract and the per-metric form.
+
 - `400 INVALID_REQUEST` when the body is not valid JSON or a value has the wrong
   type.
 - `500 INTERNAL_ERROR` for unexpected failures.
@@ -312,8 +366,8 @@ index. The default order is `recordDate` descending, meaning the most recently
 saved event appears first. Use `sort=occurrenceDate` for occurrence-date order;
 events without an occurrence date are last in that order.
 
-Optional query parameters are `type` (`diagnosis`, `medication`, `measurement`
-or `note`), inclusive `from` and `to` occurrence dates in `yyyy-MM-dd`, and
+Optional query parameters are `type` (`diagnosis`, `medication` or `note`),
+inclusive `from` and `to` occurrence dates in `yyyy-MM-dd`, and
 `sort` (`recordDate` or `occurrenceDate`).
 
 **Success — `200 OK`**
@@ -364,7 +418,7 @@ backend/
 │   ├── prompts/clinical-answer-v1.txt  # grounded answer composition prompt
 │   ├── prompts/clinical-answer-v2.txt  # adds the unsupported part of the question
 │   ├── prompts/clinical-answer-v3.txt  # in use: adds the reported answer coverage
-│   └── db/migration/                   # Flyway migrations (V1 measurements, V2 event index, V3 encounter index, V4 event provenance)
+│   └── db/migration/                   # Flyway migrations (V1 legacy measurements, V2 event index, V3 encounter index, V4 event provenance, V5 metric model)
 ├── src/test/java/com/careme/backend/   # mirrors the package structure
 ├── .mvn/wrapper/                       # Maven wrapper configuration
 ├── Dockerfile
@@ -437,8 +491,9 @@ podman compose up -d postgres     # Docker: docker compose up -d postgres
 podman compose up --build postgres backend   # Docker: docker compose up --build postgres backend
 ```
 
-Flyway creates the `measurements` table on the first start. Verify the service
-with `curl http://localhost:8080/api/v1/measurements`.
+Flyway creates the metric-model tables (`measurements`, `measurement_values` and
+`admitted_metrics`) on the first start. Verify the service with
+`curl http://localhost:8080/api/v1/measurements`.
 
 **If port 8080 is already taken**, the startup aborts with
 `Web server failed to start. Port 8080 was already in use.` and
@@ -463,7 +518,7 @@ running.
 ./mvnw verify      # tests + JaCoCo report + coverage gate
 ```
 
-The suite is 44 test classes (343 test methods), organized by layer:
+The suite is 58 test classes, organized by layer:
 
 | Class                                      | Covers                                                     |
 | ------------------------------------------ | ---------------------------------------------------------- |
@@ -476,7 +531,11 @@ The suite is 44 test classes (343 test methods), organized by layer:
 | `MeasurementServiceTest`                   | Ordering, mapping, empty dataset, error pass-through        |
 | `MeasurementImportServiceTest`             | All-or-nothing import, preview counts                       |
 | `MeasurementCsvParserTest`                 | CSV parsing, headers, per-row validation                    |
-| `MeasurementJpaRepositoryTest`             | Mapping, empty table, unique `date`, `CHECK` constraints     |
+| `MetricMeasurementTest` / `MetricTest`     | Metric domain invariants, components and admissible ranges   |
+| `MetricCatalogServiceTest`                 | Metric catalogue, unit resolution and exact unit conversion  |
+| `MeasurementRegistrationServiceTest`       | Registration at the close, per-metric-and-day replacement    |
+| `MetricBackedMeasurementRepositoryTest`    | The legacy daily view composed over the metric model         |
+| `MigrationV5BackfillsLegacyMeasurementsTest` | The V5 migration copies the legacy rows and retires its table |
 | `MeasurementTest` / `MeasurementDraftTest` | Domain invariants                                           |
 | `ChatControllerTest`                       | `@WebMvcTest`: chat contract, absence reason and offered actions, close endpoint |
 | `ChatOrchestratorTest`                     | Operation → status mapping, idempotency by message id       |
@@ -523,17 +582,19 @@ blocked by coverage while a full build is.
 ## Additional notes
 
 - **Writes are explicit and few.** The write surface is `POST /api/v1/measurements`,
-  the CSV import endpoints, `POST /api/v1/chat/messages` and
+  the CSV import endpoints, `POST /api/v1/chat/messages`,
+  `POST /api/v1/chat/conversations/{conversationId}/consultation/close` and
   `POST /api/v1/clinical-events/reindex`; there is no update or delete endpoint.
   Adding a measurement write means adding a method to `MeasurementRepository` and
-  a `save` on `MeasurementJpaDao`; the controller, the service and the JSON
+  a `save` on `MetricMeasurementJpaDao`; the controller, the service and the JSON
   contract stay as they are.
-- **`date` is unique.** The table assumes one measurement per day. Recording
-  several weigh-ins a day means dropping `uq_measurements_date`, since the
-  application cannot decide which of the day's rows to return.
-- **The table starts empty.** The dashboard shows its empty state until rows are
-  inserted, e.g. `psql -c "INSERT INTO measurements (date, weight_kg, waist_cm)
-  VALUES (CURRENT_DATE, 80.1, 94.8)"`.
+- **`(metric, date)` is unique.** The tracking holds one measurement per metric and
+  day. Recording several readings of the same metric on a day means dropping
+  `uq_measurements_metric_date`, since the application cannot decide which of the
+  day's rows to return; recording several metrics on the same day needs nothing.
+- **The tracking starts empty.** The dashboard shows its empty state until
+  measurements are stored, through the registration form, the CSV import or the
+  chat close.
 - **CORS is not strictly required today** because the frontend fetches on the
   server. It is explicit so a future client-side call works without opening the
   API to every origin.

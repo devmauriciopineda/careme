@@ -12,10 +12,11 @@ import com.careme.backend.entity.Measurement;
 import com.careme.backend.entity.MeasurementDraft;
 
 /**
- * Data access contract for measurements.
+ * Data access contract for body measurements, the legacy daily view of weight and
+ * abdominal circumference.
  *
- * <p>The only implementation reads from and writes to the database; the service
- * depends on this interface, not on JPA.
+ * <p>The only implementation composes it from the metric model; the service depends
+ * on this interface, not on JPA.
  */
 public interface MeasurementRepository {
 
@@ -25,19 +26,16 @@ public interface MeasurementRepository {
     List<Measurement> findAll();
 
     /**
-     * @return the measurement recorded on the given day, if any
+     * @return the measurement recorded on the given day, if the day has both metrics
      */
     Optional<Measurement> findByDate(LocalDate date);
 
     /**
-     * Stores a new measurement for a day that had none.
+     * Stores the weight and the abdominal circumference of a day. A day that already
+     * had one keeps its identity and gets its values replaced, so no day ends up with
+     * two measurements.
      */
-    Measurement create(LocalDate date, BigDecimal weightKg, BigDecimal waistCm);
-
-    /**
-     * Replaces the metric values of an existing measurement, keeping its identity.
-     */
-    Measurement update(UUID id, BigDecimal weightKg, BigDecimal waistCm);
+    Measurement upsert(LocalDate date, BigDecimal weightKg, BigDecimal waistCm);
 
     /**
      * @return the days among the given ones that already have a measurement

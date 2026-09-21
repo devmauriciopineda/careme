@@ -25,6 +25,8 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
+import com.careme.backend.repository.AdmittedMetricRepository;
+
 class AgentOperationExecutorTest {
 
     private static final String CONVERSATION_ID = "conversation-1";
@@ -38,7 +40,8 @@ class AgentOperationExecutorTest {
     private final EncounterService encounterService = mock(EncounterService.class);
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final AgentOperationExecutor executor = new AgentOperationExecutor(
-            historyQueryService, encounterService, new ClinicalEventIntentValidator());
+            historyQueryService, encounterService, new ClinicalEventIntentValidator(),
+            new MetricCatalogService(mock(AdmittedMetricRepository.class)));
 
     @Test
     void runsTheConsultationThroughTheHistoryQueryService() {

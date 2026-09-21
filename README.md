@@ -4,12 +4,14 @@
 
 Careme is a full-stack personal clinical assistant and body-tracking
 application. Its chat entry point collects the clinical facts a person tells it
-in Spanish —diagnoses, medications, measurements and notes— as notes of the open
-consultation, and registers them into a personal clinical history when the person
-ends the consultation, preserving the temporal precision they expressed and
-declaring the consultation they came from. It also records two daily body metrics
-—weight and abdominal circumference— and presents them as trend charts and a
-daily table.
+in Spanish —diagnoses, medications and notes— and the measurements they mention,
+as notes of the open consultation, and registers them when the person ends the
+consultation: the facts into a personal clinical history, preserving the temporal
+precision they expressed, and the measurements into the metric tracking, each with
+its metric's reference unit and its exact date. In both cases it declares the
+consultation they came from. Body tracking records one measurement per metric and
+day —weight and abdominal circumference among the catalogue's metrics— and
+presents them as trend charts and a daily table.
 
 The project exists to replace a manual spreadsheet: a single place to log body
 measurements day by day and see the trend without doing the math by hand. It is
@@ -24,11 +26,13 @@ facts only and never diagnoses or recommends treatment.
 
 ## General functionality
 
-- A Spanish-language chat entry point that collects the clinical facts a message
-  mentions (diagnosis, medication, measurement or note) as notes of the open
-  consultation, preserving the original wording and the temporal precision
-  (exact, approximate or unknown). The facts are registered as clinical events —
-  with their provenance — when the consultation is closed.
+- A Spanish-language chat entry point that collects what a message mentions as
+  notes of the open consultation: the clinical facts (diagnosis, medication or
+  note), preserving the original wording and the temporal precision (exact,
+  approximate or unknown), and the measurements (metric, value and date), which
+  are never clinical facts. The facts are registered as clinical events —with
+  their provenance— and the measurements into the metric tracking when the
+  consultation is closed.
 - The conversation is a consultation with identity and life cycle: it opens with
   the conversation, is the only one in progress, and closes when the person ends
   it — or when another conversation starts or the process stops — registering the
@@ -40,7 +44,10 @@ facts only and never diagnoses or recommends treatment.
   of truth, with a rebuildable PostgreSQL full-text index. They can be inspected
   through read-only list and detail endpoints; editing and deletion are not
   available.
-- Daily records of weight (kg) and abdominal circumference (cm).
+- Body tracking on a metric model: one measurement per metric and day, each in its
+  metric's reference unit, over an extensible catalogue that ships weight (kg),
+  abdominal circumference (cm), blood pressure (mmHg —one measurement with
+  systolic and diastolic—) and cholesterol (mg/dL).
 - A registration form that records the measurement of a day; re-registering a day
   replaces its values instead of creating a second record.
 - A CSV import that loads a whole history at once, with a preview that separates
@@ -67,9 +74,11 @@ browser ──▶ frontend (Next.js, port 3000)
                 │  Spring Data JPA                 │  filesystem
                 ▼                                  ▼
       PostgreSQL (measurements +          data/events/ (Markdown source of
-      clinical_event_index +               truth for clinical events) and
-      encounter_index,                     data/encounters/ (Markdown source
-      Flyway-managed)                      of truth for consultations)
+      measurement_values +                 truth for clinical events) and
+      admitted_metrics +                   data/encounters/ (Markdown source
+      clinical_event_index +               of truth for consultations)
+      encounter_index,
+      Flyway-managed)
 ```
 
 - The **frontend** is a Next.js App Router application. The chat workspace is the
@@ -294,10 +303,12 @@ lsof -iTCP:3000 -iTCP:8080 -iTCP:5432 -sTCP:LISTEN
 
 1. Start the backend and the frontend (either mode above).
 2. Open http://localhost:3000. The chat workspace is the entry point: tell it a
-  clinical fact ("me diagnosticaron hipertensión el mes pasado") and it collects
-  it as a note of the open consultation — the turn does not write to the history;
-  use the **Terminar consulta** action to end the consultation and register the
-  collected facts with their provenance. Or ask about your clinical history to
+  clinical fact ("me diagnosticaron hipertensión el mes pasado") or a measurement
+  ("hoy me tomaron la presión y fue 145/92") and it collects it as a note of the
+  open consultation — the turn writes neither the history nor the tracking; use
+  the **Terminar consulta** action to end the consultation and register the
+  collected facts with their provenance and the measurements in the metric
+  tracking. Or ask about your clinical history to
   receive an answer with supporting records. It may ask for clarification or
   answer as general conversation. If the LLM is not configured it runs the `fake`
   interpreter, safe for local development.
@@ -307,8 +318,8 @@ lsof -iTCP:3000 -iTCP:8080 -iTCP:5432 -sTCP:LISTEN
    focused, the left and right arrow keys move across data points.
 4. The table starts empty, so the dashboard first shows its empty state. Register
    the measurement of a day with the registration form, or load a CSV file with
-   the import action. Re-registering a day replaces its values, because there is
-   at most one measurement per day.
+   the import action. Re-registering a day replaces its values, because the view
+   holds one weight-and-circumference pair per day.
 5. If the backend is not running, the dashboard shows a "measurements could not
    be loaded" screen with a retry button instead of crashing.
 
@@ -326,7 +337,10 @@ lsof -iTCP:3000 -iTCP:8080 -iTCP:5432 -sTCP:LISTEN
   note and is not part of the clinical history while the consultation is open;
   ending the consultation registers the admissible notes with their provenance.
   Consultations live as Markdown in `data/encounters/`.
-- **One measurement per day.** The table has a unique constraint on `date`.
+- **One measurement per metric and day.** The tracking has a unique constraint on
+  `(metric, date)`, so re-registering that metric and that day replaces its value
+  instead of adding a second measurement. Several metrics can be recorded on the
+  same day.
 - **CORS is not required today** because the frontend fetches on the server. It is
   configured explicitly so a future client-side call cannot open the API to every
   origin.
