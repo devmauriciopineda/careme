@@ -10,13 +10,15 @@ import java.util.Optional;
 /**
  * The closed set of operations the assistant may ask the application to run.
  *
- * <p>The set has exactly three members —consulting the clinical history, taking note
-of a clinical fact and taking note of a measurement— and that is the structural
+ * <p>The set has exactly four members —consulting the clinical history, consulting the
+measurement tracking, taking note of a clinical fact and taking note of a measurement— and
+that is the structural
 guarantee that the assistant never diagnoses and never recommends treatment: there
 is no other operation it could ask for. Neither member names a path, a file or any
 other storage detail, because the assistant is never told how the clinical history
 or the tracking is stored. Registering is not an operation of the turn: the notes
-are registered when the consultation is closed.
+are registered when the consultation is closed. Consulting the tracking is
+read-only: it never changes a measurement.
  *
  * <p>The clinical-fact types offered are the admissible ones only: a measurement is
  * not a clinical fact, so it is not among them.
@@ -99,7 +101,32 @@ public enum AgentOperation {
                             "date_text", Map.of(
                                     "type", "string",
                                     "description", "La expresión temporal original de la persona, cuando la hubo.")),
-                    "required", List.of("metric", "values")));
+                    "required", List.of("metric", "values"))),
+
+    CONSULT_MEASUREMENTS(
+            "consult_measurements",
+            "Consulta el seguimiento de mediciones y devuelve las mediciones registradas que pueden responder la pregunta, con su métrica, su valor en la unidad de referencia de esa métrica y su fecha.",
+            Map.of(
+                    "type", "object",
+                    "properties", Map.of(
+                            "question", Map.of(
+                                    "type", "string",
+                                    "description", "La pregunta de la persona, en sus propias palabras."),
+                            "metrics", Map.of(
+                                    "type", "array",
+                                    "items", Map.of("type", "string"),
+                                    "description", "Las métricas preguntadas, por su código (weight, waist, blood_pressure, cholesterol)."
+                            + " Se deja vacío cuando la persona no concretó cuál."),
+                            "date_from", Map.of(
+                                    "type", "string",
+                                    "description", "Fecha inicial del periodo preguntado, en formato ISO."),
+                            "date_to", Map.of(
+                                    "type", "string",
+                                    "description", "Fecha final del periodo preguntado, en formato ISO."),
+                            "interpretation_requested", Map.of(
+                                    "type", "boolean",
+                                    "description", "Cierto cuando la persona pide una interpretación o una recomendación sobre sus valores.")),
+                    "required", List.of("question")));
 
     private final String operationName;
     private final String description;

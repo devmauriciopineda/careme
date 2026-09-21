@@ -10,17 +10,14 @@ las referencias que permiten verificarla.
 
 ### Requirement: Reconocer las preguntas sobre la propia historia clínica
 
-El sistema MUST distinguir un mensaje que pregunta por la propia historia
-clínica de un mensaje que registra un hecho, de la conversación general y de una
-pregunta sobre peso o circunferencia abdominal. Un mensaje que no depende de la
-historia MUST NOT activar ninguna búsqueda. Cuando el mensaje contenga, además,
-una parte que no depende de la historia, la búsqueda MUST limitarse a la parte
-que sí depende de ella y esa otra parte MUST NOT usarse como criterio de
-recuperación ni responderse con hechos registrados. Una pregunta formulada en
-lenguaje coloquial sobre algo registrado MUST atenderse como consulta de la
-historia: el registro del lenguaje no cambia el cauce. Cuando no pueda
-determinarse si la pregunta depende de la historia, el sistema MUST pedir una
-aclaración antes de buscar y MUST NOT asumir un cauce.
+El sistema MUST distinguir un mensaje que pregunta por la propia historia clínica de un mensaje que
+registra un hecho, de la conversación general y de una pregunta sobre las mediciones del seguimiento. Un
+mensaje que no depende de la historia MUST NOT activar ninguna búsqueda. Cuando el mensaje contenga,
+además, una parte que no depende de la historia, la búsqueda MUST limitarse a la parte que sí depende de
+ella y esa otra parte MUST NOT usarse como criterio de recuperación ni responderse con hechos registrados.
+Una pregunta formulada en lenguaje coloquial sobre algo registrado MUST atenderse como consulta de la
+historia: el registro del lenguaje no cambia el cauce. Cuando no pueda determinarse si la pregunta depende
+de la historia, el sistema MUST pedir una aclaración antes de buscar y MUST NOT asumir un cauce.
 
 #### Scenario: Pregunta sobre la propia historia
 - **WHEN** la persona envía en el chat una pregunta sobre su propia historia clínica
@@ -34,9 +31,9 @@ aclaración antes de buscar y MUST NOT asumir un cauce.
 - **AND** la historia clínica no se modifica
 
 #### Scenario: Pregunta sobre peso o circunferencia abdominal
-- **WHEN** la persona pregunta por su peso o su circunferencia abdominal
-- **THEN** el sistema indica que ese seguimiento tiene su propio espacio
-- **AND** aclara que no forma parte de la historia clínica consultada
+- **WHEN** la persona pregunta por su peso, su circunferencia abdominal, su presión arterial o su colesterol
+- **THEN** el sistema la reconoce como una pregunta sobre su seguimiento de mediciones y la atiende por su cauce
+- **AND** no la busca en la historia clínica ni la presenta como un hecho clínico
 
 #### Scenario: Pregunta coloquial sobre hechos registrados
 - **WHEN** la persona reformula en lenguaje coloquial una pregunta sobre hechos que sí están registrados
@@ -96,8 +93,8 @@ atenderse por el cauce de las mediciones.
 
 #### Scenario: Preguntar por valores o mediciones registradas
 - **WHEN** la persona pregunta qué valores tiene registrados, por ejemplo su peso o su circunferencia abdominal
-- **THEN** el sistema indica que ese seguimiento tiene su propio espacio
-- **AND** no presenta los valores como hechos clínicos
+- **THEN** el sistema atiende la pregunta por el cauce de las mediciones de su seguimiento
+- **AND** no presenta los valores como hechos clínicos ni los recupera de la historia
 - **AND** no inventa valores ni responde con los de otra medición
 
 #### Scenario: Conservar la imprecisión temporal

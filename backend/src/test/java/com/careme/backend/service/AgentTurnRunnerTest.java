@@ -222,7 +222,8 @@ class AgentTurnRunnerTest {
                 provider,
                 new AgentOperationExecutor(
                         historyQueryService, encounterService, new ClinicalEventIntentValidator(),
-                        mock(MetricCatalogService.class)),
+                        mock(MetricCatalogService.class),
+                        mock(MeasurementQueryService.class)),
                 maxOperations);
     }
 

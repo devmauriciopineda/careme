@@ -71,6 +71,11 @@ class ClinicalHistoryQueryServiceTest {
             case NO_EVENTS_OF_TYPE -> queryWithType();
             case NO_EVENTS_IN_PERIOD -> queryWithPeriod();
             case NO_TERM_MATCH -> query();
+            case NO_MEASUREMENTS, NO_MEASUREMENTS_IN_PERIOD, METRIC_NOT_TRACKED ->
+                    // The history channel never declares an absence of measurements: the
+                    // tracking is what answers a question about them.
+                    throw new IllegalArgumentException(
+                            "An absence of measurements belongs to the tracking, not to the history");
         };
         when(repository.search(any(), any(), any(), any())).thenReturn(List.of());
         switch (reason) {
@@ -84,6 +89,9 @@ class ClinicalHistoryQueryServiceTest {
                 when(repository.countByPeriod(any(), any())).thenReturn(0L);
             }
             case NO_TERM_MATCH -> when(repository.countAll()).thenReturn(3L);
+            case NO_MEASUREMENTS, NO_MEASUREMENTS_IN_PERIOD, METRIC_NOT_TRACKED ->
+                    throw new IllegalArgumentException(
+                            "An absence of measurements belongs to the tracking, not to the history");
         }
         return service(NEVER_COMPOSES).answer(ClinicalEventIntent.query(question));
     }
@@ -169,9 +177,16 @@ class ClinicalHistoryQueryServiceTest {
         verify(repository, never()).countByPeriod(any(), any());
     }
 
+    /** The absences the clinical history declares. The measurement tracking has its own. */
+    private static final List<ChatMessageResponse.AbsenceReason> HISTORY_ABSENCES = List.of(
+            ChatMessageResponse.AbsenceReason.EMPTY_HISTORY,
+            ChatMessageResponse.AbsenceReason.NO_EVENTS_OF_TYPE,
+            ChatMessageResponse.AbsenceReason.NO_EVENTS_IN_PERIOD,
+            ChatMessageResponse.AbsenceReason.NO_TERM_MATCH);
+
     @Test
     void namesTheScopeOfEachAbsenceAndLeavesTheFactUndecided() {
-        for (ChatMessageResponse.AbsenceReason reason : ChatMessageResponse.AbsenceReason.values()) {
+        for (ChatMessageResponse.AbsenceReason reason : HISTORY_ABSENCES) {
             var result = absenceFor(reason);
 
             assertThat(result.absenceReason()).as("motivo de %s", reason).isEqualTo(reason);
@@ -192,7 +207,7 @@ class ClinicalHistoryQueryServiceTest {
 
     @Test
     void offersBothActionsOnEveryAbsenceWithoutCarryingAnEvent() {
-        for (ChatMessageResponse.AbsenceReason reason : ChatMessageResponse.AbsenceReason.values()) {
+        for (ChatMessageResponse.AbsenceReason reason : HISTORY_ABSENCES) {
             var result = absenceFor(reason);
 
             assertThat(result.suggestedActions())

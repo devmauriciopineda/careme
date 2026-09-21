@@ -162,14 +162,18 @@ A turn reports `noted` when it collected one or more clinical-fact or measuremen
 notes: the facts are **not** part of the clinical history yet and the measurements
 are **not** in the tracking yet, and `message` says the note will be registered
 when the consultation is closed. `registered` only appears in the
-close outcome, never in a message turn. An `answered` response includes supporting
-clinical events in `events`; `no_records` includes none, and instead reports:
+close outcome, never in a message turn. An `answered` response includes the clinical
+events it is grounded in, in `events`, and the measurements it is grounded in, in
+`measurements` —one or the other, never mixed: a measurement is its own record,
+with its reference unit and its exact date. `no_records` includes neither, and
+instead reports:
 
 | Field              | Present when  | Value                                                                                  |
 | ------------------ | ------------- | -------------------------------------------------------------------------------------- |
-| `absenceReason`    | `no_records`  | `empty_history`, `no_events_of_type`, `no_events_in_period` or `no_term_match`, or `null` |
+| `absenceReason`    | `no_records`  | `empty_history`, `no_events_of_type`, `no_events_in_period`, `no_term_match`, `no_measurements`, `no_measurements_in_period` or `metric_not_tracked`, or `null` |
 | `suggestedActions` | `no_records`  | `reformulate` and/or `register`; empty otherwise                                        |
-| `operations`       | always        | the operations the turn went through, in order, each with its own `status`, `events`, `absenceReason` and `suggestedActions` |
+| `operations`       | always        | the operations the turn went through, in order, each with its own `status`, `events`, `absenceReason`, `suggestedActions` and `measurements` |
+| `measurements`     | `answered` from the tracking | the measurements that support the answer, each with its `metric`, `label`, `unit`, `date`, `values` and the whole measurement written out in `text` |
 
 `operations` is additive and optional, so a client that does not know it keeps
 working. `message` is the single answer the turn produced, and `operations` lets a
@@ -321,6 +325,14 @@ above is unchanged for the client.
   and a message that mentions a measurement is attended by the measurement channel (`record_measurement`
   in the chat contract). Registrations happen at the close of the consultation, and a document
   written before the change with `type: measurement` is still readable and never rewritten.
+- **The tracking is read from the conversation too.** `consult_measurements` answers a question about
+  the measurements with their values, their reference unit and their exact date, bounded by the metric
+  and the period the question names. It is read-only: asking never changes a measurement. It never
+  assumes a metric the question does not name —it asks which one—, it declares a metric outside the
+  tracking instead of answering with another metric's values, and it declares an absence only after a
+  retrieval completed. The values reach the person exactly as the tracking stores them: the application
+  formats them against the catalogue's reference unit, and a composed answer that does not reproduce
+  them verbatim is replaced by the application's own wording.
 
 > **Known gap.** The legacy contract requires `weightKg` and `waistCm` together, so a day that
 > carries only one of the two metrics —a weight mentioned in the conversation, for example— stays
@@ -418,6 +430,7 @@ backend/
 │   ├── prompts/clinical-answer-v1.txt  # grounded answer composition prompt
 │   ├── prompts/clinical-answer-v2.txt  # adds the unsupported part of the question
 │   ├── prompts/clinical-answer-v3.txt  # in use: adds the reported answer coverage
+│   ├── prompts/measurement-answer-v1.txt # in use: measurement answer composition prompt
 │   └── db/migration/                   # Flyway migrations (V1 legacy measurements, V2 event index, V3 encounter index, V4 event provenance, V5 metric model)
 ├── src/test/java/com/careme/backend/   # mirrors the package structure
 ├── .mvn/wrapper/                       # Maven wrapper configuration

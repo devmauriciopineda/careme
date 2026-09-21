@@ -26,7 +26,7 @@ The interface MUST display the conversation messages in order, allow the user to
 
 ### Requirement: Represent clarification, success, duplicate, and failure states
 
-The interface MUST render each backend outcome distinctly enough for the user to understand whether an event was registered, whether a question was answered, whether no records were found, whether clarification is required, whether nothing was registered, or whether retry is available. It MUST preserve the failed message text for retry, MUST NOT display technical error details, and MUST word a failure from a named failure code rather than from a transport error. For a no-records outcome, the interface MUST show the absence reason reported by the backend and MUST offer the actionable continuation the backend reported, keeping that outcome distinguishable from an answer and from an error. For a general-conversation outcome, the interface MUST present the reply as conversation and keep it distinguishable from an answer grounded in the clinical history, from an absence, and from an error, without showing supporting events or an absence reason. La respuesta que devuelve el backend es una, y la interfaz MUST NOT partirla en distintas clases de respuesta. When the backend reports more than one operation for a turn, the interface MUST show every completed operation with its own kind of result, in the order the backend reported them, and MUST show an operation that did not complete distinctly from the completed ones, so the user can tell what was registered from what could not be completed. The interface MUST NOT present a turn with an operation that did not complete as fully successful.
+The interface MUST render each backend outcome distinctly enough for the user to understand whether an event was registered, whether a question was answered, whether no records were found, whether clarification is required, whether nothing was registered, or whether retry is available. It MUST preserve the failed message text for retry, MUST NOT display technical error details, and MUST word a failure from a named failure code rather than from a transport error. For a no-records outcome, the interface MUST show the absence reason reported by the backend and MUST offer the actionable continuation the backend reported, keeping that outcome distinguishable from an answer and from an error. For a general-conversation outcome, the interface MUST present the reply as conversation and keep it distinguishable from an answer grounded in the clinical history, from an absence, and from an error, without showing supporting events or an absence reason. La respuesta que devuelve el backend es una, y la interfaz MUST NOT partirla en distintas clases de respuesta. When the backend reports more than one operation for a turn, the interface MUST show every completed operation with its own kind of result, in the order the backend reported them, and MUST show an operation that did not complete distinctly from the completed ones, so the user can tell what was registered from what could not be completed. The interface MUST NOT present a turn with an operation that did not complete as fully successful. For an answer grounded in measurements, the interface MUST show the measurements that support it and MUST keep it distinguishable from an answer grounded in the clinical history; for an absence of measurements, it MUST show that absence reason and MUST keep it distinguishable from an absence of clinical events and from an error.
 
 #### Scenario: Continue after clarification
 - **WHEN** the backend requests clarification
@@ -36,6 +36,18 @@ The interface MUST render each backend outcome distinctly enough for the user to
 - **WHEN** the backend answers a question about the clinical history
 - **THEN** the interface shows the Spanish answer
 - **AND** it distinguishes this outcome from a registration
+
+#### Scenario: Show an answer grounded in measurements
+- **WHEN** the backend answers a measurement query
+- **THEN** the interface shows the Spanish answer with the values and the dates it returned
+- **AND** it shows the measurements that support the answer
+- **AND** it keeps the answer distinguishable from an answer grounded in the clinical history
+
+#### Scenario: Show an absence of measurements
+- **WHEN** the backend reports that no measurement of the questioned metric appears in the tracking
+- **THEN** the interface shows that outcome distinctly from an answer and from an error
+- **AND** it shows the absence reason the backend reported
+- **AND** it keeps the absence distinguishable from an absence of clinical events
 
 #### Scenario: Show that no records were found
 - **WHEN** the backend reports that no records support the question
@@ -106,6 +118,25 @@ When an answer is grounded in clinical events, the interface MUST show the event
 #### Scenario: Keep the answer verifiable without technical detail
 - **WHEN** the interface shows the supporting events
 - **THEN** it shows only the events and references the user can verify
+- **AND** it does not expose prompts, credentials, stack traces, or internal persistence details
+
+### Requirement: Show the measurements that support an answer
+
+When an answer is grounded in the person's measurements, the interface MUST show the measurements that support it, using the references the backend returns, so the user can verify the answer without exposing prompts, credentials, or internal persistence details. Each measurement MUST be shown with its metric, its values, its reference unit and its date, and a compound metric MUST be shown as a single measurement with its values.
+
+#### Scenario: Display the supporting measurements
+- **WHEN** the backend returns an answer with supporting measurements
+- **THEN** the interface shows those measurements alongside the answer
+- **AND** it shows each metric, its values, its reference unit and its date
+
+#### Scenario: Show a compound metric as one measurement
+- **WHEN** the supporting measurements include a compound metric such as blood pressure
+- **THEN** the interface shows it with its values as a single measurement
+- **AND** it does not show it as separate measurements
+
+#### Scenario: Keep the answer verifiable without technical detail
+- **WHEN** the interface shows the supporting measurements
+- **THEN** it shows only the measurements and references the user can verify
 - **AND** it does not expose prompts, credentials, stack traces, or internal persistence details
 
 ### Requirement: End the consultation from the chat surface

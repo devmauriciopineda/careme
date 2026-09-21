@@ -19,10 +19,35 @@ export type AbsenceReason =
   | "empty_history"
   | "no_events_of_type"
   | "no_events_in_period"
-  | "no_term_match";
+  | "no_term_match"
+  | "no_measurements"
+  | "no_measurements_in_period"
+  | "metric_not_tracked";
 
 /** What the user is offered after an absence, so the turn stays actionable. */
 export type SuggestedAction = "reformulate" | "register";
+
+/** One component of a measurement, written as the tracking stores it. */
+export type MeasurementValue = {
+  component: string;
+  value: string;
+};
+
+/**
+ * One measurement that supports an answer: its metric, its values in the reference
+ * unit of that metric and its exact date. A composite metric is one measurement
+ * with several values, so it is never presented as separate measurements.
+ */
+export type MeasurementSummary = {
+  reference: string;
+  metric: string;
+  label: string;
+  unit: string;
+  date: string;
+  values: MeasurementValue[];
+  /** The whole measurement written out by the backend, with its unit explicit. */
+  text: string;
+};
 
 export type ChatResponse = {
   conversationId: string;
@@ -50,5 +75,12 @@ export type ChatResponse = {
     events: ChatResponse["events"];
     absenceReason?: AbsenceReason | null;
     suggestedActions?: SuggestedAction[];
+    measurements?: MeasurementSummary[];
   }>;
+  /**
+   * The measurements the answer is grounded in, when the turn answered from the
+   * tracking. They travel apart from the clinical events: a measurement is a
+   * different record, with its own unit and its own exact date.
+   */
+  measurements?: MeasurementSummary[];
 };

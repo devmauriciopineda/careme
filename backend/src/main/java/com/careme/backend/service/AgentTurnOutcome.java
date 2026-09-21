@@ -43,7 +43,8 @@ public final class AgentTurnOutcome {
                         primary == null ? List.of() : supportingEvents(primary),
                         primary == null ? null : absenceReason(primary),
                         primary == null ? List.of() : suggestedActions(primary))
-                .withOperations(operations(turn));
+                .withOperations(operations(turn))
+                .withMeasurements(primary == null ? List.of() : supportingMeasurements(primary));
     }
 
     public static ChatMessageResponse.Status status(AgentTurn turn) {
@@ -69,6 +70,14 @@ public final class AgentTurnOutcome {
             return switch (result.answer().kind()) {
                 case ANSWERED -> ChatMessageResponse.Status.ANSWERED;
                 case NO_RECORDS -> ChatMessageResponse.Status.NO_RECORDS;
+                case FAILURE -> ChatMessageResponse.Status.FAILED;
+            };
+        }
+        if (result.measurementAnswer() != null) {
+            return switch (result.measurementAnswer().kind()) {
+                case ANSWERED -> ChatMessageResponse.Status.ANSWERED;
+                case NO_RECORDS -> ChatMessageResponse.Status.NO_RECORDS;
+                case CLARIFICATION_REQUIRED -> ChatMessageResponse.Status.CLARIFICATION_REQUIRED;
                 case FAILURE -> ChatMessageResponse.Status.FAILED;
             };
         }
@@ -111,10 +120,11 @@ public final class AgentTurnOutcome {
     public static List<ChatMessageResponse.OperationSummary> operations(AgentTurn turn) {
         return turn.operations().stream()
                 .map(result -> ChatMessageResponse.OperationSummary.of(
-                        operationStatus(result),
-                        supportingEvents(result),
-                        absenceReason(result),
-                        suggestedActions(result)))
+                                operationStatus(result),
+                                supportingEvents(result),
+                                absenceReason(result),
+                                suggestedActions(result))
+                        .withMeasurements(supportingMeasurements(result)))
                 .toList();
     }
 
@@ -146,10 +156,44 @@ public final class AgentTurnOutcome {
     }
 
     private static ChatMessageResponse.AbsenceReason absenceReason(AgentOperationResult result) {
+        if (result.measurementAnswer() != null) {
+            return result.measurementAnswer().absenceReason();
+        }
         return result.answer() == null ? null : result.answer().absenceReason();
     }
 
     private static List<ChatMessageResponse.SuggestedAction> suggestedActions(AgentOperationResult result) {
+        if (result.measurementAnswer() != null) {
+            return result.measurementAnswer().suggestedActions();
+        }
         return result.answer() == null ? List.of() : result.answer().suggestedActions();
+    }
+
+    /**
+     * The measurements that support the answer, so the person can identify them. They
+     * travel apart from clinical events: they are a different record.
+     */
+    private static List<ChatMessageResponse.MeasurementSummary> supportingMeasurements(
+            AgentOperationResult result) {
+        if (result.measurementAnswer() == null) {
+            return List.of();
+        }
+        return result.measurementAnswer().facts().stream()
+                .map(AgentTurnOutcome::measurement)
+                .toList();
+    }
+
+    private static ChatMessageResponse.MeasurementSummary measurement(MeasurementFact fact) {
+        return new ChatMessageResponse.MeasurementSummary(
+                fact.reference(),
+                fact.metric(),
+                fact.label(),
+                fact.unit(),
+                fact.date(),
+                fact.values().stream()
+                        .map(value -> new ChatMessageResponse.MeasurementSummary.ValueSummary(
+                                value.component(), value.value()))
+                        .toList(),
+                fact.text());
     }
 }

@@ -32,7 +32,8 @@ class RetiredFactTypeTest {
             mock(ClinicalHistoryQueryService.class),
             encounterService,
             validator,
-            new MetricCatalogService(mock(AdmittedMetricRepository.class)));
+            new MetricCatalogService(mock(AdmittedMetricRepository.class)),
+            mock(MeasurementQueryService.class));
 
     private static ClinicalEventIntent measurementFact() {
         return new ClinicalEventIntent(

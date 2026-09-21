@@ -153,6 +153,10 @@ public class ClinicalHistoryQueryService {
                     + " puede haber registros en otras fechas.";
             case NO_TERM_MATCH -> "No encuentro registros en tu historia clínica que respondan a tu pregunta;"
                     + " puede haber registros escritos con otras palabras.";
+            case NO_MEASUREMENTS, NO_MEASUREMENTS_IN_PERIOD, METRIC_NOT_TRACKED ->
+                    // An absence of measurements belongs to the tracking, which is what
+                    // answers a question about them. The history channel never declares it.
+                    "No encuentro registros en tu historia clínica que respondan a tu pregunta.";
         };
         return scope + " " + ABSENCE_SCOPE_NOTE + " " + CONTINUATION;
     }

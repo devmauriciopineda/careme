@@ -11,12 +11,14 @@ public record ChatMessageResponse(
         List<EventSummary> events,
         AbsenceReason absenceReason,
         List<SuggestedAction> suggestedActions,
-        List<OperationSummary> operations) {
+        List<OperationSummary> operations,
+        List<MeasurementSummary> measurements) {
 
     public ChatMessageResponse {
         events = events == null ? List.of() : List.copyOf(events);
         suggestedActions = suggestedActions == null ? List.of() : List.copyOf(suggestedActions);
         operations = operations == null ? List.of() : List.copyOf(operations);
+        measurements = measurements == null ? List.of() : List.copyOf(measurements);
     }
 
     /** Outcome that carries neither absence detail nor operation detail. */
@@ -26,7 +28,7 @@ public record ChatMessageResponse(
             Status status,
             String message,
             List<EventSummary> events) {
-        this(conversationId, messageId, status, message, events, null, null, null);
+        this(conversationId, messageId, status, message, events, null, null, null, null);
     }
 
     /** Outcome that carries an absence but no operation detail. */
@@ -38,7 +40,7 @@ public record ChatMessageResponse(
             List<EventSummary> events,
             AbsenceReason absenceReason,
             List<SuggestedAction> suggestedActions) {
-        this(conversationId, messageId, status, message, events, absenceReason, suggestedActions, null);
+        this(conversationId, messageId, status, message, events, absenceReason, suggestedActions, null, null);
     }
 
     public static ChatMessageResponse of(
@@ -53,6 +55,7 @@ public record ChatMessageResponse(
                 status,
                 message,
                 events == null ? List.of() : events.stream().map(EventSummary::from).toList(),
+                null,
                 null,
                 null,
                 null);
@@ -78,7 +81,26 @@ public record ChatMessageResponse(
                 events == null ? List.of() : events.stream().map(EventSummary::from).toList(),
                 absenceReason,
                 suggestedActions,
+                null,
                 null);
+    }
+
+    /**
+     * The same outcome, carrying the measurements it is grounded in. Measurements
+     * travel apart from clinical events: they are a different record with their own
+     * unit and their own exact date.
+     */
+    public ChatMessageResponse withMeasurements(List<MeasurementSummary> measurements) {
+        return new ChatMessageResponse(
+                conversationId,
+                messageId,
+                status,
+                message,
+                events,
+                absenceReason,
+                suggestedActions,
+                operations,
+                measurements);
     }
 
     /**
@@ -87,7 +109,38 @@ public record ChatMessageResponse(
      */
     public ChatMessageResponse withOperations(List<OperationSummary> operations) {
         return new ChatMessageResponse(
-                conversationId, messageId, status, message, events, absenceReason, suggestedActions, operations);
+                conversationId,
+                messageId,
+                status,
+                message,
+                events,
+                absenceReason,
+                suggestedActions,
+                operations,
+                measurements);
+    }
+
+    /**
+     * One measurement that supports an answer: its metric, its values in the
+     * reference unit of that metric, the unit itself and its exact date, all as
+     * registered. A composite metric is one measurement with several values.
+     */
+    public record MeasurementSummary(
+            String reference,
+            String metric,
+            String label,
+            String unit,
+            String date,
+            List<ValueSummary> values,
+            String text) {
+
+        public MeasurementSummary {
+            values = values == null ? List.of() : List.copyOf(values);
+        }
+
+        /** One component of a measurement, written as it is stored. */
+        public record ValueSummary(String component, String value) {
+        }
     }
 
     public enum Status {
@@ -135,11 +188,13 @@ public record ChatMessageResponse(
             Status status,
             List<EventSummary> events,
             AbsenceReason absenceReason,
-            List<SuggestedAction> suggestedActions) {
+            List<SuggestedAction> suggestedActions,
+            List<MeasurementSummary> measurements) {
 
         public OperationSummary {
             events = events == null ? List.of() : List.copyOf(events);
             suggestedActions = suggestedActions == null ? List.of() : List.copyOf(suggestedActions);
+            measurements = measurements == null ? List.of() : List.copyOf(measurements);
         }
 
         public static OperationSummary of(
@@ -151,7 +206,13 @@ public record ChatMessageResponse(
                     status,
                     events == null ? List.of() : events.stream().map(EventSummary::from).toList(),
                     absenceReason,
-                    suggestedActions);
+                    suggestedActions,
+                    List.of());
+        }
+
+        /** The same operation, reporting the measurements it produced. */
+        public OperationSummary withMeasurements(List<MeasurementSummary> measurements) {
+            return new OperationSummary(status, events, absenceReason, suggestedActions, measurements);
         }
     }
 
@@ -168,7 +229,16 @@ public record ChatMessageResponse(
         /** The history holds events, but none inside the questioned period. */
         NO_EVENTS_IN_PERIOD("no_events_in_period"),
         /** The history holds events, but none matched the terms the question used. */
-        NO_TERM_MATCH("no_term_match");
+        NO_TERM_MATCH("no_term_match"),
+        /**
+         * El seguimiento de mediciones no tiene ninguna medición de la métrica
+         * preguntada. Es una ausencia del seguimiento, no de la historia clínica.
+         */
+        NO_MEASUREMENTS("no_measurements"),
+        /** El seguimiento no tiene ninguna medición de esa métrica en el periodo preguntado. */
+        NO_MEASUREMENTS_IN_PERIOD("no_measurements_in_period"),
+        /** La métrica preguntada no forma parte del seguimiento: no se admiten sus valores. */
+        METRIC_NOT_TRACKED("metric_not_tracked");
 
         private final String value;
 

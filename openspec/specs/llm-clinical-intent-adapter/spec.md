@@ -10,12 +10,13 @@ Define the structured, provider-neutral boundary that converts natural-language 
 
 The adapter MUST send the user message together with the current reference date, the applicable timezone
 context, the recent turns of the active conversation, and the set of operations the assistant is allowed
-to request. The set MUST contain only consulting the clinical history, collecting clinical-fact notes and
-collecting measurement notes. The
+to request. The set MUST contain only consulting the clinical history, consulting the measurement
+tracking, collecting clinical-fact notes and collecting measurement notes. The
 provider MUST choose which of those operations it needs and MAY request more than one within the same
 turn, and MAY use the result of one operation to decide the next. The adapter MUST execute every requested
 operation through the application, which validates it before producing any effect, and MUST NOT let the
-provider reach clinical persistence, the filesystem, or any operation outside the set. The adapter MUST
+provider reach clinical persistence, the measurement tracking, the filesystem, or any operation outside
+the set. The adapter MUST
 continue until the provider produces the user-facing response or an operation does not complete. Event
 candidates MUST contain only the supported type, user-expressed content, date when known, date precision,
 and original date text when present. Measurement candidates MUST contain the metric the user expressed,
@@ -23,7 +24,11 @@ its value or values, the unit when the user stated it, and the date with its pre
 contain a clinical-event type. A candidate that carries a measurement MUST NOT be treated as a clinical
 fact: the adapter MUST route a message that contains a measurement through the measurement channel and
 MUST NOT offer it as a clinical-fact candidate. A history-consulting operation MUST contain the question
-the user asked and MUST NOT contain event candidates. A measurement-collecting operation MUST NOT write
+the user asked and MUST NOT contain event candidates. A measurement-consulting operation MUST contain the
+question the user asked, and MUST NOT contain event candidates or measurement candidates. It MUST be
+read-only: it MUST return the retrieved measurements with their metric, their values, their reference unit
+and their date, and MUST NOT create, change or remove any measurement. A measurement-collecting operation
+MUST NOT write
 to the tracking: measurements are incorporated when the consultation closes. The adapter MUST treat as a clinical history question every
 message in which any part depends on the clinical history, including a colloquial reformulation of a
 recorded fact, and MUST NOT answer such a message as general conversation. When a message also contains a
@@ -40,6 +45,12 @@ history, it MUST ask for clarification and MUST NOT guess a channel.
 - **WHEN** the provider requests a measurement-collecting operation with a metric, its value or values and a date
 - **THEN** the application collects it as a measurement of the active consultation
 - **AND** the provider never reaches the measurement tracking directly
+
+#### Scenario: Map a measurement query
+- **WHEN** the provider requests a measurement-consulting operation with the question
+- **THEN** the application retrieves the matching measurements of the tracking and returns them to the provider
+- **AND** the operation returns no event candidates and no measurement candidates
+- **AND** the tracking remains exactly as it was
 
 #### Scenario: Route a measurement message through the measurement channel
 - **WHEN** a message contains a measurement
@@ -147,6 +158,65 @@ The adapter MUST also report how much of the question the retrieved events suppo
 - **AND** it reports no references, because no event supports the answer
 - **AND** it does not compose an answer from those events
 - **AND** it does not fall back to general knowledge or assumptions
+
+### Requirement: Compose grounded answers from retrieved measurements
+
+The adapter MUST compose the Spanish answer for a measurement query using only the measurements the
+application retrieved, MUST present each value in the reference unit of its metric and MUST state that
+unit explicitly, MUST preserve each value and each date as registered without rounding, completing or
+altering them beyond a change of unit, and MUST present a compound metric as a single measurement with
+its values. The adapter MUST report the references of the measurements the answer relies on. It MUST NOT
+introduce values, dates or interpretations absent from the retrieved set, MUST NOT interpret or assess
+the values, and MUST NOT recommend anything about them. When the person did not specify which metric they
+ask about, the adapter MUST ask which one and MUST NOT assume it. When the retrieved set is empty, the
+adapter MUST report that the measurement does not appear in the tracking and MUST NOT answer with an
+apparent response. When the question names a metric the system does not admit, the adapter MUST report
+that the metric is not part of the tracking and MUST NOT invent values for it. When the question asks for
+an interpretation or a recommendation, the adapter MUST decline explicitly and MUST offer the registered
+values instead. A failure to retrieve MUST be reported as a controlled integration failure and MUST NOT be
+presented as an absence of measurements.
+
+#### Scenario: Compose from retrieved measurements
+- **WHEN** the adapter receives a measurement query and the set of measurements retrieved for it
+- **THEN** it returns a Spanish answer that uses only those measurements
+- **AND** it reports the references of the measurements the answer relies on
+- **AND** it presents each value in the reference unit of its metric and states that unit explicitly
+
+#### Scenario: Preserve value and date as registered
+- **WHEN** a retrieved measurement carries a value and a date
+- **THEN** the composed answer keeps them as registered
+- **AND** it does not round, complete or alter them beyond a change of unit
+
+#### Scenario: Present a compound metric as one measurement
+- **WHEN** the retrieved measurements include a compound metric such as blood pressure
+- **THEN** the composed answer presents it with its values as a single measurement
+- **AND** it does not present it as separate measurements
+
+#### Scenario: Ask which metric when the question does not specify one
+- **WHEN** the question asks about measurements without specifying which metric
+- **THEN** the adapter asks which metric in Spanish
+- **AND** it does not assume a metric and does not compose an answer from an assumed one
+
+#### Scenario: Declare an absence of measurements
+- **WHEN** the set of measurements retrieved for the question is empty
+- **THEN** the adapter reports that the measurement does not appear in the tracking
+- **AND** it does not answer with an apparent response and does not fall back to general knowledge
+
+#### Scenario: Report a metric that is not part of the tracking
+- **WHEN** the question names a metric the system does not admit
+- **THEN** the adapter reports that the metric is not part of the tracking
+- **AND** it does not invent values for it and does not substitute another metric
+
+#### Scenario: Decline an interpretation of the values
+- **WHEN** the question asks for an interpretation of the values or a recommendation about them
+- **THEN** the adapter declines explicitly and states that it does not interpret and does not recommend
+- **AND** it offers the registered values instead of an invented interpretation
+
+#### Scenario: Report a retrieval failure without presenting it as an absence
+- **WHEN** the measurement retrieval does not complete
+- **THEN** the adapter reports a controlled integration failure with a retryable Spanish message
+- **AND** it does not present the failure as an absence of measurements
+- **AND** internal error details remain hidden
 
 ### Requirement: Keep provider access behind the backend
 

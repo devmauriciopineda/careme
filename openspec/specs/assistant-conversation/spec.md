@@ -47,7 +47,7 @@ El registro de hechos MUST NOT formar parte del catálogo de resultados del turn
 
 El estado del turno MUST describir el turno en su conjunto: MUST ser el resultado de la operación cuando el turno ejecutó una sola; MUST ser `answered` cuando el turno completó más de una operación y produjo una respuesta; y MUST ser `failed` cuando alguna operación no se completó, aunque otra del mismo turno sí lo hiciera.
 
-Para un resultado `answered`, la respuesta MUST incluir las referencias a los hechos clínicos que sustentan la respuesta. Para `no_records`, MUST incluir el motivo por el que la ausencia aplica y la continuación ofrecida a la persona. Para `general_conversation`, MUST llevar la réplica conversacional compuesta para ese mensaje, MUST NOT llevar referencias a hechos clínicos y MUST NOT presentar ninguna parte de la réplica como un hecho registrado. Para `clarification_required`, MUST incluir una pregunta de aclaración en español, y MUST devolverlo también cuando no pueda determinarse si el mensaje depende de la historia clínica. El sistema MUST NOT modificar la historia clínica al responder.
+Para un resultado `answered`, la respuesta MUST incluir las referencias a los hechos clínicos o a las mediciones que sustentan la respuesta, según el cauce que la haya producido, y MUST distinguir si la respuesta se apoya en hechos clínicos o en mediciones del seguimiento. Una ausencia de mediciones MUST NOT presentarse como una ausencia de hechos clínicos ni al revés. Para `no_records`, MUST incluir el motivo por el que la ausencia aplica y la continuación ofrecida a la persona. Para `general_conversation`, MUST llevar la réplica conversacional compuesta para ese mensaje, MUST NOT llevar referencias a hechos clínicos y MUST NOT presentar ninguna parte de la réplica como un hecho registrado. Para `clarification_required`, MUST incluir una pregunta de aclaración en español, y MUST devolverlo también cuando no pueda determinarse si el mensaje depende de la historia clínica. El sistema MUST NOT modificar la historia clínica al responder. Una consulta del seguimiento de mediciones MUST NOT modificar el seguimiento.
 
 #### Scenario: Report a turn that registered a fact and answered a question
 - **WHEN** el turno recoge un hecho clínico y responde una consulta a la historia
@@ -66,6 +66,18 @@ Para un resultado `answered`, la respuesta MUST incluir las referencias a los he
 - **WHEN** el turno ejecuta más de una consulta de la historia clínica
 - **THEN** la respuesta informa de cada consulta en el orden en que se ejecutó
 - **AND** ninguna operación completada se omite de la respuesta
+
+#### Scenario: Report a turn that answered a measurement query
+- **WHEN** el turno responde una consulta del seguimiento de mediciones
+- **THEN** el estado es `answered` y la respuesta lleva los valores, las unidades y las fechas recuperados
+- **AND** la respuesta incluye las referencias a las mediciones que sustentan la respuesta
+- **AND** el seguimiento de mediciones permanece exactamente como estaba
+
+#### Scenario: Report a measurement absence distinctly from a clinical-history absence
+- **WHEN** el turno responde una consulta de mediciones y no consta ninguna medición de la métrica preguntada
+- **THEN** la respuesta declara la ausencia de mediciones con ese motivo
+- **AND** la ausencia se distingue de una ausencia de hechos clínicos
+- **AND** no se presenta ninguna medición como sustento
 
 #### Scenario: Report a completed operation when another one failed
 - **WHEN** una operación del turno no se completa después de que otra sí lo hiciera
@@ -103,6 +115,12 @@ Para un resultado `answered`, la respuesta MUST incluir las referencias a los he
 - **WHEN** la búsqueda no puede completarse, de modo que ninguna ausencia puede verificarse
 - **THEN** el estado es `failed` con un mensaje reintentable en español
 - **AND** no se devuelve como `no_records`
+
+#### Scenario: Keep a measurement retrieval failure out of the absence outcome
+- **WHEN** la recuperación de las mediciones no puede completarse
+- **THEN** el estado es `failed` con un mensaje reintentable en español
+- **AND** no se devuelve como una ausencia de mediciones
+- **AND** el seguimiento permanece exactamente como estaba
 
 #### Scenario: Return a clarification outcome for an undetermined channel
 - **WHEN** el mensaje puede o no depender de la historia clínica y el sistema no puede determinarlo

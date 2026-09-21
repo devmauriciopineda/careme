@@ -99,9 +99,11 @@ frontend/
 that submits a turn through the `sendChatMessage` Server Action; the action calls
 `chatService` and revalidates the path so the conversation refreshes. The chat
 renders the facts collected as notes for the close, clarification, general
-conversation, failure, answered history queries with supporting events, and
-no-records outcomes distinctly, with the absence reason the backend reported and
-the continuation it offered. It also offers the **Terminar consulta** action,
+conversation, failure, answers grounded in the clinical history with their
+supporting events, answers grounded in the measurements with their values, unit
+and date —a compound metric as one measurement—, and no-records outcomes
+distinctly, with the absence reason the backend reported and the continuation it
+offered. It also offers the **Terminar consulta** action,
 which closes the consultation through a Server Action, exposes a busy state
 without creating a second request, and shows the close outcome — the measurements
 and the facts the backend reports as registered, nothing registered, or a
@@ -181,7 +183,10 @@ Unit and component tests run in jsdom and need neither the backend nor the
 database. The end-to-end scenarios under `e2e/playwright/` drive the real
 interface, so they need the backend and PostgreSQL up with the real assistant, and
 `CAREME_EVENTS_DIRECTORY` pointing at the clinical history they assert against —
-which they expect to start empty.
+which they expect to start empty. The
+[root README](../README.md#run-the-end-to-end-tests-playwright) covers preparing
+that environment, including the Podman-first runtime and the PostgreSQL IPv4
+caveat.
 
 The evaluation corpus under `e2e/corpus/` is the phase's measurement instrument
 (`roadmap_asistente_historia_clinica.md` §4.11): fictional clinical facts plus an
@@ -192,9 +197,11 @@ history that is already seeded (or an empty one, which it seeds itself) and
 `E2E_API_BASE_URL` when the backend is not on `http://localhost:8080`. It reports a
 scorecard instead of stopping at the first finding.
 
-140 test cases across the measurements and chat features, including validation
+148 test cases across the measurements and chat features, including validation
 and rendering of the collected-for-close, answered, no-records and
-general-conversation chat outcomes with supporting events, the absence reason,
+general-conversation chat outcomes with supporting events, answers grounded in the
+measurements with their values, unit and date (a compound metric as one
+measurement) together with the measurement absence reasons, the absence reason,
 the offered continuation and the operations a turn went through, and the
 end-consultation action with its close outcome.
 Unit tests cover the pure helpers in `measurements/lib/metrics.ts` (sorting,

@@ -29,6 +29,14 @@ public interface MetricMeasurementRepository {
     List<MetricMeasurement> findByMetrics(Collection<Metric> metrics);
 
     /**
+     * @return the stored measurements of the given metrics whose day falls inside
+     *         the period, in no particular order; a {@code null} bound leaves that
+     *         end of the period open
+     */
+    List<MetricMeasurement> findByMetricsAndDateBetween(
+            Collection<Metric> metrics, LocalDate from, LocalDate to);
+
+    /**
      * @return the measurement of that metric on that day, if any
      */
     Optional<MetricMeasurement> findByMetricAndDate(Metric metric, LocalDate date);

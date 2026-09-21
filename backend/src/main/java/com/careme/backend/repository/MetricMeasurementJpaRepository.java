@@ -59,6 +59,33 @@ public class MetricMeasurementJpaRepository implements MetricMeasurementReposito
 
     @Override
     @Transactional(readOnly = true)
+    public List<MetricMeasurement> findByMetricsAndDateBetween(
+            Collection<Metric> metrics, LocalDate from, LocalDate to) {
+        if (metrics == null || metrics.isEmpty()) {
+            return List.of();
+        }
+        return metricMeasurementJpaDao
+                .findByMetricInAndDateBetween(metricCodes(metrics), lowerBound(from), upperBound(to)).stream()
+                .map(MetricMeasurementEntity::toDomain)
+                .toList();
+    }
+
+    private static List<String> metricCodes(Collection<Metric> metrics) {
+        return metrics.stream().map(Metric::code).toList();
+    }
+
+    /** An open lower bound is the earliest day the model can hold. */
+    private static LocalDate lowerBound(LocalDate from) {
+        return from == null ? LocalDate.of(1, 1, 1) : from;
+    }
+
+    /** An open upper bound is the latest day the model can hold. */
+    private static LocalDate upperBound(LocalDate to) {
+        return to == null ? LocalDate.of(9999, 12, 31) : to;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public Optional<MetricMeasurement> findByMetricAndDate(Metric metric, LocalDate date) {
         return metricMeasurementJpaDao.findByMetricAndDate(metric.code(), date)
                 .map(MetricMeasurementEntity::toDomain);

@@ -104,6 +104,98 @@ describe("ChatWorkspace", () => {
     expect(within(supporting).getByText("Hipertensión diagnosticada")).toBeInTheDocument();
   });
 
+  it("shows an answer grounded in the measurements with their values, unit and date", async () => {
+    const user = userEvent.setup();
+    sendChatMessageMock.mockResolvedValue({
+      ok: true,
+      response: {
+        conversationId: "conversation-1",
+        messageId: "message-1",
+        status: "answered",
+        message: "Estas son tus mediciones registradas.",
+        events: [],
+        measurements: [
+          {
+            reference: "weight@2026-01-10",
+            metric: "weight",
+            label: "peso",
+            unit: "kg",
+            date: "2026-01-10",
+            values: [{ component: "value", value: "70.5" }],
+            text: "peso: 70.5 kg (2026-01-10)",
+          },
+        ],
+      },
+    });
+
+    render(<ChatWorkspace />);
+    await send(user, "¿Cuánto peso?");
+
+    expect(await screen.findByText("Estas son tus mediciones registradas.")).toBeInTheDocument();
+    const supporting = screen.getByRole("list", { name: "Mediciones que sustentan la respuesta" });
+    expect(within(supporting).getByText("peso")).toBeInTheDocument();
+    expect(within(supporting).getByText(/2026-01-10/)).toBeInTheDocument();
+    expect(within(supporting).getByText("70.5 kg")).toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "Hechos que sustentan la respuesta" })).not.toBeInTheDocument();
+  });
+
+  it("shows a composite metric as a single measurement", async () => {
+    const user = userEvent.setup();
+    sendChatMessageMock.mockResolvedValue({
+      ok: true,
+      response: {
+        conversationId: "conversation-1",
+        messageId: "message-1",
+        status: "answered",
+        message: "Estas son tus mediciones registradas.",
+        events: [],
+        measurements: [
+          {
+            reference: "blood_pressure@2026-01-10",
+            metric: "blood_pressure",
+            label: "presión arterial",
+            unit: "mmHg",
+            date: "2026-01-10",
+            values: [
+              { component: "systolic", value: "145" },
+              { component: "diastolic", value: "92" },
+            ],
+            text: "presión arterial: sistólica 145 mmHg, diastólica 92 mmHg (2026-01-10)",
+          },
+        ],
+      },
+    });
+
+    render(<ChatWorkspace />);
+    await send(user, "¿Cuál es mi presión arterial?");
+
+    const supporting = await screen.findByRole("list", { name: "Mediciones que sustentan la respuesta" });
+    expect(within(supporting).getAllByRole("listitem")).toHaveLength(1);
+    expect(within(supporting).getByText("145 mmHg · 92 mmHg")).toBeInTheDocument();
+  });
+
+  it("names an absence of measurements distinctly from an absence of clinical facts", async () => {
+    const user = userEvent.setup();
+    sendChatMessageMock.mockResolvedValue({
+      ok: true,
+      response: {
+        conversationId: "conversation-1",
+        messageId: "message-1",
+        status: "no_records",
+        message: "No consta ninguna medición tuya de esa métrica.",
+        events: [],
+        absenceReason: "no_measurements",
+        suggestedActions: ["reformulate"],
+      },
+    });
+
+    render(<ChatWorkspace />);
+    await send(user, "¿Cuánto colesterol tengo?");
+
+    expect(await screen.findByText("Sin mediciones registradas de esa métrica")).toBeInTheDocument();
+    expect(screen.queryByText("Sin registros escritos con esas palabras")).not.toBeInTheDocument();
+  });
+
   it("announces a no-records turn without leaking technical detail", async () => {
     const user = userEvent.setup();
     sendChatMessageMock.mockResolvedValue(

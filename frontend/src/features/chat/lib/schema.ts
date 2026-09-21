@@ -44,6 +44,9 @@ const absenceReasonSchema = z.enum([
   "no_events_of_type",
   "no_events_in_period",
   "no_term_match",
+  "no_measurements",
+  "no_measurements_in_period",
+  "metric_not_tracked",
 ]);
 
 /** What the user is offered after an absence. */
@@ -62,16 +65,38 @@ const chatStatusSchema = z.enum([
   "failed",
 ]);
 
+/** One component of a measurement, written as the tracking stores it. */
+const measurementValueSchema = z.object({
+  component: z.string(),
+  value: z.string(),
+});
+
+/**
+ * One measurement that supports an answer: its metric, its values in the reference
+ * unit of that metric and its exact date. A composite metric is one measurement
+ * with several values, never several measurements.
+ */
+const measurementSummarySchema = z.object({
+  reference: z.string(),
+  metric: z.string(),
+  label: z.string(),
+  unit: z.string(),
+  date: z.string(),
+  values: z.array(measurementValueSchema),
+  text: z.string(),
+});
+
 /**
  * One operation the turn went through, with its own result. The turn's message is
- * the single answer; this is what lets the interface tell what was completed from
- * what was not.
+the single answer; this is what lets the interface tell what was completed from
+what was not.
  */
 const operationSummarySchema = z.object({
   status: chatStatusSchema,
   events: z.array(chatEventSchema),
   absenceReason: absenceReasonSchema.nullish(),
   suggestedActions: z.array(suggestedActionSchema).optional(),
+  measurements: z.array(measurementSummarySchema).optional(),
 });
 
 /** One turn as the backend returns it. */
@@ -84,4 +109,5 @@ export const chatResponseSchema = z.object({
   absenceReason: absenceReasonSchema.nullish(),
   suggestedActions: z.array(suggestedActionSchema).optional(),
   operations: z.array(operationSummarySchema).optional(),
+  measurements: z.array(measurementSummarySchema).optional(),
 });

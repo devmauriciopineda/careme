@@ -41,7 +41,8 @@ class AgentOperationExecutorTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final AgentOperationExecutor executor = new AgentOperationExecutor(
             historyQueryService, encounterService, new ClinicalEventIntentValidator(),
-            new MetricCatalogService(mock(AdmittedMetricRepository.class)));
+            new MetricCatalogService(mock(AdmittedMetricRepository.class)),
+            mock(MeasurementQueryService.class));
 
     @Test
     void runsTheConsultationThroughTheHistoryQueryService() {

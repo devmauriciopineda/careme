@@ -183,6 +183,19 @@ sustituye una prueba con PostgreSQL real.
 
 ## 4. Tipos de pruebas y niveles
 
+Cada nivel se apoya en una herramienta distinta, y la herramienta determina qué
+se ejecuta realmente:
+
+| Nivel | Herramienta | Qué levanta y cómo opera |
+| --- | --- | --- |
+| Unitaria (backend) | JUnit 5 + AssertJ + Mockito | Solo la JVM: descubre los `@Test`, los ejecuta y AssertJ evalúa las aserciones; Mockito sustituye colaboraciones |
+| Unitaria (frontend) | Vitest | Solo Node: ejecuta cada `it(...)` y compara con `expect`; sin DOM ni backend |
+| Capa web | Spring Boot Test (`@WebMvcTest`) + MockMvc | El contexto web aislado —MVC, JSON, validación, errores— con el servicio mockeado; la petición HTTP va en memoria |
+| Componente | Vitest + React Testing Library + `jsdom` + `userEvent` | Un DOM simulado en Node: renderiza el componente, consulta por rol o etiqueta y reproduce la interacción |
+| Integración | Spring Boot Test + Testcontainers | Un PostgreSQL 17 real en contenedor, con Flyway aplicando el esquema; acceso por JPA o JDBC |
+| Extremo a extremo | Playwright (proyecto `interface`) | Un navegador real contra la pila levantada; afirma sobre el DOM y lee el oráculo del sistema de archivos |
+| Corpus | Playwright (proyecto `corpus`) | El mismo motor sin navegador: `APIRequestContext` conduce la API del chat y agrega un tablero |
+
 ### 4.1 Prueba unitaria
 
 Una **prueba unitaria** aísla una unidad de comportamiento: una función, un
@@ -197,6 +210,21 @@ Ejemplos de unidades adecuadas:
 - transformar una respuesta JSON en un DTO;
 - decidir el mensaje de ausencia de registros.
 
+**Herramientas y mecanismo.** En el backend, **JUnit 5** descubre y ejecuta los
+métodos anotados con `@Test` sobre la JVM y **AssertJ** evalúa las aserciones,
+mientras **Mockito** sustituye las colaboraciones: no se levanta ningún contexto de
+Spring. En el frontend, **Vitest** ejecuta cada caso en Node y expone `expect`;
+tampoco hay DOM ni backend.
+
+```java
+@Test
+void acceptsAPositiveValue() {
+    assertThat(metric.admits("value", new BigDecimal("80.1"))).isTrue();
+}
+```
+
+Ejemplos reales: §5.1 y §6.1.
+
 ### 4.2 Prueba de capa web
 
 Una **prueba de capa web** levanta solo la infraestructura necesaria para un
@@ -205,6 +233,20 @@ manejo de errores, mientras el servicio se sustituye con un mock.
 
 Comprueba el contrato HTTP: ruta, método, código de estado, JSON, validación y
 respuesta de error. No demuestra que el repositorio o PostgreSQL funcionen.
+
+**Herramientas y mecanismo.** `@WebMvcTest` levanta **solo** la capa web —MVC,
+conversión JSON, Bean Validation y manejo de errores— y deja el servicio
+sustituido por un mock; **MockMvc** ejecuta la petición **en memoria**, sin abrir
+un socket ni arrancar el servidor, y expone el código de estado y el cuerpo para
+afirmarlos.
+
+```java
+mockMvc.perform(get("/api/v1/measurements"))
+    .andExpect(status().isOk())
+    .andExpect(jsonPath("$.success").value(true));
+```
+
+Ejemplo real: §5.2.
 
 ### 4.3 Prueba de integración
 
@@ -216,6 +258,18 @@ El objetivo no es repetir todas las pruebas unitarias, sino verificar aquello qu
 surge de la composición: mapeos entidad-tabla, restricciones, SQL full-text,
 transacciones, migraciones y comportamiento del motor real.
 
+**Herramientas y mecanismo.** **Testcontainers** arranca un contenedor efímero de
+PostgreSQL y `@ServiceConnection` lo conecta al contexto de Spring Boot; **Flyway**
+construye el esquema con las migraciones reales y la prueba accede por JPA o JDBC.
+El contenedor se comparte entre los casos de la suite, así que cada prueba deja
+limpio su estado antes de empezar.
+
+```java
+assertThat(measurementRepository.findAll()).hasSize(1);
+```
+
+Ejemplo real: §5.3.
+
 ### 4.4 Prueba de componente frontend
 
 Una **prueba de componente** renderiza una parte de la interfaz en un DOM
@@ -225,6 +279,20 @@ de la interfaz, no sus detalles privados.
 
 Puede comprobar validación, estados de carga, interacción, mensajes de error,
 filas de una tabla y contenido accesible de un gráfico.
+
+**Herramientas y mecanismo.** `jsdom` implementa un DOM en JavaScript, sin
+navegador; **React Testing Library** renderiza el componente dentro de él y ofrece
+consultas por rol, etiqueta o texto, que describen lo que una persona percibe;
+`userEvent` reproduce la secuencia real de eventos en lugar de disparar uno
+aislado.
+
+```tsx
+render(<MeasurementForm />);
+await user.click(screen.getByRole("button", { name: "Guardar" }));
+expect(await screen.findByRole("alert")).toBeInTheDocument();
+```
+
+Ejemplo real: §6.2.
 
 ### 4.5 Prueba de extremo a extremo
 
@@ -245,6 +313,18 @@ Los recorridos viven en `frontend/e2e/playwright/` y se ejecutan con
 `pnpm test:e2e`. Antes de contar con ellos hay que levantar la pila: el backend
 con el asistente real y PostgreSQL en marcha, y `CAREME_EVENTS_DIRECTORY`
 apuntando al directorio que la prueba inspecciona.
+
+**Herramienta y mecanismo.** **Playwright** lanza un navegador real (Chromium) y lo
+conduce: navega, escribe, hace clic y espera a que la interfaz se estabilice antes
+de afirmar. Los localizadores son accesibles —`getByLabel`, `getByRole`—, así que
+la prueba se apoya en el mismo contrato que un lector de pantalla. El oráculo
+externo se lee con `node:fs`, no a través del navegador.
+
+```typescript
+await page.getByLabel("Mensaje para el asistente").fill("¿Cuánto peso?");
+await page.getByRole("button", { name: "Enviar mensaje" }).click();
+await expect(turn.getByText("70.5 kg")).toBeVisible();
+```
 
 ### 4.6 Medición sobre un corpus de evaluación
 
@@ -272,7 +352,15 @@ En Careme el corpus vive en `frontend/e2e/corpus/` y se ejecuta con
 mide —el estado del turno y cuántas operaciones necesitó— forma parte del
 contrato del backend y la interfaz no lo muestra entero; por eso
 `playwright.config.ts` declara dos proyectos, uno para la interfaz y otro para el
-corpus. Su veredicto puede quedar en rojo a propósito: cuando el corpus encuentra
+corpus.
+
+**Herramienta y mecanismo.** El mismo Playwright, en el proyecto `corpus`, pero sin
+navegador: `APIRequestContext` envía las peticiones directamente a la API del chat
+y el resultado se agrega en un tablero en lugar de afirmarse caso a caso. Sin
+navegador, recorrer un conjunto grande de preguntas es mucho más barato que
+hacerlo con la interfaz.
+
+Su veredicto puede quedar en rojo a propósito: cuando el corpus encuentra
 un fallo real de recuperación, se archiva como hallazgo documentado en lugar de
 rebajarse la expectativa para que pase.
 

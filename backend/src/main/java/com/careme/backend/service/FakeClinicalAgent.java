@@ -7,9 +7,11 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -74,6 +76,34 @@ public class FakeClinicalAgent implements ClinicalAgent {
     private static final String GREETING_REPLY =
             "Hola. Cuéntame un hecho médico y lo registro, o pregúntame por lo que tienes registrado.";
 
+    /**
+     * The labels the tracking knows, as the catalogue names them. A question that
+     * names one is answered by the measurement channel.
+     *
+     * <p>Every label is word-bounded on purpose: "hipertensión" contains "tensión",
+     * and reading a diagnosis as a blood-pressure question would route it to the wrong
+     * channel.
+     */
+    private static final List<Map.Entry<Pattern, String>> METRIC_LABELS = List.of(
+            metricLabel("peso", "weight"),
+            metricLabel("circunferencia abdominal", "waist"),
+            metricLabel("circunferencia", "waist"),
+            metricLabel("presión arterial", "blood_pressure"),
+            metricLabel("presión", "blood_pressure"),
+            metricLabel("tensión", "blood_pressure"),
+            metricLabel("colesterol", "cholesterol"),
+            metricLabel("creatinina", "creatinine"),
+            metricLabel("glucosa", "fasting_glucose"),
+            metricLabel("triglicéridos", "triglycerides"));
+
+    /** A question about the measurements in general, without naming any of them. */
+    private static final Pattern MEASUREMENTS_IN_GENERAL =
+            Pattern.compile("\\bmediciones?\\b");
+
+    private static Map.Entry<Pattern, String> metricLabel(String label, String metric) {
+        return Map.entry(Pattern.compile("\\b" + Pattern.quote(label) + "\\b"), metric);
+    }
+
     private static final String DECLINED =
             "No puedo darte un diagnóstico ni recomendarte un tratamiento: solo registro hechos médicos"
                     + " y respondo sobre lo que tienes registrado. Este asistente no diagnostica ni recomienda"
@@ -100,6 +130,13 @@ public class FakeClinicalAgent implements ClinicalAgent {
             return AgentTurn.completed(GREETING_REPLY, List.of());
         }
         if (ADVICE_REQUEST.matcher(normalized).find()) {
+            // A request for advice about a measurement is declined while the registered
+            // values are still offered; any other request for advice is declined as
+            // general conversation.
+            AgentOperationCall aboutMeasurement = measurementQuery(message, normalized, true);
+            if (aboutMeasurement != null) {
+                return run(aboutMeasurement, context);
+            }
             return AgentTurn.completed(DECLINED, List.of());
         }
         boolean asksSomething = QUESTION.matcher(normalized).find() || normalized.endsWith("?");
@@ -120,6 +157,10 @@ public class FakeClinicalAgent implements ClinicalAgent {
                         UNDETERMINED,
                         List.of(AgentOperationResult.rejected(
                                 AgentOperationResult.Rejection.NOT_ADMISSIBLE, UNDETERMINED)));
+            }
+            AgentOperationCall aboutAMeasurement = measurementQuery(message, normalized, false);
+            if (aboutAMeasurement != null) {
+                return run(aboutAMeasurement, context);
             }
             return run(consultation(message, normalized, context.referenceDate()), context);
         }
@@ -145,8 +186,44 @@ public class FakeClinicalAgent implements ClinicalAgent {
                 result.message() == null ? NOTHING_REGISTERED : result.message(), List.of(result));
     }
 
-    private static AgentOperationCall consultation(String message, String normalized, LocalDate referenceDate) {
+    /**
+     * A question that names a metric of the tracking is answered by the measurement
+     * channel, with the metrics it names. A question that names none carries no
+     * metrics, so the tracking asks which one instead of assuming it.
+     */
+    private static AgentOperationCall measurementQuery(
+            String message, String normalized, boolean interpretationRequested) {
+        List<String> metrics = metricsNamed(normalized);
+        // A request for advice only reaches the tracking when it names a metric: a request
+        // for advice about anything else is declined as conversation. A question reaches it
+        // when it names a metric or asks about the measurements in general, in which case the
+        // tracking asks which metric instead of assuming one.
+        boolean belongsToTheTracking = interpretationRequested
+                ? !metrics.isEmpty()
+                : !metrics.isEmpty() || MEASUREMENTS_IN_GENERAL.matcher(normalized).find();
+        if (!belongsToTheTracking) {
+            return null;
+        }
         ObjectNode arguments = OBJECT_MAPPER.createObjectNode();
+        arguments.put("question", message.trim());
+        ArrayNode named = arguments.putArray("metrics");
+        metrics.forEach(named::add);
+        if (interpretationRequested) {
+            arguments.put("interpretation_requested", true);
+        }
+        return new AgentOperationCall(AgentOperation.CONSULT_MEASUREMENTS, arguments);
+    }
+
+    /** The metric codes the message names, read from the labels the tracking uses. */
+    private static List<String> metricsNamed(String normalized) {
+        return METRIC_LABELS.stream()
+                .filter(entry -> entry.getKey().matcher(normalized).find())
+                .map(Map.Entry::getValue)
+                .distinct()
+                .toList();
+    }
+
+    private static AgentOperationCall consultation(String message, String normalized, LocalDate referenceDate) {        ObjectNode arguments = OBJECT_MAPPER.createObjectNode();
         arguments.put("question", message.trim());
         ArrayNode terms = arguments.putArray("search_terms");
         termsOf(normalized).forEach(terms::add);

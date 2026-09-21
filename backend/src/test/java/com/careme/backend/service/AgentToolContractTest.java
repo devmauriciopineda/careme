@@ -23,7 +23,9 @@ class AgentToolContractTest {
         assertThat(AgentToolContract.tools()).hasSameSizeAs(AgentOperation.values());
         assertThat(AgentToolContract.tools())
                 .allSatisfy(tool -> assertThat(tool.get("type")).isEqualTo("function"));
-        assertThat(names()).containsExactlyInAnyOrder("consult_history", "record_note", "record_measurement");
+        assertThat(names())
+                .containsExactlyInAnyOrder(
+                        "consult_history", "consult_measurements", "record_note", "record_measurement");
     }
 
     @Test

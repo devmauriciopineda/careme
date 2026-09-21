@@ -37,6 +37,7 @@ user accounts, one measurement per metric and day, and data precision owned by t
 | **Abdominal circumference** (waist) | Abdominal perimeter in centimetres | `backend/src/main/java/com/careme/backend/entity/Metric.java` |
 | **Weight** | Weight in kilograms, at most 500 | `backend/src/main/java/com/careme/backend/entity/Metric.java` |
 | **Register** | Store the measurement of a metric and day: create it when it did not exist, replace it when it did | `backend/src/main/java/com/careme/backend/service/MeasurementRegistrationService.java` |
+| **Measurement query** | Answer a question about the person's measurements with their values, their reference unit and their exact date; read-only, it never changes one | `backend/src/main/java/com/careme/backend/service/MeasurementQueryService.java` |
 | **Daily view** | The legacy weight-and-circumference pair of a day, composed from the metric model | `backend/src/main/java/com/careme/backend/repository/MetricBackedMeasurementRepository.java` |
 | **MeasurementDraft** | One day of the legacy view without database identity, used by bulk loads | `backend/src/main/java/com/careme/backend/entity/MeasurementDraft.java` |
 | **Load / import** | Read measurements from a CSV file and persist them | `backend/src/main/java/com/careme/backend/service/MeasurementImportService.java` |
@@ -365,7 +366,7 @@ careme/
 │   ├── src/features/measurements/  # Body-tracking module
 │   ├── src/services/               # Data boundary (fetch + Zod)
 │   ├── src/test/                   # Test setup
-│   ├── e2e/playwright/             # End-to-end scenarios (UC-012, UC-013, UC-014)
+│   ├── e2e/playwright/             # End-to-end scenarios (UC-012, UC-013, UC-014, UC-014b)
 ├── docs/                           # Project documentation
 │   ├── standards/                  # Java/Spring and Next standards
 │   ├── use-cases/                  # UC-001…UC-004, UC-007, UC-008, UC-010…UC-014b
@@ -458,7 +459,7 @@ the code and the READMEs.
 | ADR-011 | Java 21 pinned by `maven-enforcer-plugin` and a committed Maven wrapper | Current | Reproducible build | Builds with another JDK fail explicitly |
 | ADR-012 | User-facing text in Spanish isolated in `strings.ts`; code in English | Current | Future i18n without a refactor | Manual discipline; no automated check |
 | ADR-013 | Implicit `Patient` and clinical events in Markdown as the source of truth + derived PostgreSQL index | Current | MVP of the clinical history assistant | Markdown rules; PostgreSQL indexes and is rebuilt; the query is read-only and there is no edit or delete |
-| ADR-014 | The assistant is an agent with tools behind a port (`ClinicalAgent`): the model chooses from a **closed** set of declared operations (`consult_history`, `record_note`, `record_measurement`), which the backend validates and executes — writing inside the operation — until one single reply closes the turn; adapters with `fake`/`openai` mode | Current | Keep the LLM provider out of the domain while letting the model handle language variation instead of classifying it in code | Supersedes the intent-interpreter/conversational-composer split. `openai` is the default and requires `CAREME_LLM_API_KEY`, otherwise the backend refuses to start; `fake` is a test double that also chooses operations. The model never reaches the filesystem and cannot invoke an undeclared operation. Registering is not a turn operation: the turn collects notes and only the consultation close writes (`openspec/specs/assistant-agent-turn/spec.md`, *Acotar las operaciones disponibles*) |
+| ADR-014 | The assistant is an agent with tools behind a port (`ClinicalAgent`): the model chooses from a **closed** set of declared operations (`consult_history`, `consult_measurements`, `record_note`, `record_measurement`), which the backend validates and executes — writing inside the operation — until one single reply closes the turn; adapters with `fake`/`openai` mode | Current | Keep the LLM provider out of the domain while letting the model handle language variation instead of classifying it in code | Supersedes the intent-interpreter/conversational-composer split. `openai` is the default and requires `CAREME_LLM_API_KEY`, otherwise the backend refuses to start; `fake` is a test double that also chooses operations. The model never reaches the filesystem and cannot invoke an undeclared operation. Registering is not a turn operation: the turn collects notes and only the consultation close writes (`openspec/specs/assistant-agent-turn/spec.md`, *Acotar las operaciones disponibles*) |
 
 > ADR-013 describes the implemented model. The roadmap's Fase 4.4 materialises `Patient` as a patient
 > profile, which will supersede it.

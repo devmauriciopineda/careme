@@ -116,6 +116,59 @@ class AgentTurnOutcomeTest {
         assertThat(AgentTurnOutcome.primary(AgentTurn.completed("Hola.", List.of()))).isNull();
     }
 
+    @Test
+    void reportsAnAnswerWhenTheTurnAnsweredFromTheMeasurements() {
+        AgentTurn turn = AgentTurn.completed("Estas son tus mediciones.", List.of(measurementsAnswered()));
+
+        ChatMessageResponse response = AgentTurnOutcome.respond("conversation-1", "message-1", turn);
+
+        assertThat(response.status()).isEqualTo(ChatMessageResponse.Status.ANSWERED);
+        assertThat(response.measurements()).singleElement().satisfies(measurement -> {
+            assertThat(measurement.metric()).isEqualTo("weight");
+            assertThat(measurement.label()).isEqualTo("peso");
+            assertThat(measurement.unit()).isEqualTo("kg");
+            assertThat(measurement.date()).isEqualTo("2026-01-10");
+            assertThat(measurement.text()).isEqualTo("peso: 70.5 kg (2026-01-10)");
+        });
+        assertThat(response.events()).as("una medición no es un hecho clínico").isEmpty();
+    }
+
+    @Test
+    void distinguishesAnAbsenceOfMeasurementsFromAnAbsenceOfFacts() {
+        AgentTurn turn = AgentTurn.completed("No consta esa medición.", List.of(measurementsAbsent()));
+
+        ChatMessageResponse response = AgentTurnOutcome.respond("conversation-1", "message-1", turn);
+
+        assertThat(response.status()).isEqualTo(ChatMessageResponse.Status.NO_RECORDS);
+        assertThat(response.absenceReason()).isEqualTo(ChatMessageResponse.AbsenceReason.NO_MEASUREMENTS);
+        assertThat(response.measurements()).isEmpty();
+        assertThat(response.events()).isEmpty();
+    }
+
+    @Test
+    void keepsARetrievalFailureOutOfTheAbsenceOutcome() {
+        AgentTurn turn = AgentTurn.failed(
+                "No he podido consultar tus mediciones. Puedes reintentarlo.",
+                List.of(measurementsFailed()));
+
+        ChatMessageResponse response = AgentTurnOutcome.respond("conversation-1", "message-1", turn);
+
+        assertThat(response.status()).isEqualTo(ChatMessageResponse.Status.FAILED);
+        assertThat(response.absenceReason()).isNull();
+        assertThat(response.measurements()).isEmpty();
+    }
+
+    @Test
+    void asksWhichMetricWithoutAnswering() {
+        AgentTurn turn = AgentTurn.completed(
+                "¿De qué medición quieres que te hable?", List.of(measurementsClarify()));
+
+        ChatMessageResponse response = AgentTurnOutcome.respond("conversation-1", "message-1", turn);
+
+        assertThat(response.status()).isEqualTo(ChatMessageResponse.Status.CLARIFICATION_REQUIRED);
+        assertThat(response.measurements()).isEmpty();
+    }
+
     private static AgentOperationResult noted() {
         return AgentOperationResult.of(
                 AgentOperation.RECORD_NOTE,
@@ -180,5 +233,43 @@ class AgentTurnOutcomeTest {
                 ClinicalEvent.EventSource.PATIENT,
                 OffsetDateTime.now(ZoneOffset.UTC),
                 null);
+    }
+
+    private static AgentOperationResult measurementsAnswered() {
+        return AgentOperationResult.of(
+                AgentOperation.CONSULT_MEASUREMENTS,
+                MeasurementAnswerResult.answered(List.of(fact()), "Estas son tus mediciones registradas."));
+    }
+
+    private static AgentOperationResult measurementsAbsent() {
+        return AgentOperationResult.of(
+                AgentOperation.CONSULT_MEASUREMENTS,
+                MeasurementAnswerResult.noRecords(
+                        ChatMessageResponse.AbsenceReason.NO_MEASUREMENTS,
+                        List.of(ChatMessageResponse.SuggestedAction.REFORMULATE),
+                        "No consta ninguna medición tuya de esa métrica."));
+    }
+
+    private static AgentOperationResult measurementsClarify() {
+        return AgentOperationResult.of(
+                AgentOperation.CONSULT_MEASUREMENTS,
+                MeasurementAnswerResult.askForMetric("¿De qué medición quieres que te hable?"));
+    }
+
+    private static AgentOperationResult measurementsFailed() {
+        return AgentOperationResult.of(
+                AgentOperation.CONSULT_MEASUREMENTS,
+                MeasurementAnswerResult.failure("No he podido consultar tus mediciones. Puedes reintentarlo."));
+    }
+
+    private static MeasurementFact fact() {
+        return new MeasurementFact(
+                "weight@2026-01-10",
+                "weight",
+                "peso",
+                "kg",
+                "2026-01-10",
+                List.of(new MeasurementFact.MeasurementFactValue("value", "70.5")),
+                "peso: 70.5 kg (2026-01-10)");
     }
 }

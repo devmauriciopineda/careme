@@ -16,6 +16,7 @@ type Message = {
   absenceReason?: ChatResponse["absenceReason"];
   suggestedActions?: ChatResponse["suggestedActions"];
   operations?: ChatResponse["operations"];
+  measurements?: ChatResponse["measurements"];
   retryText?: string;
   /** The message stands for a close that could not be completed. */
   retryClose?: boolean;
@@ -53,6 +54,9 @@ const absenceReasonLabels: Record<NonNullable<ChatResponse["absenceReason"]>, st
   no_events_of_type: "Sin registros de ese tipo de hecho",
   no_events_in_period: "Sin registros en ese periodo",
   no_term_match: "Sin registros escritos con esas palabras",
+  no_measurements: "Sin mediciones registradas de esa métrica",
+  no_measurements_in_period: "Sin mediciones de esa métrica en ese periodo",
+  metric_not_tracked: "Esa métrica no forma parte de tu seguimiento",
 };
 
 /** Names the continuation the backend offered, so the turn stays actionable. */
@@ -148,6 +152,7 @@ export function ChatWorkspace() {
           absenceReason: outcome.response.absenceReason,
           suggestedActions: outcome.response.suggestedActions,
           operations: outcome.response.operations,
+          measurements: outcome.response.measurements,
         },
       ]);
     });
@@ -186,6 +191,7 @@ export function ChatWorkspace() {
           status: outcome.response.status,
           events: outcome.response.events,
           operations: outcome.response.operations,
+          measurements: outcome.response.measurements,
         },
       ]);
     } finally {
@@ -259,6 +265,19 @@ export function ChatWorkspace() {
                         <span className="font-semibold text-foreground">{event.code}</span>
                         <span> · {eventSummary(event)}</span>
                         <p className="mt-1 text-foreground">{event.content}</p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {message.role === "assistant" && message.measurements && message.measurements.length > 0 && (
+                  <ul aria-label="Mediciones que sustentan la respuesta" className="mt-2 space-y-1">
+                    {message.measurements.map((measurement) => (
+                      <li className="rounded-lg border border-border/70 bg-card px-3 py-2 text-xs text-muted-foreground" key={measurement.reference}>
+                        <span className="font-semibold text-foreground">{measurement.label}</span>
+                        <span> · {measurement.date}</span>
+                        <p className="mt-1 text-foreground">
+                          {measurement.values.map((value) => `${value.value} ${measurement.unit}`).join(" · ")}
+                        </p>
                       </li>
                     ))}
                   </ul>

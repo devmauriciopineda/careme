@@ -2,7 +2,7 @@
 
 > **MVP cerrado el 2026-09-18.** 8 de 11 implementados · 3 cubiertos.
 >
-> Implementación actual: **UC-001 → UC-004, UC-007, UC-008, UC-010, UC-011, UC-012, UC-013, UC-013b y UC-014**.
+> Implementación actual: **UC-001 → UC-004, UC-007, UC-008, UC-010, UC-011, UC-012, UC-013, UC-013b, UC-014 y UC-014b**.
 >
 > Todos los casos de uso del MVP están implementados o cubiertos.
 >
@@ -111,8 +111,8 @@ Casos de uso previstos para la Fase 4 del
 —agente con herramientas, consulta y modelo de mediciones—, el perfil del paciente y la ampliación del
 modelo clínico.
 
-Se enuncian aquí para fijar el alcance de la fase. **UC-012, UC-013, UC-013b y UC-014 ya están
-implementados; UC-014b está documentado; los demás siguen pendientes de escribir.**
+Se enuncian aquí para fijar el alcance de la fase. **UC-012, UC-013, UC-013b, UC-014 y UC-014b ya están
+implementados; los demás siguen pendientes de escribir.**
 
 ## UC-012 — Operar el asistente como agente con herramientas y proveedor LLM real por defecto
 
@@ -153,10 +153,13 @@ Documento: [`UC-014.md`](../use-cases/UC-014.md) · [criterios de aceptación](.
 
 ## UC-014b — Consultar las mediciones por lenguaje natural
 
-**Estado:** 📝 Documentado
+**Estado:** ✅ Implementado
 
-Responder con los valores y las fechas registrados, con los mismos límites de trazabilidad y de límite
-clínico que las consultas de la historia. El análisis de evolución dedicado sigue en la Fase 7.3.
+Responder con los valores y las fechas registrados, en la unidad de referencia de cada métrica y con
+los mismos límites de trazabilidad y de límite clínico que las consultas de la historia. La presión
+arterial se presenta como una sola medición con sus dos valores; una métrica que no consta, una métrica
+que no forma parte del seguimiento y un fallo al recuperar se declaran de forma distinguible. El
+análisis de evolución dedicado sigue en la Fase 7.3.
 
 Documento: [`UC-014b.md`](../use-cases/UC-014b.md) · [criterios de aceptación](../use-cases/UC-014b-acceptance-criteria.md).
 

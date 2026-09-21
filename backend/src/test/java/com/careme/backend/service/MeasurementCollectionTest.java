@@ -43,7 +43,8 @@ class MeasurementCollectionTest {
             mock(ClinicalHistoryQueryService.class),
             encounterService,
             new ClinicalEventIntentValidator(),
-            new MetricCatalogService(admittedMetricRepository));
+            new MetricCatalogService(admittedMetricRepository),
+            mock(MeasurementQueryService.class));
 
     @BeforeEach
     void admitTheInitialMetrics() {

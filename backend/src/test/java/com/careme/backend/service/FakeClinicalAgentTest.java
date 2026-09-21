@@ -44,11 +44,35 @@ class FakeClinicalAgentTest {
 
     @Test
     void declinesARequestForAdviceWithoutAskingForAnyOperation() {
-        AgentTurn turn = agent.respond("¿Me recomiendas algo para la tensión?", CONTEXT);
+        AgentTurn turn = agent.respond("¿Me recomiendas algo para el dolor de cabeza?", CONTEXT);
 
         assertThat(turn.operations()).isEmpty();
         assertThat(turn.message()).contains("diagnóstico");
         verifyNoInteractions(executor);
+    }
+
+    @Test
+    void declinesAdviceAboutAMeasurementWhileConsultingItsOwnChannel() {
+        when(executor.execute(any(), any(), any())).thenReturn(answered());
+
+        agent.respond("¿Me recomiendas algo para la tensión?", CONTEXT);
+
+        AgentOperationCall call = capturedCall();
+        assertThat(call.operation()).isEqualTo(AgentOperation.CONSULT_MEASUREMENTS);
+        assertThat(call.arguments().path("interpretation_requested").asBoolean()).isTrue();
+        assertThat(call.arguments().path("metrics")).isNotEmpty();
+    }
+
+    @Test
+    void answersAMeasurementQuestionByItsOwnChannel() {
+        when(executor.execute(any(), any(), any())).thenReturn(answered());
+
+        agent.respond("¿Cuál es mi peso?", CONTEXT);
+
+        AgentOperationCall call = capturedCall();
+        assertThat(call.operation()).isEqualTo(AgentOperation.CONSULT_MEASUREMENTS);
+        assertThat(call.arguments().path("metrics")).hasSize(1);
+        assertThat(call.arguments().path("metrics").get(0).asText()).isEqualTo("weight");
     }
 
     @Test

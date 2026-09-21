@@ -12,6 +12,7 @@ class AgentOperationTest {
         assertThat(AgentOperation.values())
                 .containsExactlyInAnyOrder(
                         AgentOperation.CONSULT_HISTORY,
+                        AgentOperation.CONSULT_MEASUREMENTS,
                         AgentOperation.RECORD_NOTE,
                         AgentOperation.RECORD_MEASUREMENT);
     }

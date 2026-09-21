@@ -2,6 +2,7 @@ package com.careme.backend.service;
 
 import com.careme.backend.dto.AgentOperation;
 import com.careme.backend.dto.ClinicalEventIntent;
+import com.careme.backend.dto.MeasurementQueryIntent;
 import com.careme.backend.entity.ClinicalEvent;
 import com.careme.backend.entity.EncounterMeasurementNote;
 import com.careme.backend.entity.MeasurementUnit;
@@ -21,7 +22,7 @@ import org.springframework.stereotype.Service;
 /**
  * Runs the operations the assistant asks for.
  *
- * <p>Both operations are executed through the application, which validates inside
+ * <p>Every operation is executed through the application, which validates inside
  * the call before producing any effect, so no fact reaches the clinical history
  * without passing the same deterministic checks as before. An operation that is
  * not one of the available ones is never executed.
@@ -37,14 +38,6 @@ public class AgentOperationExecutor {
 
     private static final String NOT_ADMISSIBLE =
             "No he podido completar esa operación con lo que me has dicho.";
-
-    /**
-     * The measurement tracking has its own space, so a question about weight or
-     * abdominal circumference is not answered from the clinical history.
-     */
-    private static final String MEASUREMENT_REDIRECT =
-            "El peso y la circunferencia abdominal tienen su propio espacio de seguimiento"
-                    + " y no forman parte de la historia clínica que consulto aquí.";
 
     /**
      * A metric the tracking does not admit yet. The catalogue knows how to describe it,
@@ -70,16 +63,19 @@ public class AgentOperationExecutor {
     private final EncounterService encounterService;
     private final ClinicalEventIntentValidator intentValidator;
     private final MetricCatalogService metricCatalogService;
+    private final MeasurementQueryService measurementQueryService;
 
     public AgentOperationExecutor(
             ClinicalHistoryQueryService historyQueryService,
             EncounterService encounterService,
             ClinicalEventIntentValidator intentValidator,
-            MetricCatalogService metricCatalogService) {
+            MetricCatalogService metricCatalogService,
+            MeasurementQueryService measurementQueryService) {
         this.historyQueryService = historyQueryService;
         this.encounterService = encounterService;
         this.intentValidator = intentValidator;
         this.metricCatalogService = metricCatalogService;
+        this.measurementQueryService = measurementQueryService;
     }
 
     /**
@@ -96,6 +92,7 @@ public class AgentOperationExecutor {
         }
         return switch (call.operation()) {
             case CONSULT_HISTORY -> consult(conversationId, call.arguments());
+            case CONSULT_MEASUREMENTS -> consultMeasurements(conversationId, call.arguments());
             case RECORD_NOTE -> collect(conversationId, call.arguments(), referenceDate);
             case RECORD_MEASUREMENT -> collectMeasurement(conversationId, call.arguments(), referenceDate);
         };
@@ -110,7 +107,12 @@ public class AgentOperationExecutor {
             return AgentOperationResult.rejected(AgentOperationResult.Rejection.NOT_ADMISSIBLE, NOT_ADMISSIBLE);
         }
         if (intent.query().scope() == ClinicalEventIntent.Query.Scope.MEASUREMENTS) {
-            return AgentOperationResult.rejected(AgentOperationResult.Rejection.ELSEWHERE, MEASUREMENT_REDIRECT);
+            // The question belongs to the measurement tracking. It is answered there and
+            // never from the clinical history, whichever operation the assistant chose: a
+            // value of a measurement is never presented as a clinical fact.
+            log.debug("Routing a measurement question to its own channel conversationId={}", conversationId);
+            return consultMeasurements(
+                    intent.query().question(), intent.query().fromDate(), intent.query().toDate());
         }
         try {
             intentValidator.validate(intent);
@@ -119,6 +121,51 @@ public class AgentOperationExecutor {
             return AgentOperationResult.rejected(AgentOperationResult.Rejection.NOT_ADMISSIBLE, NOT_ADMISSIBLE);
         }
         return AgentOperationResult.of(AgentOperation.CONSULT_HISTORY, historyQueryService.answer(intent));
+    }
+
+    /**
+     * Consults the measurement tracking. The query is read-only: it retrieves the
+     * measurements that answer the question and never changes one.
+     */
+    private AgentOperationResult consultMeasurements(String conversationId, JsonNode arguments) {
+        MeasurementQueryIntent intent = new MeasurementQueryIntent(
+                text(arguments, "question"),
+                metricCodes(arguments),
+                date(arguments, "date_from"),
+                date(arguments, "date_to"),
+                flag(arguments, "interpretation_requested"));
+        log.debug("Consulting the measurement tracking conversationId={}", conversationId);
+        return AgentOperationResult.of(
+                AgentOperation.CONSULT_MEASUREMENTS, measurementQueryService.answer(intent));
+    }
+
+    /**
+     * The question of a consultation the assistant routed to the history but that
+     * belongs to the measurement tracking, answered by its own channel.
+     */
+    private AgentOperationResult consultMeasurements(String question, LocalDate from, LocalDate to) {
+        MeasurementQueryIntent intent = new MeasurementQueryIntent(question, List.of(), from, to, false);
+        return AgentOperationResult.of(
+                AgentOperation.CONSULT_MEASUREMENTS, measurementQueryService.answer(intent));
+    }
+
+    private static List<String> metricCodes(JsonNode arguments) {
+        JsonNode node = arguments == null ? null : arguments.path("metrics");
+        if (node == null || !node.isArray()) {
+            return List.of();
+        }
+        List<String> codes = new ArrayList<>();
+        node.forEach(value -> {
+            if (value.isTextual() && !value.asText().isBlank()) {
+                codes.add(value.asText().trim());
+            }
+        });
+        return codes;
+    }
+
+    private static boolean flag(JsonNode arguments, String field) {
+        JsonNode node = arguments == null ? null : arguments.path(field);
+        return node != null && node.asBoolean(false);
     }
 
     private AgentOperationResult collect(String conversationId, JsonNode arguments, LocalDate referenceDate) {

@@ -26,6 +26,48 @@ describe("chatResponseSchema", () => {
     expect(chatResponseSchema.safeParse({ ...base, status: "otro" }).success).toBe(false);
   });
 
+  it.each(["no_measurements", "no_measurements_in_period", "metric_not_tracked"])(
+    "accepts the %s absence reason",
+    (absenceReason) => {
+      const parsed = chatResponseSchema.safeParse({ ...base, status: "no_records", absenceReason });
+
+      expect(parsed.success).toBe(true);
+    },
+  );
+
+  it("accepts an answer that carries the measurements supporting it", () => {
+    const parsed = chatResponseSchema.safeParse({
+      ...base,
+      status: "answered",
+      measurements: [
+        {
+          reference: "blood_pressure@2026-01-10",
+          metric: "blood_pressure",
+          label: "presión arterial",
+          unit: "mmHg",
+          date: "2026-01-10",
+          values: [
+            { component: "systolic", value: "145" },
+            { component: "diastolic", value: "92" },
+          ],
+          text: "presión arterial: sistólica 145 mmHg, diastólica 92 mmHg (2026-01-10)",
+        },
+      ],
+    });
+
+    expect(parsed.success).toBe(true);
+  });
+
+  it("rejects a measurement the interface cannot present", () => {
+    const parsed = chatResponseSchema.safeParse({
+      ...base,
+      status: "answered",
+      measurements: [{ reference: "weight@2026-01-10", label: "peso" }],
+    });
+
+    expect(parsed.success).toBe(false);
+  });
+
   it("accepts an answered turn that carries its supporting events and their precision", () => {
     const parsed = chatResponseSchema.safeParse({
       ...base,

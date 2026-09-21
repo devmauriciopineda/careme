@@ -21,5 +21,8 @@ public interface MetricMeasurementJpaDao extends JpaRepository<MetricMeasurement
 
     Optional<MetricMeasurementEntity> findByMetricAndDate(String metric, LocalDate date);
 
+    List<MetricMeasurementEntity> findByMetricInAndDateBetween(
+            Collection<String> metrics, LocalDate from, LocalDate to);
+
     List<MetricMeasurementEntity> findByMetricAndDateIn(String metric, Collection<LocalDate> dates);
 }

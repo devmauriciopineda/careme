@@ -102,8 +102,9 @@ Dos consecuencias prácticas del patrón:
   de diseño y no un detalle.
 
 En Careme el puerto que nombra esta capacidad es `ClinicalAgent`, y el conjunto de
-herramientas es **cerrado**: tres operaciones declaradas —consultar la historia y
-recoger notas de hecho y de medición—. La aplicación declara, el modelo elige y el
+herramientas es **cerrado**: cuatro operaciones declaradas —consultar la historia,
+consultar el seguimiento de mediciones y recoger notas de hecho y de medición—. La
+aplicación declara, el modelo elige y el
 código ejecuta; lo que no está declarado no existe para el modelo. El detalle de
 roles, ejecución y validación está en §3.2.1 y §3.3.
 
@@ -115,7 +116,9 @@ roles, ejecución y validación está en §3.2.1 y §3.3.
 
 **Por qué salida estructurada en lugar de texto libre.** Si el modelo devolviera prosa, habría que adivinar qué quiso decir. Pidiéndole que elija entre operaciones declaradas y devuelva sus argumentos con una forma fija, el resultado se convierte en un dato que el programa puede **validar y rechazar**. El modelo nunca escribe directamente en la persistencia: la operación pasa por validación antes de tocar nada.
 
-**Por qué el modelo decide y el código ejecuta.** El sistema no clasifica el mensaje por su cuenta para después redactar: publica un conjunto **cerrado** de operaciones —consultar la historia, tomar nota de un hecho dentro de la consulta— y deja que el modelo elija. Eso traslada al modelo la parte que hace bien, entender lenguaje natural variado, y deja en el código la parte que debe ser predecible: resolver los argumentos, validarlos, recuperar y registrar al cerrar la consulta. Cada ejecución recibe únicamente el material que le corresponde, y lo que una ejecución no recibe no lo puede afirmar.
+**Por qué el modelo decide y el código ejecuta.** El sistema no clasifica el mensaje por su cuenta para después redactar: publica un conjunto **cerrado** de operaciones —consultar la historia, consultar el
+seguimiento de mediciones, tomar nota de un hecho dentro de la consulta— y deja
+que el modelo elija. Eso traslada al modelo la parte que hace bien, entender lenguaje natural variado, y deja en el código la parte que debe ser predecible: resolver los argumentos, validarlos, recuperar y registrar al cerrar la consulta. Cada ejecución recibe únicamente el material que le corresponde, y lo que una ejecución no recibe no lo puede afirmar.
 
 **Por qué RAG con recuperación léxica.** El modelo no conoce la historia clínica de la persona, y no debe inventarla. La recuperación aporta los hechos reales, y el modelo solo los redacta. La búsqueda es **léxica** (sobre las palabras de la persona), no semántica: es predecible, no requiere almacenar vectores y respeta el vocabulario original.
 
@@ -185,15 +188,16 @@ herramientas, y es el que implementa Careme.
 
 ### 3.3 De lenguaje a operaciones: las funciones declaradas
 
-El turno empieza cuando el modelo convierte el mensaje en una o más **operaciones** elegidas de un conjunto cerrado. Son tres:
+El turno empieza cuando el modelo convierte el mensaje en una o más **operaciones** elegidas de un conjunto cerrado. Son cuatro:
 
 | Operación | Significado |
 | --- | --- |
 | `consult_history` | El mensaje pregunta por la historia clínica |
+| `consult_measurements` | El mensaje pregunta por las mediciones del seguimiento —una métrica, varias o un periodo— |
 | `record_note` | El mensaje menciona hechos clínicos que la persona afirma y deben quedar recogidos en la consulta |
 | `record_measurement` | El mensaje menciona una medición —métrica, valor y fecha— que debe quedar recogida en la consulta |
 
-Una operación de consulta lleva la pregunta, un **ámbito** (historia o seguimiento corporal), los **términos de búsqueda** y, cuando la persona los mencionó, filtros de tipo y de fecha. Una operación de nota lleva los hechos candidatos con su tipo, su contenido y su precisión temporal. Una operación de medición lleva la métrica que la persona nombró, su valor o sus valores, la unidad cuando la dijo y la fecha con su precisión, y **no** se declara como hecho clínico: la medición viaja por su propio cauce. Ninguna de las tres expone rutas, archivos ni almacenamiento: el modelo nombra una capacidad, no un recurso.
+Una operación de consulta de la historia lleva la pregunta, un **ámbito** (historia o seguimiento corporal), los **términos de búsqueda** y, cuando la persona los mencionó, filtros de tipo y de fecha. Una operación de consulta del seguimiento lleva la pregunta, las **métricas** que la persona nombró y el **periodo**, y es de **solo lectura**: pedir una medición nunca cambia el seguimiento. Una operación de nota lleva los hechos candidatos con su tipo, su contenido y su precisión temporal. Una operación de medición lleva la métrica que la persona nombró, su valor o sus valores, la unidad cuando la dijo y la fecha con su precisión, y **no** se declara como hecho clínico: la medición viaja por su propio cauce. Ninguna de las cuatro expone rutas, archivos ni almacenamiento: el modelo nombra una capacidad, no un recurso.
 
 **Registrar no es una operación del turno.** Un hecho mencionado durante la conversación se recoge como **nota** de la consulta, y una medición como **nota de medición**; la incorporación a la historia clínica y al seguimiento de mediciones ocurre al **cerrar** la consulta. Mientras la consulta está en curso, ninguna operación del turno escribe: el turno y el cierre son dos momentos distintos, y el resultado del turno declara lo recogido, no lo registrado.
 
@@ -205,7 +209,7 @@ Antes de ejecutar nada, el código **valida** la operación solicitada:
 
 - la operación tiene que estar **declarada**; si no lo está, no se resuelve y no se ejecuta;
 - una consulta **no puede** traer hechos candidatos, y necesita al menos un término de búsqueda o un filtro;
-- una consulta sobre el seguimiento corporal —peso y circunferencia— no se atiende por este cauce, que es la historia clínica, y se responde con la indicación de dónde sí consta;
+- una consulta cuyo ámbito es el seguimiento de mediciones no se responde desde la historia clínica: se atiende por el cauce de las mediciones, de modo que un valor de medición nunca se presenta como un hecho clínico aunque el modelo haya pedido la operación equivocada;
 - un hecho con precisión exacta **necesita** una fecha;
 - una medición **necesita** una métrica admitida, un valor válido para ella, una unidad inequívoca y una fecha **exacta**; una fecha aproximada o desconocida no se convierte en exacta.
 
@@ -287,6 +291,12 @@ Verificar las citas no basta, porque una respuesta puede apoyarse en hechos real
 - Con cobertura **ninguna**, el texto compuesto se descarta —podría describir hechos que no vienen al caso— y el sistema declara la ausencia: ningún hecho recuperado se presenta como apoyo de algo que no responde.
 
 De esta redacción no se encarga el turno por su cuenta: la convoca la operación de consulta cuando hay hechos que responder. Si no hay ninguno, no se llama al modelo para redactar y el sistema declara la ausencia.
+
+**Cuando el dato es un número: el código formatea y el modelo solo redacta.** En la consulta de la historia el material son las palabras de la persona, y verificar que la respuesta cita hechos reales basta. En el seguimiento de mediciones el material son **valores, unidades y fechas exactas**, y ahí la fidelidad es el requisito: una respuesta que redondea `70,5 kg` a `70 kg`, o que omite la unidad, muestra un registro alterado. Verificar las citas no detectaría eso, porque la medición citada existe.
+
+Por eso en este cauce los papeles se invierten. El **código** elige el formato —la etiqueta de la métrica en español, cada valor con su unidad de referencia, la fecha exacta, y una métrica compuesta como **una sola** medición con sus dos valores— y entrega al modelo esos hechos ya escritos. El modelo **redacta alrededor**: introduce, ordena y explica, sin producir los números. Y el resultado se comprueba **por reproducción literal**: si el texto compuesto no contiene cada hecho formateado tal cual se entregó, la composición se descarta y se usa la redacción determinista del código.
+
+La regla general que deja este caso: cuanto más cerca está el dato de ser **la fuente de verdad misma** —un número, una unidad, una fecha—, menos margen puede tener el modelo para reescribirlo.
 
 ### 3.8 Una sola respuesta para todo el turno
 

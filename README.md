@@ -37,6 +37,11 @@ facts only and never diagnoses or recommends treatment.
   the conversation, is the only one in progress, and closes when the person ends
   it — or when another conversation starts or the process stops — registering the
   facts it collected.
+- The same chat answers questions about the measurements: it reads the metric
+  tracking and replies with the values, their reference unit and their exact date,
+  one measurement per metric and day —blood pressure with its two values—, and it
+  declares an absence, a period without measurements or a metric outside the
+  tracking instead of inventing values. Asking never changes the tracking.
 - The same chat answers general conversation that does not depend on the clinical
   history, without reading it, and declines requests for a diagnosis, a
   recommendation or an interpretation of the case.
@@ -267,6 +272,80 @@ Testcontainers, so the container runtime is required but `docker-compose.yml`
 does not need to be running. The frontend tests run in jsdom and need neither the
 backend nor the database.
 
+### Run the end-to-end tests (Playwright)
+
+The scenarios under `frontend/e2e/playwright/` drive the real interface against a
+running stack, so they need four things in place before they run. Getting any of
+them wrong produces failures that point away from the real cause.
+
+**1. A container runtime, Podman first.** Podman is preferred; use Docker only
+when Podman is not installed. On Windows `docker` is often absent while
+`docker-compose` exists only as a shim, so `docker compose` fails where `podman`
+works.
+
+**2. PostgreSQL, reachable from the backend.** Start it with
+`podman compose up -d postgres`, or directly:
+
+```bash
+podman run -d --name careme-pg -e POSTGRES_DB=careme -e POSTGRES_USER=careme \
+  -e POSTGRES_PASSWORD=careme -p 5432:5432 postgres:17-alpine
+```
+
+**A port published by Podman is not reachable on IPv4.** `podman port` reports
+`0.0.0.0:5432`, but on the host `127.0.0.1:5432` is refused while `[::1]:5432`
+accepts: Podman forwards on the IPv6 loopback. The JDBC driver resolves
+`localhost` to IPv4 first, so the backend dies during Flyway with
+`Connection to localhost:5432 refused` (`SQL State: 08001`) while the container is
+healthy. Point it at the IPv6 loopback instead:
+
+```bash
+CAREME_DB_URL="jdbc:postgresql://[::1]:5432/careme"
+```
+
+Two checks mislead here: `pg_isready` **inside** the container proves nothing
+about the host mapping, and `Test-NetConnection -InformationLevel Quiet` can
+report the port as reachable while it is closed. Verify with a real TCP connect
+from the host.
+
+**3. Backend and frontend up, with the clinical-event directory on the host.** Run
+the backend locally rather than through compose: compose mounts the events into
+the named volume `careme-events`, which a host `CAREME_EVENTS_DIRECTORY` cannot
+point at. Use a scratch directory so the committed `backend/data/` stays intact —
+the scenarios assert that directory starts **empty**:
+
+```bash
+# terminal 1 — backend
+cd backend
+CAREME_EVENTS_DIRECTORY="$PWD/target/e2e-events" \
+CAREME_ENCOUNTERS_DIRECTORY="$PWD/target/e2e-encounters" \
+CAREME_DB_URL="jdbc:postgresql://[::1]:5432/careme" \
+./mvnw spring-boot:run                 # Windows: .\mvnw.cmd spring-boot:run
+
+# terminal 2 — frontend
+cd frontend && pnpm dev
+```
+
+**4. The real assistant, configured.** The scenarios exercise the provider, so
+`CAREME_LLM_API_KEY` must be set. A walkthrough costs several provider round
+trips, which is why a scenario that makes more than one may need its own budget
+(`test.describe.configure({ timeout: … })`) instead of the per-test default.
+
+Then run a scenario with the events directory exported, so it can compare the
+history before and after a turn:
+
+```powershell
+# Windows
+$env:CAREME_EVENTS_DIRECTORY = "C:\path\to\careme\backend\target\e2e-events"
+cd frontend
+pnpm exec playwright test --project=interface e2e/playwright/uc-014b.spec.ts
+```
+
+```bash
+# Linux / macOS
+CAREME_EVENTS_DIRECTORY="$PWD/backend/target/e2e-events" \
+  pnpm exec playwright test --project=interface e2e/playwright/uc-014b.spec.ts
+```
+
 ### If something is already running, or a port is taken
 
 > **Do not run Option A and Option B at the same time.** Ports 3000 and 8080 are
@@ -308,9 +387,10 @@ lsof -iTCP:3000 -iTCP:8080 -iTCP:5432 -sTCP:LISTEN
   open consultation — the turn writes neither the history nor the tracking; use
   the **Terminar consulta** action to end the consultation and register the
   collected facts with their provenance and the measurements in the metric
-  tracking. Or ask about your clinical history to
-  receive an answer with supporting records. It may ask for clarification or
-  answer as general conversation. If the LLM is not configured it runs the `fake`
+  tracking. Or ask about your clinical history, or about your measurements
+  ("¿cuánto peso?", "¿cuál es mi presión arterial?"), to receive an answer with
+  supporting records or with the registered values, units and dates. It may ask
+  for clarification or answer as general conversation. If the LLM is not configured it runs the `fake`
   interpreter, safe for local development.
 3. Open http://localhost:3000/measurements for the body-tracking dashboard. It
    shows the date range, the record count, one trend chart per metric and the
