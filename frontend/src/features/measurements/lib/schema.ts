@@ -43,6 +43,38 @@ export const measurementCreatedResponseSchema = z.object({
     message: z.string(),
 });
 
+const trackingMetricCatalogSchema = z.object({
+    code: z.string().min(1),
+    label: z.string().min(1),
+    referenceUnit: z.string().min(1),
+    components: z.array(z.object({ key: z.string().min(1) })),
+});
+
+const trackingMeasurementSchema = z.object({
+    id: z.string().min(1),
+    date: z.string().regex(ISO_DATE_PATTERN),
+    values: z.array(z.object({ component: z.string().min(1), value: z.number() })),
+});
+
+export const trackingCatalogResponseSchema = z.object({
+    success: z.literal(true),
+    data: z.array(trackingMetricCatalogSchema),
+    messageCode: z.string(),
+    message: z.string(),
+});
+
+export const trackingMetricResponseSchema = z.object({
+    success: z.literal(true),
+    data: z.object({
+        code: z.string().min(1),
+        label: z.string().min(1),
+        unit: z.string().min(1),
+        measurements: z.array(trackingMeasurementSchema),
+    }),
+    messageCode: z.string(),
+    message: z.string(),
+});
+
 const nonNegativeCount = z.number().int().nonnegative();
 
 const importPreviewRowSchema = z.object({

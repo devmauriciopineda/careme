@@ -28,6 +28,9 @@ public interface MetricMeasurementRepository {
      */
     List<MetricMeasurement> findByMetrics(Collection<Metric> metrics);
 
+    /** @return every stored measurement of the given metric, in no particular order */
+    List<MetricMeasurement> findByMetric(Metric metric);
+
     /**
      * @return the stored measurements of the given metrics whose day falls inside
      *         the period, in no particular order; a {@code null} bound leaves that

@@ -15,14 +15,19 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import org.springframework.beans.factory.annotation.Autowired;
+
 import com.careme.backend.dto.ApiResponse;
 import com.careme.backend.dto.ImportPreviewResponse;
 import com.careme.backend.dto.ImportResultResponse;
 import com.careme.backend.dto.MeasurementRequest;
 import com.careme.backend.dto.MeasurementResponse;
+import com.careme.backend.dto.MetricCatalogResponse;
+import com.careme.backend.dto.TrackingMetricResponse;
 import com.careme.backend.exception.MeasurementImportException;
 import com.careme.backend.service.MeasurementImportService;
 import com.careme.backend.service.MeasurementService;
+import com.careme.backend.service.MetricTrackingService;
 
 import jakarta.validation.Valid;
 
@@ -35,17 +40,38 @@ public class MeasurementController {
 
     private final MeasurementService measurementService;
     private final MeasurementImportService measurementImportService;
+    private final MetricTrackingService metricTrackingService;
+
+    @Autowired
+    public MeasurementController(
+            MeasurementService measurementService,
+            MeasurementImportService measurementImportService,
+            MetricTrackingService metricTrackingService) {
+        this.measurementService = measurementService;
+        this.measurementImportService = measurementImportService;
+        this.metricTrackingService = metricTrackingService;
+    }
 
     public MeasurementController(
             MeasurementService measurementService,
             MeasurementImportService measurementImportService) {
-        this.measurementService = measurementService;
-        this.measurementImportService = measurementImportService;
+        this(measurementService, measurementImportService, null);
     }
 
     @GetMapping
     public ApiResponse<List<MeasurementResponse>> findAll() {
         return ApiResponse.ok(measurementService.findAll());
+    }
+
+    @GetMapping("/catalog")
+    public ApiResponse<List<MetricCatalogResponse>> catalog() {
+        return ApiResponse.ok(metricTrackingService.catalog());
+    }
+
+    @GetMapping("/tracking/{metricCode}")
+    public ApiResponse<TrackingMetricResponse> findTracking(
+            @org.springframework.web.bind.annotation.PathVariable String metricCode) {
+        return ApiResponse.ok(metricTrackingService.findByCode(metricCode));
     }
 
     @PostMapping

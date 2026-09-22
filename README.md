@@ -59,10 +59,16 @@ facts only and never diagnoses or recommends treatment.
   the days that are new from the ones that would be replaced.
 - Input validation in Spanish: required fields, positive values, a single decimal,
   the allowed limits and a date that is not in the future.
-- One trend chart per metric, with an axis domain padded around the data range so
-  small day-to-day variations stay readable.
-- A daily table sorted from the most recent record to the oldest.
-- A date range and record count summary for the loaded period.
+- A selector over the admitted catalogue that offers only the metrics with
+  registered measurements, with weight and abdominal circumference selected by
+  default.
+- One trend chart per selected metric, with an axis domain padded around the data
+  range so small day-to-day variations stay readable; blood pressure is one metric
+  with a systolic and a diastolic series.
+- A single daily detail table with a column per selected metric, ordered from the
+  oldest record to the most recent.
+- An isolated failure per metric: a metric that cannot be read says so in Spanish
+  and offers its own retry, without hiding the metrics that did load.
 - Localized date and number formatting (Spanish) that does not shift with the
   visitor's time zone.
 - A route-level error screen when the data service is unreachable.
@@ -89,12 +95,12 @@ browser ──▶ frontend (Next.js, port 3000)
 - The **frontend** is a Next.js App Router application. The chat workspace is the
   entry point at `/`; clinical-event inspection lives at `/clinical-events`; the
   body-tracking dashboard lives at `/measurements`. The dashboard is an async
-  Server Component: it fetches the measurements on the
-  server, validates the payload and derives every chart series, axis domain and
-  date label there. The registration form is a client island that submits through
-  a Server Action, which revalidates the path so the charts and the table refresh
-  on their own. Recharts, the registration/import forms and the chat workspace
-  are the client-side islands.
+  Server Component: it reads the admitted catalogue and one payload per metric on
+  the server, and hands them resolved to a client island that owns the metric
+  selection and the per-metric retry. The registration form is a client island
+  that submits through a Server Action, which revalidates the path so the charts
+  and the table refresh on their own. Recharts, the registration/import forms and
+  the chat workspace are the client-side islands.
 - The **backend** is a Spring Boot REST service with measurement read, write and
   import endpoints, a chat endpoint, a consultation-close endpoint, read-only
   clinical-event inspection endpoints and a clinical-event reindex endpoint. It
@@ -134,7 +140,9 @@ Each service is documented in its own README:
   call. The key is read from the environment (`CAREME_LLM_API_KEY`) and never
   reaches the browser; see [`backend/README.md`](./backend/README.md).
 - The frontend consumes the backend's own HTTP API
-  (`GET` and `POST /api/v1/measurements`, the CSV import endpoints,
+  (`GET` and `POST /api/v1/measurements`,
+  `GET /api/v1/measurements/catalog`,
+  `GET /api/v1/measurements/tracking/{metricCode}`, the CSV import endpoints,
   `POST /api/v1/chat/messages`,
   `POST /api/v1/chat/conversations/{conversationId}/consultation/close` and the
   read-only clinical-event inspection endpoints). The contract is documented in
@@ -396,13 +404,14 @@ lsof -iTCP:3000 -iTCP:8080 -iTCP:5432 -sTCP:LISTEN
   for clarification or answer as general conversation. If the LLM is not configured it runs the `fake`
   interpreter, safe for local development.
 3. Open http://localhost:3000/measurements for the body-tracking dashboard. It
-   shows the date range, the record count, one trend chart per metric and the
-   daily table. Hover or focus a chart to read individual values: with the chart
+   lists the metrics that have registered measurements, shows one trend chart per
+   selected metric and a single daily detail table with a column per selected
+   metric. Hover or focus a chart to read individual values: with the chart
    focused, the left and right arrow keys move across data points.
 4. The table starts empty, so the dashboard first shows its empty state. Register
    the measurement of a day with the registration form, or load a CSV file with
-   the import action. Re-registering a day replaces its values, because the view
-   holds one weight-and-circumference pair per day.
+   the import action. Re-registering a day replaces its values, because the form
+   records one weight-and-circumference pair per day.
 5. If the backend is not running, the dashboard shows a "measurements could not
    be loaded" screen with a retry button instead of crashing.
 

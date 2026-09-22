@@ -291,16 +291,16 @@ El flujo de mediciones ilustra la composición:
 
 ```text
 MeasurementsDashboard (servidor, asíncrono)
-├── obtiene mediciones
-├── deriva series, ejes y etiquetas
-├── MeasurementsTable (renderizado)
-├── MetricTrendChart (isla cliente: Recharts)
+├── obtiene y valida los datos
+├── MeasurementsTrackingView (isla cliente: selección y reintento)
+│   ├── MeasurementsTable (renderizado)
+│   └── MetricTrendChart (isla cliente: Recharts)
 └── MeasurementForm (isla cliente: formulario)
 ```
 
-El servidor envía a las islas valores serializables, como cadenas y números.
-No envía objetos `Date` ni funciones. Así, el formato de fechas se resuelve en
-un único entorno y no depende de la zona horaria del navegador.
+El servidor envía a las islas valores serializables, como cadenas y números. No envía
+objetos `Date` ni funciones: la fecha viaja como texto y se formatea con una zona
+fija, así que la etiqueta no depende de la zona horaria de quien mira.
 
 ```mermaid
 sequenceDiagram
@@ -309,7 +309,7 @@ sequenceDiagram
     participant API as Backend
     S->>API: solicita datos
     API-->>S: respuesta JSON
-    S->>S: valida y deriva datos visuales
+    S->>S: valida y resuelve los datos
     S-->>B: HTML + props serializables
     B->>B: hidrata solo las islas interactivas
 ```
@@ -448,7 +448,39 @@ falla. Después de una escritura correcta, `revalidatePath` invalida el resultad
 renderizado de la ruta; los Server Components vuelven a ejecutarse y la página
 refleja el dato nuevo sin que el navegador coordine un `fetch` adicional.
 
-Las fechas se formatean en el servidor con una zona fija y los textos visibles
+Las fechas viajan como texto y se formatean con una zona fija, y los textos visibles
 se mantienen en español, mientras que identificadores y código se escriben en
 inglés. La separación evita que las decisiones de presentación se dispersen por
 las capas de datos y que el idioma del producto se mezcle con el del código.
+
+### 9.1 Granularidad de la lectura y alcance del fallo
+
+La lectura de datos puede hacerse en **una sola petición** o **por unidad**. La
+elección no afecta solo al rendimiento: fija el **alcance del fallo**. Cuando todo
+llega en una respuesta única, cualquier error obliga a descartar el conjunto entero,
+y no hay forma de reintentar solo la parte que falló. Cuando cada unidad se lee por
+separado, un error queda **aislado** a esa unidad: lo ya recibido sigue siendo válido
+y se muestra, y la persona puede **reintentar solo esa unidad**.
+
+De ahí una regla de diseño: **la recuperación no puede ser más fina que la lectura**.
+Para poder ofrecer «reintentar solo esto», esto tiene que haberse pedido aparte. El
+coste es un mayor número de peticiones, así que la granularidad se elige por la
+unidad que tiene sentido recuperar y no por el número de elementos.
+
+Un fallo aislado tampoco puede presentarse como ausencia: «no se pudo cargar» y «no
+hay nada registrado» son resultados distintos, y confundirlos informa mal a la
+persona sobre el estado de sus datos.
+
+### 9.2 Una selección, varias representaciones
+
+Cuando la misma información se ofrece de dos formas —por ejemplo una tendencia
+visual y una tabla de valores—, ambas deben derivarse del **mismo estado**. Si cada
+representación mantuviera su propia selección, las dos vistas podrían mostrar
+conjuntos distintos y quien mira no tendría forma de saber qué está viendo. Un único
+estado de selección que alimenta todas las representaciones elimina esa divergencia
+por construcción.
+
+Esa equivalencia tiene además una razón de accesibilidad: una representación gráfica
+no puede ser la **única** fuente del dato. La forma textual —una tabla con las fechas
+y los valores— no es un adorno añadido a la gráfica, sino su equivalente, y es la que
+permite comprobar un valor concreto sin depender de la percepción visual.

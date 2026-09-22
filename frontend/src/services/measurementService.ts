@@ -5,12 +5,16 @@ import {
     importResultResponseSchema,
     measurementCreatedResponseSchema,
     measurementResponseSchema,
+    trackingCatalogResponseSchema,
+    trackingMetricResponseSchema,
 } from "@/features/measurements/lib/schema";
 import type {
     ImportPreview,
     ImportResult,
     Measurement,
     MeasurementInput,
+    TrackingMetric,
+    TrackingMetricCatalog,
 } from "@/features/measurements/types";
 import { API_BASE_URL } from "@/services/apiConfig";
 
@@ -69,6 +73,29 @@ async function postFile(path: string, file: File): Promise<unknown> {
  * so the rest of the app only ever sees well-formed measurements.
  */
 export const measurementService = {
+    async getTrackingCatalog(): Promise<TrackingMetricCatalog[]> {
+        const response = await fetch(`${API_BASE_URL}${MEASUREMENTS_PATH}/catalog`, {
+            cache: "no-store",
+        });
+        if (!response.ok) {
+            throw new Error(`Measurements catalog API responded with ${response.status}`);
+        }
+        const { data } = trackingCatalogResponseSchema.parse(await response.json());
+        return data;
+    },
+
+    async getTrackingMetric(metricCode: string): Promise<TrackingMetric> {
+        const response = await fetch(
+            `${API_BASE_URL}${MEASUREMENTS_PATH}/tracking/${encodeURIComponent(metricCode)}`,
+            { cache: "no-store" }
+        );
+        if (!response.ok) {
+            throw new Error(`Metric tracking API responded with ${response.status}`);
+        }
+        const { data } = trackingMetricResponseSchema.parse(await response.json());
+        return data;
+    },
+
     async getMeasurements(): Promise<Measurement[]> {
         try {
             const response = await fetch(`${API_BASE_URL}${MEASUREMENTS_PATH}`, {

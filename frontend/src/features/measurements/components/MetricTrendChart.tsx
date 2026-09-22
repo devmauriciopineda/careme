@@ -15,20 +15,13 @@ import {
     ChartTooltipContent,
     type ChartConfig,
 } from "@/components/ui/chart";
-import {
-    METRICS,
-    buildChartSummary,
-    formatMetricValue,
-} from "@/features/measurements/lib/metrics";
+import { formatMeasurementDate } from "@/features/measurements/lib/metrics";
 import { STRINGS } from "@/features/measurements/lib/strings";
-import type { MetricKey, SeriesPoint } from "@/features/measurements/types";
+import type { TrackingMetric, TrackingMetricCatalog } from "@/features/measurements/types";
 
 type MetricTrendChartProps = {
-    metric: MetricKey;
-    /** Points already sorted and localized on the server. */
-    series: SeriesPoint[];
-    domain: [number, number];
-    description: string;
+    metric: TrackingMetric;
+    definition: TrackingMetricCatalog;
 };
 
 /**
@@ -38,21 +31,31 @@ type MetricTrendChartProps = {
  */
 export function MetricTrendChart({
     metric,
-    series,
-    domain,
-    description,
+    definition,
 }: MetricTrendChartProps) {
-    const config = METRICS[metric];
-    const chartConfig = {
-        value: { label: config.label, color: config.colorVar },
-    } satisfies ChartConfig;
-    const summary = buildChartSummary(series, config);
+    const series = metric.measurements.map((measurement) => ({
+        label: formatMeasurementDate(measurement.date),
+        ...Object.fromEntries(measurement.values.map((value) => [value.component, value.value])),
+    }));
+    const chartConfig = Object.fromEntries(
+        definition.components.map((component, index) => [
+            component.key,
+            { label: STRINGS.charts.series(component.key), color: `var(--chart-${(index % 5) + 1})` },
+        ])
+    ) satisfies ChartConfig;
+    const values = metric.measurements.flatMap((measurement) =>
+        measurement.values.map((value) => value.value)
+    );
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const padding = Math.max((max - min) * 0.15, 1);
+    const domain: [number, number] = [min - padding, max + padding];
 
     return (
         <Card>
             <CardHeader>
-                <CardTitle>{config.label}</CardTitle>
-                <CardDescription>{description}</CardDescription>
+                <CardTitle>{metric.label}</CardTitle>
+                <CardDescription>{metric.unit}</CardDescription>
             </CardHeader>
             <CardContent>
                 <figure className="m-0">
@@ -79,30 +82,36 @@ export function MetricTrendChart({
                                 axisLine={false}
                                 width={48}
                                 tickFormatter={(value: number) =>
-                                    formatMetricValue(value, config)
+                                    value.toLocaleString("es-ES", { maximumFractionDigits: 2 })
                                 }
                             />
                             <ChartTooltip
                                 content={
                                     <ChartTooltipContent
-                                        formatter={(value) =>
-                                            `${formatMetricValue(Number(value), config)} ${config.unit}`
-                                        }
+                                        formatter={(value) => `${Number(value).toLocaleString("es-ES", { maximumFractionDigits: 2 })} ${metric.unit}`}
                                     />
                                 }
                             />
-                            <Line
-                                dataKey="value"
-                                name={config.label}
-                                type="monotone"
-                                stroke="var(--color-value)"
-                                strokeWidth={2}
-                                dot={false}
-                            />
+                            {definition.components.map((component, index) => (
+                                <Line
+                                    key={component.key}
+                                    dataKey={component.key}
+                                    name={STRINGS.charts.series(component.key)}
+                                    type="monotone"
+                                    stroke={`var(--chart-${(index % 5) + 1})`}
+                                    strokeWidth={2}
+                                    dot={false}
+                                />
+                            ))}
                         </LineChart>
                     </ChartContainer>
                     <figcaption className="sr-only">
-                        {summary} {STRINGS.charts.keyboardHint}
+                        {STRINGS.charts.trackingSummary(
+                            metric.label,
+                            metric.unit,
+                            metric.measurements.length
+                        )}{" "}
+                        {STRINGS.charts.keyboardHint}
                     </figcaption>
                 </figure>
             </CardContent>

@@ -47,6 +47,12 @@ resultados. Una prueba que afirma resultados concretos puede encontrar un error
 aunque solo ejecute unas pocas líneas. Por eso cobertura y corrección son
 medidas diferentes.
 
+Una prueba es evidencia sobre una **propiedad**, y la propiedad se enuncia al
+margen de los casos —«una lectura no escribe», «la ausencia no se inventa»— porque
+los casos cambian con la implementación y la propiedad no debería cambiar con
+ellos. Ese enunciado estable es lo que permite saber después si un caso protegía
+algo o solo ejecutaba código.
+
 ## 2. La estrategia de pruebas
 
 Una **estrategia de pruebas** distribuye verificaciones por niveles para obtener
@@ -139,6 +145,35 @@ conviene atribuir el problema a PostgreSQL; si pasa la lógica pero falla una
 prueba de integración, la atención se desplaza al contrato entre componentes,
 el esquema o la configuración.
 
+### 2.3 Determinismo: cuándo una prueba deja de ser evidencia
+
+Una prueba **determinista** produce el mismo veredicto sobre el mismo código. Una
+prueba **intermitente** —que pasa y falla sin que nada haya cambiado— no es una
+prueba con mala suerte: es una prueba que ha dejado de ser evidencia, porque su
+resultado ya no permite decidir nada. Y si el proyecto no tiene verificación manual
+que la respalde, el hueco no lo cubre nadie.
+
+De ahí que el determinismo sea una **condición de validez** y no una preferencia de
+estilo, y que se pague por adelantado con reglas explícitas en lugar de con intentos
+de arreglo posteriores:
+
+- **Sin red** fuera del nivel que la necesita: una prueba cuyo resultado depende de
+  un servicio externo mide ese servicio, no el sistema.
+- **Reloj fijo** en todo lo que razone sobre «hoy», «ayer» o una fecha relativa; la
+  fecha de referencia se inyecta en lugar de leerse del sistema.
+- **Sin dependencia de orden ni de paralelismo**: un caso no consume el estado que
+  dejó otro ni depende de qué trabajador lo ejecutó.
+- **Limpieza de lo que se crea**, incluidos los archivos escritos fuera de la base
+  de datos.
+- **Una precondición ausente es un fallo, no un salto**: una prueba que pasa en
+  silencio cuando falta la infraestructura informa de una verificación que no ocurrió.
+
+Los reintentos no son una estrategia de determinismo: si se usan, el recuento se
+registra, y un reintento que oculta un fallo real es un fallo. La regla que se sigue
+de todo esto es de tolerancia cero, y es posible porque el ciclo de trabajo no tiene
+un estado «pendiente» donde aparcar un caso inestable: o el caso es fiable, o el
+cambio no está terminado.
+
 ## 3. Cómo se construye un caso de prueba
 
 Un **caso de prueba** es una especificación ejecutable de una situación concreta.
@@ -208,6 +243,27 @@ Los principales tipos son:
 Un doble reduce el coste o el ruido de una dependencia, pero no prueba la
 compatibilidad con esa dependencia. Por eso el mock de un repositorio no
 sustituye una prueba con PostgreSQL real.
+
+### 3.4 La independencia del oráculo
+
+Un oráculo vale lo que vale su **independencia** de la implementación. Cuando quien
+escribe el código escribe también la expectativa, el acuerdo entre ambos no demuestra
+nada: si la implementación tiene una idea equivocada del comportamiento, la
+expectativa tiende a compartir el mismo malentendido, y la prueba pasa. La
+coincidencia es evidencia de consistencia, no de corrección.
+
+En un equipo esa independencia aparece sola, porque quien prueba no escribió el
+código. Cuando una misma persona —o un mismo agente— implementa y verifica, hay que
+sustituirla por otras fuentes de contraste:
+
+- el **requisito**, que es externo a ambos y por eso puede desmentirlos;
+- el **oráculo externo al sistema**, cuando existe, como un contenido leído fuera de
+  la interfaz y comparado antes y después;
+- los **datos reales**, cuando el motor o el formato no admiten una interpretación
+  propia.
+
+Por eso la trazabilidad entre requisito, prueba y código no es burocracia: es lo que
+ocupa el lugar de un revisor independiente.
 
 ## 4. Tipos de pruebas y niveles
 
@@ -651,6 +707,23 @@ PostgreSQL, cobertura del backend, la verificación estática del frontend (§8.
 el recorrido de extremo a extremo con la medición sobre un corpus de evaluación
 (§4.5 y §4.6); las demás categorías sirven como contexto para ampliar la
 estrategia cuando el producto o su operación lo requieran.
+
+### 8.3 Las omisiones deliberadas
+
+Elegir qué no se verifica es una decisión de ingeniería, no un descuido, y como toda
+decisión se **registra con su consecuencia**: qué propiedad queda sin proteger y qué
+se acepta a cambio. Una omisión escrita es una decisión que puede revisarse cuando
+cambie el riesgo; una omisión silenciosa es indistinguible de un olvido, y quien lee
+asume una cobertura que no existe.
+
+Por eso conviene no confundir una cobertura baja con una deuda: un hueco declarado
+entra en el mapa de riesgos y un hueco callado entra en producción.
+
+Eso tiene una consecuencia sobre quién decide. Aceptar un riesgo nuevo, rebajar una
+puerta o recortar el alcance de una comprobación no lo puede aprobar quien necesita
+la excepción para avanzar, porque no hay contrapeso: lo aprueba otra persona. Y una
+excepción no es un aplazamiento: o se aplica ahora, con su consecuencia anotada, o el
+trabajo no se cierra.
 
 ## 9. Evaluación de texto generado por un modelo
 

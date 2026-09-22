@@ -12,6 +12,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import com.careme.backend.exception.ClinicalEventInspectionException;
+import com.careme.backend.exception.MetricNotFoundException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
@@ -61,6 +62,12 @@ public class ApiExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ErrorResponse.of(ex.getMessage(), ex.code(), ex.details()));
     }
+
+        @ExceptionHandler(MetricNotFoundException.class)
+        public ResponseEntity<ErrorResponse> handleMetricNotFound(MetricNotFoundException ex) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                                .body(ErrorResponse.of(ex.getMessage(), "METRIC_NOT_FOUND", List.of()));
+        }
 
         @ExceptionHandler(ClinicalEventInspectionException.class)
         public ResponseEntity<ErrorResponse> handleInvalidInspectionFilter(ClinicalEventInspectionException ex) {

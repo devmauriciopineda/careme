@@ -103,7 +103,7 @@ remaining runtime dependencies are PostgreSQL and the local filesystem.
 
 | Layer | Technology | Version | Rationale (deducible) | Source of truth |
 | --- | --- | --- | --- | --- |
-| Frontend runtime | Next.js (App Router) | 16.3.4 | Server Components by default: charts are derived on the server | `frontend/package.json` |
+| Frontend runtime | Next.js (App Router) | 16.3.4 | Server Components by default: the API is read on the server and only the interactive islands render | `frontend/package.json` |
 | Frontend UI | React | 19.2.8 | Next 16 compatibility | `frontend/package.json` |
 | Frontend language | TypeScript (strict) | ^5 | Typed contract with the API | `frontend/package.json`, `frontend/tsconfig.json` |
 | Frontend styling | Tailwind CSS | ^4 | Utilities + shadcn/ui tokens | `frontend/package.json` |
@@ -282,12 +282,13 @@ flowchart TB
     end
     subgraph feat["features/measurements"]
         dash["MeasurementsDashboard<br/>async server"]
+        view["MeasurementsTrackingView<br/>client island: selection + retry"]
         chart["MetricTrendChart<br/>client island Recharts"]
         table["MeasurementsTable"]
         form["MeasurementForm<br/>client island"]
         impc["MeasurementImport<br/>client island"]
         action["actions.ts<br/>Server Action"]
-        lib["lib/ metrics · schema · strings · importMessages"]
+        lib["lib/ metrics · tracking · schema · strings · importMessages"]
     end
     subgraph chat["features/chat"]
         workspace["ChatWorkspace<br/>client island"]
@@ -308,12 +309,14 @@ flowchart TB
     csvc --> be
     browser --> be
     mpage --> dash
-    dash --> chart
-    dash --> table
+    dash --> view
     dash --> form
     dash --> impc
     dash --> svc
     dash --> lib
+    view --> chart
+    view --> table
+    view --> action
     form --> action
     impc --> action
     action --> svc
@@ -331,9 +334,10 @@ flowchart TB
 | `features/clinical-events/` | Read-only clinical-history inspection module | `frontend/src/features/clinical-events/` |
 | `features/measurements/` | Self-contained body-tracking module (feature-sliced) | `frontend/src/features/measurements/` |
 | `features/.../lib/metrics.ts` | Metric registry + pure helpers (series, axis domain, labels) | `frontend/src/features/measurements/lib/metrics.ts` |
+| `features/.../lib/tracking.ts` | Tracking-view model: per-metric read state, the metrics that have measurements and the default selection | `frontend/src/features/measurements/lib/tracking.ts` |
 | `features/.../lib/schema.ts` | Zod schemas for the API and the form | `frontend/src/features/measurements/lib/schema.ts` |
 | `features/.../lib/strings.ts` | The only place with user-facing text (Spanish) | `frontend/src/features/measurements/lib/strings.ts` |
-| `features/.../actions.ts` | Registration Server Action + `revalidatePath("/")` | `frontend/src/features/measurements/actions.ts` |
+| `features/.../actions.ts` | Registration Server Action + `revalidatePath("/")`, and the per-metric tracking read | `frontend/src/features/measurements/actions.ts` |
 | `services/` | Data boundary: `fetch` + envelope + Zod (clinical events, measurements and chat) | `frontend/src/services/clinicalEventService.ts`, `measurementService.ts`, `chatService.ts`, `apiConfig.ts` |
 | `components/ui/` | Reusable shadcn/ui primitives | `frontend/src/components/ui/` |
 | `test/` | Vitest setup | `frontend/src/test/setup.ts` |
@@ -419,10 +423,10 @@ hexagonal).**
 | `entity` (domain) | JDK only | Any application layer |
 
 - **Frontend:** render-layer architecture + feature-sliced. Server Components by
-  default; `MetricTrendChart` is the only client island for Recharts and
-  `MeasurementForm`/`MeasurementImport` for interaction (`frontend/README.md`,
-  *Architecture notes*). The data boundary is concentrated in
-  `services/measurementService.ts`.
+  default; `MetricTrendChart` is the client island for Recharts and
+  `MeasurementsTrackingView`, `MeasurementForm` and `MeasurementImport` for
+  interaction (`frontend/README.md`, *Architecture notes*). The data boundary is
+  concentrated in `services/measurementService.ts`.
 - **Reactivity:** Server Actions + `revalidatePath("/")` instead of a client-side
   state layer (`frontend/src/features/measurements/actions.ts`).
 
@@ -498,6 +502,8 @@ and must not be reused outside it.
 | Surface | Validation | Evidence |
 | --- | --- | --- |
 | `POST /api/v1/measurements` | Bean Validation: date not in the future, positive metrics, limits 500/400, one decimal | `backend/.../dto/MeasurementRequest.java` |
+| `GET /api/v1/measurements/catalog` | Read-only, no input: lists the admitted metrics with a stable code, label, reference unit and ordered components | `backend/.../controller/MeasurementController.java`, `backend/.../service/MetricTrackingService.java` |
+| `GET /api/v1/measurements/tracking/{metricCode}` | Read-only: one admitted metric with its measurements ordered by date and its values per component in the reference unit; an unknown or unadmitted code returns `404 METRIC_NOT_FOUND` | `backend/.../controller/MeasurementController.java`, `backend/.../service/MetricTrackingService.java` |
 | Domain invariants | The record's compact constructor rejects null or non-positive values | `backend/.../entity/Measurement.java` |
 | Database | `UNIQUE(metric, date)` + `CHECK (value > 0)` on the measurement values | `db/migration/V5__create_metric_measurements.sql` |
 | File upload | Multipart capped at 10 MB (11 MB request), at most 10000 rows, exact headers, row-by-row validation before persisting | `application.yml`, `MeasurementCsvParser.java` |

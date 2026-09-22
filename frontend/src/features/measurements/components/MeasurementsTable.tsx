@@ -14,10 +14,14 @@ import {
     sortByDateDesc,
 } from "@/features/measurements/lib/metrics";
 import { STRINGS } from "@/features/measurements/lib/strings";
-import type { Measurement } from "@/features/measurements/types";
+import type {
+    Measurement,
+    TrackingMetric,
+} from "@/features/measurements/types";
 
 type MeasurementsTableProps = {
-    measurements: Measurement[];
+    measurements?: Measurement[];
+    trackingMetrics?: TrackingMetric[];
 };
 
 /**
@@ -25,8 +29,64 @@ type MeasurementsTableProps = {
  * primitive already provides the horizontal scroll container for narrow
  * viewports.
  */
-export function MeasurementsTable({ measurements }: MeasurementsTableProps) {
-    const rows = sortByDateDesc(measurements);
+export function MeasurementsTable({
+    measurements,
+    trackingMetrics = [],
+}: MeasurementsTableProps) {
+    if (trackingMetrics.length > 0) {
+        const dates = [
+            ...new Set(
+                trackingMetrics.flatMap((metric) =>
+                    metric.measurements.map((measurement) => measurement.date)
+                )
+            ),
+        ].sort();
+
+        return (
+            <Table>
+                <TableCaption className="sr-only">{STRINGS.table.trackingCaption}</TableCaption>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead scope="col">{STRINGS.table.date}</TableHead>
+                        {trackingMetrics.map((metric) => (
+                            <TableHead key={metric.code} scope="col" className="text-right">
+                                {metric.label} ({metric.unit})
+                            </TableHead>
+                        ))}
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {dates.map((date) => (
+                        <TableRow key={date}>
+                            <TableCell>
+                                <time dateTime={date}>{formatMeasurementDate(date)}</time>
+                            </TableCell>
+                            {trackingMetrics.map((metric) => {
+                                const measurement = metric.measurements.find(
+                                    (item) => item.date === date
+                                );
+                                return (
+                                    <TableCell key={metric.code} className="text-right tabular-nums">
+                                        {measurement?.values
+                                            .map(
+                                                (value) =>
+                                                    `${STRINGS.charts.series(value.component)}: ${value.value.toLocaleString(
+                                                        "es-ES",
+                                                        { maximumFractionDigits: 2 }
+                                                    )}`
+                                            )
+                                            .join(" / ") ?? "—"}
+                                    </TableCell>
+                                );
+                            })}
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
+        );
+    }
+
+    const rows = sortByDateDesc(measurements ?? []);
     const weight = METRICS.weightKg;
     const waist = METRICS.waistCm;
 

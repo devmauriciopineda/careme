@@ -336,8 +336,9 @@ above is unchanged for the client.
 
 > **Known gap.** The legacy contract requires `weightKg` and `waistCm` together, so a day that
 > carries only one of the two metrics —a weight mentioned in the conversation, for example— stays
-> whole in the tracking but is not shown by this endpoint. Closing that gap is the sibling change
-> `metric-tracking-view`, which brings the per-metric read contract and the per-metric form.
+> whole in the tracking but is not shown by this endpoint. The per-metric reads below do read those
+> days, and registering a single metric still goes through the measurement channel of the
+> consultation; this endpoint keeps its pair-only contract.
 
 - `400 INVALID_REQUEST` when the body is not valid JSON or a value has the wrong
   type.
@@ -345,6 +346,22 @@ above is unchanged for the client.
 
 Notes on the payload: `id` is the row's UUID rendered as a string, `date` is an ISO
 `yyyy-MM-dd` calendar date and both metrics are decimals with one decimal place.
+
+### `GET /api/v1/measurements/catalog`
+
+Returns admitted metrics available to the tracking view. Each entry includes a stable
+`code`, Spanish `label`, `referenceUnit` and ordered `components`.
+
+### `GET /api/v1/measurements/tracking/{metricCode}`
+
+Returns one admitted metric and its measurements ordered from oldest to newest. Each
+measurement includes its UUID, ISO date and numeric component values in the metric's
+reference unit. Blood pressure remains one metric with `systolic` and `diastolic`
+values in the same measurement.
+
+These endpoints are read-only and do not change the legacy `GET`/`POST` contract,
+file import or conversational measurement queries. An unknown or unadmitted code
+returns `404 METRIC_NOT_FOUND`.
 
 ### `POST /api/v1/chat/messages`
 

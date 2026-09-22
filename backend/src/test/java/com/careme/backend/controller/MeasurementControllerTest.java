@@ -22,8 +22,13 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import com.careme.backend.dto.MeasurementRequest;
 import com.careme.backend.dto.MeasurementResponse;
+import com.careme.backend.dto.MetricCatalogResponse;
+import com.careme.backend.dto.MetricComponentResponse;
+import com.careme.backend.dto.TrackingMeasurementResponse;
+import com.careme.backend.dto.TrackingMetricResponse;
 import com.careme.backend.service.MeasurementImportService;
 import com.careme.backend.service.MeasurementService;
+import com.careme.backend.service.MetricTrackingService;
 
 @WebMvcTest(MeasurementController.class)
 @TestPropertySource(properties = "careme.cors.allowed-origins=http://localhost:3000")
@@ -40,6 +45,9 @@ class MeasurementControllerTest {
 
     @MockitoBean
     private MeasurementImportService measurementImportService;
+
+        @MockitoBean
+        private MetricTrackingService metricTrackingService;
 
     @Test
     void returnsTheMeasurementsInsideTheSuccessEnvelope() throws Exception {
@@ -75,6 +83,38 @@ class MeasurementControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data").isArray())
                 .andExpect(jsonPath("$.data").isEmpty());
+    }
+
+    @Test
+    void returnsTheAdmittedMetricCatalog() throws Exception {
+        when(metricTrackingService.catalog()).thenReturn(List.of(
+                new MetricCatalogResponse(
+                        "blood_pressure", "presión arterial", "mmHg",
+                        List.of(new MetricComponentResponse("systolic"), new MetricComponentResponse("diastolic")))));
+
+        mockMvc.perform(get("/api/v1/measurements/catalog"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].code").value("blood_pressure"))
+                .andExpect(jsonPath("$.data[0].referenceUnit").value("mmHg"))
+                .andExpect(jsonPath("$.data[0].components[0].key").value("systolic"))
+                .andExpect(jsonPath("$.data[0].components[1].key").value("diastolic"));
+    }
+
+    @Test
+    void returnsOneCompositeBloodPressureMeasurementInDateOrder() throws Exception {
+        when(metricTrackingService.findByCode("blood_pressure")).thenReturn(new TrackingMetricResponse(
+                "blood_pressure", "presión arterial", "mmHg", List.of(
+                        new TrackingMeasurementResponse(
+                                OLDEST_ID, LocalDate.of(2026, 9, 6), List.of(
+                                        new TrackingMeasurementResponse.Value("systolic", new BigDecimal("120")),
+                                        new TrackingMeasurementResponse.Value("diastolic", new BigDecimal("80")))))));
+
+        mockMvc.perform(get("/api/v1/measurements/tracking/blood_pressure"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.code").value("blood_pressure"))
+                .andExpect(jsonPath("$.data.measurements.length()").value(1))
+                .andExpect(jsonPath("$.data.measurements[0].values.length()").value(2))
+                .andExpect(jsonPath("$.data.measurements[0].values[1].component").value("diastolic"));
     }
 
     @Test

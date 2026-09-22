@@ -42,10 +42,10 @@
     "semantic_hash": ""
   },
   "backend/src/main/java/com/careme/backend/controller/MeasurementController.java": {
-    "mtime": 1789099486.2818189,
-    "seen": 1789230949.2802298,
-    "ast_hash": "31294e538998d514220d3634ce12b1ff",
-    "semantic_hash": "31294e538998d514220d3634ce12b1ff"
+    "mtime": 1790052623.8152778,
+    "seen": 1790053106.7489712,
+    "ast_hash": "e3a5b9e2cae81fb581d432a4d0465984",
+    "semantic_hash": ""
   },
   "backend/src/main/java/com/careme/backend/dto/ApiResponse.java": {
     "mtime": 1789088234.9976258,
@@ -102,9 +102,9 @@
     "semantic_hash": "1b24300f3777202b338dd8ce5030b725"
   },
   "backend/src/main/java/com/careme/backend/exception/ApiExceptionHandler.java": {
-    "mtime": 1789700349.5687609,
-    "seen": 1789703942.9594038,
-    "ast_hash": "ad54663260d31df8ed5a43ae7fed902c",
+    "mtime": 1790052623.8160312,
+    "seen": 1790053106.7520196,
+    "ast_hash": "196e10eb093c96ce26f8e8026b2d0fd6",
     "semantic_hash": ""
   },
   "backend/src/main/java/com/careme/backend/exception/MeasurementImportException.java": {
@@ -156,16 +156,16 @@
     "semantic_hash": ""
   },
   "backend/src/test/java/com/careme/backend/controller/MeasurementControllerTest.java": {
-    "mtime": 1789099486.289604,
-    "seen": 1789230949.280283,
-    "ast_hash": "648dbc622ac62b32adc2bfe1bc282faa",
-    "semantic_hash": "648dbc622ac62b32adc2bfe1bc282faa"
+    "mtime": 1790052623.8271382,
+    "seen": 1790053106.7599633,
+    "ast_hash": "064b9b70fc8c59dc167cec88da0bf086",
+    "semantic_hash": ""
   },
   "backend/src/test/java/com/careme/backend/controller/MeasurementImportControllerTest.java": {
-    "mtime": 1789099486.289604,
-    "seen": 1789230949.2802846,
-    "ast_hash": "c24e83d8549f692aa4cfefcfb0567e68",
-    "semantic_hash": "c24e83d8549f692aa4cfefcfb0567e68"
+    "mtime": 1790052623.8271382,
+    "seen": 1790053106.7599664,
+    "ast_hash": "32ac892c4e3237aa22da46bcc92f95fd",
+    "semantic_hash": ""
   },
   "backend/src/test/java/com/careme/backend/entity/MeasurementDraftTest.java": {
     "mtime": 1789099486.289604,
@@ -324,28 +324,28 @@
     "semantic_hash": "6922e27d2f29051a488497da3a8333f5"
   },
   "frontend/src/features/measurements/components/MeasurementsDashboard.tsx": {
-    "mtime": 1789079267.6350052,
-    "seen": 1789230949.2803395,
-    "ast_hash": "5f3e7d2c8f4e8c0e5f29957e5e0cccc9",
-    "semantic_hash": "5f3e7d2c8f4e8c0e5f29957e5e0cccc9"
+    "mtime": 1790052623.828137,
+    "seen": 1790053106.7700574,
+    "ast_hash": "cd6c4442b6163d17a3c1eaa34113c97a",
+    "semantic_hash": ""
   },
   "frontend/src/features/measurements/components/MeasurementsTable.test.tsx": {
-    "mtime": 1789079267.652092,
-    "seen": 1789230949.2803411,
-    "ast_hash": "77b5126f16394be954bf68fb8425f3d9",
-    "semantic_hash": "77b5126f16394be954bf68fb8425f3d9"
+    "mtime": 1790052623.828137,
+    "seen": 1790053106.7700589,
+    "ast_hash": "a480889c169319c58d862dc3f02556ea",
+    "semantic_hash": ""
   },
   "frontend/src/features/measurements/components/MeasurementsTable.tsx": {
-    "mtime": 1789079267.6309755,
-    "seen": 1789230949.280343,
-    "ast_hash": "c2e5f183d2309f4e41ee6c7caefd4706",
-    "semantic_hash": "c2e5f183d2309f4e41ee6c7caefd4706"
+    "mtime": 1790052623.828137,
+    "seen": 1790053106.7700603,
+    "ast_hash": "15864363ccae2cc0f3623cf474b4b41a",
+    "semantic_hash": ""
   },
   "frontend/src/features/measurements/components/MetricTrendChart.tsx": {
-    "mtime": 1789079267.6015651,
-    "seen": 1789230949.2803447,
-    "ast_hash": "4bdb32b020c948c979c40c472c5b701e",
-    "semantic_hash": "4bdb32b020c948c979c40c472c5b701e"
+    "mtime": 1790052623.828137,
+    "seen": 1790053106.7700632,
+    "ast_hash": "4e050bf88537d44f9ae377500c39586a",
+    "semantic_hash": ""
   },
   "frontend/src/features/measurements/lib/importMessages.test.ts": {
     "mtime": 1789099486.2956305,
@@ -378,22 +378,22 @@
     "semantic_hash": "98084b6effcbdc45465e95f5b85ea751"
   },
   "frontend/src/features/measurements/lib/schema.ts": {
-    "mtime": 1789099486.289604,
-    "seen": 1789230949.2803574,
-    "ast_hash": "1772afd79e96f55fc9b867c0fdeab5a7",
-    "semantic_hash": "1772afd79e96f55fc9b867c0fdeab5a7"
+    "mtime": 1790052623.8271382,
+    "seen": 1790053106.770418,
+    "ast_hash": "57ec899fa630c5e32040ead3cba76e60",
+    "semantic_hash": ""
   },
   "frontend/src/features/measurements/lib/strings.ts": {
-    "mtime": 1789099486.289604,
-    "seen": 1789230949.2803595,
-    "ast_hash": "2add773a68adc70f30e898bf7de6329a",
-    "semantic_hash": "2add773a68adc70f30e898bf7de6329a"
+    "mtime": 1790052623.828137,
+    "seen": 1790053106.7704191,
+    "ast_hash": "018c6b280e832d3528496312caf0577a",
+    "semantic_hash": ""
   },
   "frontend/src/features/measurements/types.ts": {
-    "mtime": 1789099486.289604,
-    "seen": 1789230949.2803614,
-    "ast_hash": "24eaa79794c7d8456298ff2fa8902c56",
-    "semantic_hash": "24eaa79794c7d8456298ff2fa8902c56"
+    "mtime": 1790052623.828137,
+    "seen": 1790053106.770421,
+    "ast_hash": "531b916353832faecfb75dc40b0a5681",
+    "semantic_hash": ""
   },
   "frontend/src/lib/utils.ts": {
     "mtime": 1789078292.634785,
@@ -408,16 +408,16 @@
     "semantic_hash": ""
   },
   "frontend/src/services/measurementService.test.ts": {
-    "mtime": 1789099486.2996469,
-    "seen": 1789230949.2803671,
-    "ast_hash": "4e5fedbbbb3c64fac06b7fc3db30bf89",
-    "semantic_hash": "4e5fedbbbb3c64fac06b7fc3db30bf89"
+    "mtime": 1790052623.828137,
+    "seen": 1790053106.7707624,
+    "ast_hash": "cc02d8f81f4607d9f7e66a91c548e8b4",
+    "semantic_hash": ""
   },
   "frontend/src/services/measurementService.ts": {
-    "mtime": 1789099486.2956305,
-    "seen": 1789230949.2803698,
-    "ast_hash": "76457001c0707b85d211ce276dc8c5d5",
-    "semantic_hash": "76457001c0707b85d211ce276dc8c5d5"
+    "mtime": 1790052623.828137,
+    "seen": 1790053106.7707639,
+    "ast_hash": "fb0c3d388dc2fad14c4732e5756c1bdb",
+    "semantic_hash": ""
   },
   "frontend/src/test/setup.ts": {
     "mtime": 1789079267.5978038,
@@ -480,9 +480,9 @@
     "semantic_hash": ""
   },
   "backend/README.md": {
-    "mtime": 1790027731.0867133,
-    "seen": 1790029684.969343,
-    "ast_hash": "af34501457453e43c8f5d24d64698b44",
+    "mtime": 1790052623.828137,
+    "seen": 1790053106.7731547,
+    "ast_hash": "32904fb0f2c200f3334472c018df018e",
     "semantic_hash": ""
   },
   "backend/src/main/resources/application-dev.yml": {
@@ -528,9 +528,9 @@
     "semantic_hash": "b1742c4be51fa343962dd84c24e46d2e"
   },
   "docs/use-cases/UC-001.md": {
-    "mtime": 1789872515.324521,
-    "seen": 1789875892.6755247,
-    "ast_hash": "650bb41fdcae1f1265c5c868e0a696c3",
+    "mtime": 1790047656.6015208,
+    "seen": 1790053106.775258,
+    "ast_hash": "07370d3b3d3b0bc2b6a63157aebaafa9",
     "semantic_hash": ""
   },
   "docs/use-cases/UC-002.md": {
@@ -2256,9 +2256,9 @@
     "semantic_hash": ""
   },
   "backend/src/main/java/com/careme/backend/repository/MetricMeasurementJpaRepository.java": {
-    "mtime": 1790010128.4385018,
-    "seen": 1790010396.1301558,
-    "ast_hash": "8ac80ad5e4805b98e7131737ed356867",
+    "mtime": 1790052623.8152778,
+    "seen": 1790053106.7529917,
+    "ast_hash": "504470fed8b88553836a1ffd055b2463",
     "semantic_hash": ""
   },
   "backend/src/main/java/com/careme/backend/repository/MetricMeasurementOutcome.java": {
@@ -2268,9 +2268,9 @@
     "semantic_hash": ""
   },
   "backend/src/main/java/com/careme/backend/repository/MetricMeasurementRepository.java": {
-    "mtime": 1790010128.4385018,
-    "seen": 1790010396.130375,
-    "ast_hash": "62482f4a8d12b22910375fddf70bfd3c",
+    "mtime": 1790052623.8152778,
+    "seen": 1790053106.753099,
+    "ast_hash": "9a244a798ca149138ce51e35fdc6755b",
     "semantic_hash": ""
   },
   "backend/src/main/java/com/careme/backend/service/EncounterMeasurementResult.java": {
@@ -2495,12 +2495,6 @@
     "ast_hash": "1729b395e122ba894d2e0697fc33a0c8",
     "semantic_hash": ""
   },
-  "openspec/changes/metric-tracking-view/.openspec.yaml": {
-    "mtime": 1789963480.0128033,
-    "seen": 1789963538.8769631,
-    "ast_hash": "a117aacc13f92d1cefe701846a47c991",
-    "semantic_hash": ""
-  },
   "openspec/specs/clinical-measurement-registration/spec.md": {
     "mtime": 1789963184.6309268,
     "seen": 1789963538.8773346,
@@ -2685,6 +2679,108 @@
     "mtime": 1790024736.9016411,
     "seen": 1790029684.971066,
     "ast_hash": "1ad297a0125e327b32b0a237c1a45177",
+    "semantic_hash": ""
+  },
+  "backend/src/main/java/com/careme/backend/dto/MetricCatalogResponse.java": {
+    "mtime": 1790052623.8221378,
+    "seen": 1790053106.7503953,
+    "ast_hash": "1978b9612ee8fec4c48ea65cb3aedf1b",
+    "semantic_hash": ""
+  },
+  "backend/src/main/java/com/careme/backend/dto/MetricComponentResponse.java": {
+    "mtime": 1790052623.8221378,
+    "seen": 1790053106.7503977,
+    "ast_hash": "b1ef89ccc8ecccbc7c18cb661c7e3c28",
+    "semantic_hash": ""
+  },
+  "backend/src/main/java/com/careme/backend/dto/TrackingMeasurementResponse.java": {
+    "mtime": 1790052623.8241358,
+    "seen": 1790053106.7503989,
+    "ast_hash": "be334871a7fadc2d640960c46cbc3cd4",
+    "semantic_hash": ""
+  },
+  "backend/src/main/java/com/careme/backend/dto/TrackingMetricResponse.java": {
+    "mtime": 1790052623.8271382,
+    "seen": 1790053106.7504008,
+    "ast_hash": "a250bd2978ee1adf914415eaecd6f9c1",
+    "semantic_hash": ""
+  },
+  "backend/src/main/java/com/careme/backend/exception/MetricNotFoundException.java": {
+    "mtime": 1790052623.8271382,
+    "seen": 1790053106.7522418,
+    "ast_hash": "b2bea44b03c2bb5df3187868d5261a3a",
+    "semantic_hash": ""
+  },
+  "backend/src/main/java/com/careme/backend/service/MetricTrackingService.java": {
+    "mtime": 1790052623.8271382,
+    "seen": 1790053106.7581136,
+    "ast_hash": "ba9031115eef38c34f02672f48adbcb5",
+    "semantic_hash": ""
+  },
+  "backend/src/test/java/com/careme/backend/service/MetricTrackingIntegrationTest.java": {
+    "mtime": 1790052623.828137,
+    "seen": 1790053106.7663,
+    "ast_hash": "6df7844f4e3b7f03fec1a5e7f69e3051",
+    "semantic_hash": ""
+  },
+  "backend/src/test/java/com/careme/backend/service/MetricTrackingServiceTest.java": {
+    "mtime": 1790052623.828137,
+    "seen": 1790053106.7663019,
+    "ast_hash": "d7aa8b6ecd3a0613570739463e230a18",
+    "semantic_hash": ""
+  },
+  "frontend/src/features/measurements/components/MeasurementsDashboard.test.tsx": {
+    "mtime": 1790052623.828137,
+    "seen": 1790053106.7700555,
+    "ast_hash": "124df154990be81c062e6bac168fe15b",
+    "semantic_hash": ""
+  },
+  "frontend/src/features/measurements/components/MetricTrendChart.test.tsx": {
+    "mtime": 1790052623.828137,
+    "seen": 1790053106.7700617,
+    "ast_hash": "33b114502f7552375420d99af5918342",
+    "semantic_hash": ""
+  },
+  "docs/use-cases/UC-001-acceptance-criteria.md": {
+    "mtime": 1790047656.6015208,
+    "seen": 1790053106.7752566,
+    "ast_hash": "15750a7a70ac8847864857b9ff56e909",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-09-22-metric-tracking-view/.openspec.yaml": {
+    "mtime": 1789963480.0128033,
+    "seen": 1790053715.3657246,
+    "ast_hash": "a117aacc13f92d1cefe701846a47c991",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-09-22-metric-tracking-view/design.md": {
+    "mtime": 1790049350.154896,
+    "seen": 1790053715.3657277,
+    "ast_hash": "355b9056cfdc9aa84d73aa99b919dbef",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-09-22-metric-tracking-view/proposal.md": {
+    "mtime": 1790049350.154896,
+    "seen": 1790053715.3657293,
+    "ast_hash": "15e5627f459663e87d9f8d05f57f8bdd",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-09-22-metric-tracking-view/specs/clinical-measurement-view/spec.md": {
+    "mtime": 1790049350.154896,
+    "seen": 1790053715.3657303,
+    "ast_hash": "364017694c92fd9236f4916c225f88ad",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-09-22-metric-tracking-view/tasks.md": {
+    "mtime": 1790052623.828137,
+    "seen": 1790053715.3657312,
+    "ast_hash": "eb597b3924cbe33e41e96cc22e0c51cb",
+    "semantic_hash": ""
+  },
+  "openspec/specs/clinical-measurement-view/spec.md": {
+    "mtime": 1790053605.9502842,
+    "seen": 1790053715.3683996,
+    "ast_hash": "29a061a1f2005b8a4d48a25ce0834ab4",
     "semantic_hash": ""
   }
 }

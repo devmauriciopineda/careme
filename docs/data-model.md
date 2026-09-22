@@ -76,7 +76,7 @@ metric model: one row per day with `weightKg` and `waistCm`. It exists so the
   those two metrics for that day.
 - A day is part of the view only when it carries **both** metrics: the legacy contract
   requires both values, so a day with a single metric stays in the tracking and is not
-  shown here. Closing that gap is the sibling change `metric-tracking-view`.
+  shown here. The per-metric read contract of §1.3 reads those days directly.
 - The legacy request rules (date not in the future, positive values, one decimal, limits
   of 500 kg and 400 cm) are kept by the view, not by the metric model.
 
@@ -107,6 +107,13 @@ They are not persisted; they describe the HTTP contract.
   500 kg and 400 cm).
 - **MeasurementResponse**: `id`, `date`, `weightKg`, `waistCm`. Representation
   returned to the client.
+- **MetricCatalogResponse**: `code`, `label`, `referenceUnit`, `components` (a
+  stable code per component, in order). One entry of the admitted catalogue the
+  tracking view offers to select.
+- **TrackingMetricResponse**: `code`, `label`, `unit`, `measurements`, ordered
+  from the oldest date to the most recent. One metric and its readings.
+- **TrackingMeasurementResponse**: `id`, `date`, `values` (`component`, `value`).
+  One reading, with every component of its metric in the reference unit.
 - **ImportPreviewRow**: `date`, `weightKg`, `waistCm`, `replacesExisting`.
   A measurement read from a file and what would happen if it were loaded.
 - **ImportPreviewResponse**: `rows`, `totalRows`, `newCount`, `replacedCount`,

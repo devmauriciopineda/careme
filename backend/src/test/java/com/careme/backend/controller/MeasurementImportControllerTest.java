@@ -32,6 +32,7 @@ import com.careme.backend.dto.ImportResultResponse;
 import com.careme.backend.exception.MeasurementImportException;
 import com.careme.backend.service.MeasurementImportService;
 import com.careme.backend.service.MeasurementService;
+import com.careme.backend.service.MetricTrackingService;
 
 @WebMvcTest(MeasurementController.class)
 @TestPropertySource(properties = "careme.cors.allowed-origins=http://localhost:3000")
@@ -52,6 +53,9 @@ class MeasurementImportControllerTest {
 
     @MockitoBean
     private MeasurementImportService measurementImportService;
+
+        @MockitoBean
+        private MetricTrackingService metricTrackingService;
 
     private static MockMultipartFile file(String content) {
         return new MockMultipartFile(

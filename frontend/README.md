@@ -2,14 +2,17 @@
 
 Next.js application for the Careme personal clinical assistant and body-tracking
 dashboard. `/` is the assistant chat, `/clinical-events` inspects the recorded
-clinical history, and `/measurements` shows daily weight and abdominal
-circumference as trend charts and as a table, and registers the measurement of a
-day, all through the Careme backend API.
+clinical history, and `/measurements` shows the metrics that have registered
+measurements —each as its own trend chart and as a column of a single daily detail
+table, under a selector— and registers the measurement of a day, all through the
+Careme backend API.
 
-There is no authentication yet. Measurements come from
-`GET /api/v1/measurements`, and the registration form sends
-`POST /api/v1/measurements`, through a service layer that validates the payload
-before it reaches the backend. The chat posts to `POST /api/v1/chat/messages`
+There is no authentication yet. The tracking view reads
+`GET /api/v1/measurements/catalog` and
+`GET /api/v1/measurements/tracking/{metricCode}`, the registration form sends
+`POST /api/v1/measurements` and the legacy `GET /api/v1/measurements` still backs
+the weight-and-circumference pair, through a service layer that validates the
+payload before it reaches the backend. The chat posts to `POST /api/v1/chat/messages`
 and closes the consultation with
 `POST /api/v1/chat/conversations/{conversationId}/consultation/close`, both
 through `chatService`. The clinical-events route reads the inspection endpoints
@@ -83,7 +86,7 @@ frontend/
 │   ├── features/chat/            # chat feature (workspace, actions, schema, types)
 │   ├── features/clinical-events/ # clinical history inspection feature
 │   ├── features/measurements/    # body-tracking feature module
-│   │   ├── components/           # dashboard, chart and table
+│   │   ├── components/           # dashboard, tracking view, chart and table
 │   │   └── lib/                  # pure logic, schema, copy
 │   ├── services/                 # API clients (clinical events, measurements, chat) and base URL
 │   └── test/                     # test setup
@@ -113,33 +116,44 @@ clinical-event inspection lives at `src/app/clinical-events/page.tsx`, and the
 body-tracking view lives at `src/app/measurements/page.tsx`.
 
 **Server Components first.** That measurements page renders
-`MeasurementsDashboard`, an async Server Component that loads the measurements and
-derives every chart series, axis domain and date label on the server.
-`MetricTrendChart` is a client island, because Recharts needs the browser; it
-receives ready-to-render primitives, never `Date` objects or formatting logic.
-This is why date labels do not shift with the visitor's time zone.
+`MeasurementsDashboard`, an async Server Component that reads the admitted
+catalogue and one payload per metric on the server.
+`MeasurementsTrackingView` is the client island that owns the metric selection and
+the per-metric retry, and `MetricTrendChart` is a client island too, because
+Recharts needs the browser. Both receive resolved data: the API is never reached
+from the browser. Date labels are built from the calendar date with a fixed time
+zone, which is why they do not shift with the visitor's location.
 
 **One chart component, two usages.** `MetricTrendChart` is parameterized by
 metric instead of being duplicated per metric.
 
 **Metric registry.** `src/features/measurements/lib/metrics.ts` holds the
-`METRICS` map (label, unit, decimals, color token, axis padding) and all pure
-helpers. Adding a metric means adding a field to `Measurement`, a value to
-`MetricKey` and an entry to `METRICS`.
+`METRICS` map, `MetricKey` and the pure helpers of the legacy weight-and-waist
+pair (the registration form, the import and the daily view). The tracking view
+does not depend on that registry: it takes the code, the label, the reference unit
+and the components of every metric from the catalogue, so a metric the catalogue
+admits is shown without touching this file. Adding one to the pair still means
+adding a field to `Measurement`, a value to `MetricKey` and an entry to `METRICS`.
 
 **Service boundary.** `src/services/measurementService.ts`,
 `src/services/chatService.ts` and `src/services/clinicalEventService.ts` are the
 places that know where data comes from. The measurement service calls
 `GET /api/v1/measurements` with
 `cache: "no-store"`, unwraps the response envelope, validates `data` with Zod and
-returns chronologically sorted measurements; the chat service posts to
+returns chronologically sorted measurements; it also exposes the tracking reads
+(`getTrackingCatalog` for `/api/v1/measurements/catalog` and `getTrackingMetric`
+for `/api/v1/measurements/tracking/{metricCode}`), also uncached and validated
+with Zod. The chat service posts to
 `/api/v1/chat/messages`, closes the consultation through
 `/api/v1/chat/conversations/{conversationId}/consultation/close` and validates
 both with Zod. The base URL is read once in `src/services/apiConfig.ts`.
 
-**Failure handling.** When that call fails, the Server Component throws and
-`src/app/error.tsx` renders a localized message with a retry button instead of the
-framework's error screen.
+**Failure handling.** A failure of the whole read —the catalogue, or the chat and
+clinical-event services— throws and `src/app/error.tsx` renders a localized
+message with a retry button instead of the framework's error screen. A single
+metric of the tracking is different: its read is isolated, so the view says in
+Spanish that it could not be loaded and offers a retry for that metric only,
+without hiding the metrics that did load.
 
 **Registration is a Server Action.** `MeasurementForm` is a client island with
 controlled inputs that validates the typed text in Spanish with
@@ -212,9 +226,9 @@ themselves sit next to the modules they cover.
 - Every registration control has an associated label, errors are announced with
   `role="alert"` and referenced from the field through `aria-describedby`, and
   the save outcome is announced through a live region — never by color alone.
-- Charts are wrapped in a `<figure>` with an `sr-only` `<figcaption>` that
-  summarizes the series, and Recharts' `accessibilityLayer` enables keyboard
-  navigation across data points.
+- Charts are wrapped in a `<figure>` with an `sr-only` `<figcaption>` that names
+  the metric, its reference unit and how many readings it has, and Recharts'
+  `accessibilityLayer` enables keyboard navigation across data points.
 - The table carries a screen-reader caption and a scoped header row.
 - Dates are exposed as `<time dateTime="…">`.
 - The two series colors are defined in `globals.css` with distinct hues and

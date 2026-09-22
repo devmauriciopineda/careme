@@ -103,6 +103,78 @@ describe("measurementService.getMeasurements", () => {
     });
 });
 
+describe("measurementService tracking reads", () => {
+    it("loads the metric catalog with component definitions", async () => {
+        const fetchMock = stubFetch({
+            ok: true,
+            status: 200,
+            json: async () => ({
+                success: true,
+                messageCode: "SUCCESS",
+                message: "ok",
+                data: [{
+                    code: "blood_pressure",
+                    label: "presión arterial",
+                    referenceUnit: "mmHg",
+                    components: [{ key: "systolic" }, { key: "diastolic" }],
+                }],
+            }),
+        });
+
+        const catalog = await measurementService.getTrackingCatalog();
+
+        expect(fetchMock).toHaveBeenCalledWith(
+            expect.stringContaining("/api/v1/measurements/catalog"),
+            expect.objectContaining({ cache: "no-store" })
+        );
+        expect(catalog[0].components.map((component) => component.key)).toEqual([
+            "systolic",
+            "diastolic",
+        ]);
+    });
+
+    it("loads composite measurements as one metric", async () => {
+        stubFetch({
+            ok: true,
+            status: 200,
+            json: async () => ({
+                success: true,
+                messageCode: "SUCCESS",
+                message: "ok",
+                data: {
+                    code: "blood_pressure",
+                    label: "presión arterial",
+                    unit: "mmHg",
+                    measurements: [{
+                        id: "bp-1",
+                        date: "2026-09-06",
+                        values: [
+                            { component: "systolic", value: 120 },
+                            { component: "diastolic", value: 80 },
+                        ],
+                    }],
+                },
+            }),
+        });
+
+        const metric = await measurementService.getTrackingMetric("blood_pressure");
+
+        expect(metric.measurements).toHaveLength(1);
+        expect(metric.measurements[0].values).toHaveLength(2);
+    });
+
+    it("rejects malformed tracking payloads", async () => {
+        silenceConsoleError();
+        stubFetch({
+            ok: true,
+            status: 200,
+            json: async () => ({ success: true, data: [] }),
+        });
+
+        await expect(measurementService.getTrackingCatalog()).rejects.toThrow();
+    });
+});
+
 const CREATED_RESPONSE = {
     success: true,
     messageCode: "SUCCESS",

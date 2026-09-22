@@ -59,6 +59,17 @@ public class MetricMeasurementJpaRepository implements MetricMeasurementReposito
 
     @Override
     @Transactional(readOnly = true)
+    public List<MetricMeasurement> findByMetric(Metric metric) {
+        if (metric == null) {
+            return List.of();
+        }
+        return metricMeasurementJpaDao.findByMetric(metric.code()).stream()
+                .map(MetricMeasurementEntity::toDomain)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<MetricMeasurement> findByMetricsAndDateBetween(
             Collection<Metric> metrics, LocalDate from, LocalDate to) {
         if (metrics == null || metrics.isEmpty()) {

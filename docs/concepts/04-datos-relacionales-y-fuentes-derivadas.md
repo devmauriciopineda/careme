@@ -444,6 +444,13 @@ sola** de las dos métricas queda íntegro en el almacenamiento pero no aparece 
 vista. Reconocer ese hueco es parte del diseño; suponer que la vista es completa
 porque el contrato no admite nulos sería el error.
 
+Ese hueco no se cierra ensanchando el contrato que se acaba de conservar: relajar lo
+que el contrato prometía rompería precisamente a los clientes para los que se mantuvo.
+La dimensión que la vista no puede expresar se sirve con una **lectura nueva**, que
+describe el modelo actual sin las restricciones del contrato antiguo. Las dos formas
+conviven sobre la misma fuente de verdad: la antigua se sigue componiendo y la nueva
+se lee tal cual, y ninguna de las dos guarda nada.
+
 ## 8. Búsqueda full-text de PostgreSQL
 
 La **búsqueda full-text** no compara simplemente cadenas completas. Convierte el

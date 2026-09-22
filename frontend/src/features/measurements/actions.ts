@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { measurementInputSchema } from "@/features/measurements/lib/schema";
+import { metricStateOf, type MetricState } from "@/features/measurements/lib/tracking";
 import type { ImportPreview, ImportResult } from "@/features/measurements/types";
 import {
     UNKNOWN_IMPORT_ERROR,
@@ -56,6 +57,22 @@ export async function registerMeasurement(
 
     revalidatePath("/");
     return { ok: true };
+}
+
+/**
+ * Re-reads one metric of the tracking view.
+ *
+ * It runs on the server, so the browser never needs the backend address, and it
+ * returns a state instead of throwing: a metric that cannot be read becomes an
+ * isolated error the view can retry while the others stay on screen.
+ */
+export async function loadTrackingMetric(code: string): Promise<MetricState> {
+    try {
+        return metricStateOf(await measurementService.getTrackingMetric(code));
+    } catch (error) {
+        console.error(`Failed to load metric ${code}:`, error);
+        return { status: "error" };
+    }
 }
 
 /** The uploaded file, or `null` when the request carried none. */

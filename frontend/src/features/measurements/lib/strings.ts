@@ -8,7 +8,7 @@
 export const STRINGS = {
     app: {
         title: "Seguimiento corporal",
-        description: "Peso y circunferencia abdominal registrados día a día.",
+        description: "Métricas registradas día a día.",
     },
     errors: {
         title: "No se pudieron cargar las mediciones",
@@ -26,6 +26,11 @@ export const STRINGS = {
         registeredCount: (count: number) => `${count} registros`,
         dateRange: (from: string, to: string) => `Del ${from} al ${to}`,
         empty: "Todavía no hay mediciones registradas.",
+        metricSelector: "Métricas visibles",
+        loadingMetric: (label: string) => `Cargando ${label}…`,
+        metricError: (label: string) => `No se pudo cargar ${label}.`,
+        retryMetric: "Reintentar métrica",
+        noSelection: "Selecciona al menos una métrica para ver el seguimiento.",
     },
     import: {
         title: "Cargar mediciones desde un archivo",
@@ -122,11 +127,21 @@ export const STRINGS = {
             `${label}: ${count} mediciones, de ${firstValue} ${unit} a ${lastValue} ${unit}.`,
         keyboardHint:
             "Con la gráfica enfocada, usa las flechas izquierda y derecha para recorrer los valores.",
+        trackingSummary: (label: string, unit: string, count: number) =>
+            `${label}: ${count === 1 ? "1 medición" : `${count} mediciones`} en ${unit}.`,
+        series: (component: string) =>
+            component === "systolic"
+                ? "Sistólica"
+                : component === "diastolic"
+                  ? "Diastólica"
+                  : "Valor",
     },
     table: {
         title: "Mediciones diarias",
         caption:
             "Peso y circunferencia abdominal por día, ordenados del más reciente al más antiguo.",
+        trackingCaption:
+            "Mediciones por día de las métricas seleccionadas, ordenadas de la más antigua a la más reciente.",
         date: "Fecha",
         weight: "Peso (kg)",
         waist: "Circunferencia (cm)",

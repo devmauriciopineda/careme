@@ -4,6 +4,35 @@
  */
 export type MetricKey = "weightKg" | "waistCm";
 
+/** Metric definition returned by the read-only tracking catalog. */
+export type TrackingMetricCatalog = {
+    code: string;
+    label: string;
+    referenceUnit: string;
+    components: { key: string }[];
+};
+
+/** One component value of a stored metric measurement. */
+export type TrackingMeasurementValue = {
+    component: string;
+    value: number;
+};
+
+/** One stored measurement, including all values of a composite metric. */
+export type TrackingMeasurement = {
+    id: string;
+    date: string;
+    values: TrackingMeasurementValue[];
+};
+
+/** Read model for one metric and its chronological measurements. */
+export type TrackingMetric = {
+    code: string;
+    label: string;
+    unit: string;
+    measurements: TrackingMeasurement[];
+};
+
 /** A single body measurement recorded on a given day. */
 export type Measurement = {
     id: string;
