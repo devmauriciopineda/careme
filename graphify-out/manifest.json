@@ -294,10 +294,10 @@
     "semantic_hash": "c8c2da1704112a7f341c8cf6452d46d8"
   },
   "frontend/src/features/measurements/actions.ts": {
-    "mtime": 1789099486.2956305,
-    "seen": 1789230949.2803292,
-    "ast_hash": "2bc7470fc367aa95a3f4b82e9c043e0b",
-    "semantic_hash": "2bc7470fc367aa95a3f4b82e9c043e0b"
+    "mtime": 1790055023.824327,
+    "seen": 1790056264.196034,
+    "ast_hash": "97881d6b46a81fcb0a0439cfde6a2318",
+    "semantic_hash": ""
   },
   "frontend/src/features/measurements/components/MeasurementForm.test.tsx": {
     "mtime": 1789097096.3382277,
@@ -324,9 +324,9 @@
     "semantic_hash": "6922e27d2f29051a488497da3a8333f5"
   },
   "frontend/src/features/measurements/components/MeasurementsDashboard.tsx": {
-    "mtime": 1790052623.828137,
-    "seen": 1790053106.7700574,
-    "ast_hash": "cd6c4442b6163d17a3c1eaa34113c97a",
+    "mtime": 1790055023.8164744,
+    "seen": 1790056264.1975894,
+    "ast_hash": "12c5caacbf729f177010ad1b5febe1c7",
     "semantic_hash": ""
   },
   "frontend/src/features/measurements/components/MeasurementsTable.test.tsx": {
@@ -384,9 +384,9 @@
     "semantic_hash": ""
   },
   "frontend/src/features/measurements/lib/strings.ts": {
-    "mtime": 1790052623.828137,
-    "seen": 1790053106.7704191,
-    "ast_hash": "018c6b280e832d3528496312caf0577a",
+    "mtime": 1790055023.8194866,
+    "seen": 1790056264.1990356,
+    "ast_hash": "7b6b64456f85ebc2f2c7c4d1fa1e3900",
     "semantic_hash": ""
   },
   "frontend/src/features/measurements/types.ts": {
@@ -474,15 +474,15 @@
     "semantic_hash": "21e4edd251e7d8d2230f404044ff1369"
   },
   "README.md": {
-    "mtime": 1790024736.90565,
-    "seen": 1790029684.96934,
-    "ast_hash": "b3bd88687d0010d81376883b4ab31a62",
+    "mtime": 1790055606.9051986,
+    "seen": 1790056264.2054849,
+    "ast_hash": "27cc3aeb6f247bb209d8752646bb93c4",
     "semantic_hash": ""
   },
   "backend/README.md": {
-    "mtime": 1790052623.828137,
-    "seen": 1790053106.7731547,
-    "ast_hash": "32904fb0f2c200f3334472c018df018e",
+    "mtime": 1790055023.8233252,
+    "seen": 1790056264.2054882,
+    "ast_hash": "fd6a47007891f0134ea97a4d9a167177",
     "semantic_hash": ""
   },
   "backend/src/main/resources/application-dev.yml": {
@@ -558,9 +558,9 @@
     "semantic_hash": "5c27369b226fcf2be8a6cfe52224e767"
   },
   "frontend/README.md": {
-    "mtime": 1790027731.0820422,
-    "seen": 1790029684.9729626,
-    "ast_hash": "67f08884418c561f131a96c3a475b4cb",
+    "mtime": 1790055023.8273275,
+    "seen": 1790056264.2153451,
+    "ast_hash": "b37736ca1b40b8c5646ae9327eb8f1ae",
     "semantic_hash": ""
   },
   "frontend/pnpm-workspace.yaml": {
@@ -582,15 +582,15 @@
     "semantic_hash": ""
   },
   "docs/architecture.md": {
-    "mtime": 1790010128.5780292,
-    "seen": 1790010396.2216444,
-    "ast_hash": "de599c9e1cd636bea6e729600031d8ed",
+    "mtime": 1790055606.9051986,
+    "seen": 1790056264.2070918,
+    "ast_hash": "864bcf070e2372e03460686eaa6797a2",
     "semantic_hash": ""
   },
   "docs/data-model.md": {
-    "mtime": 1789964542.1053684,
-    "seen": 1789965901.741299,
-    "ast_hash": "2fd53597e2d9293ecd0a6fc2c0d61c3f",
+    "mtime": 1790055023.828328,
+    "seen": 1790056264.2080092,
+    "ast_hash": "3117a47538fbf4d52c427ab44c9c36c0",
     "semantic_hash": ""
   },
   "docs/roadmap/mvp_alcance_asistente_historia_clinica.md": {
@@ -1236,9 +1236,9 @@
     "semantic_hash": ""
   },
   "docs/concepts/02-frontend-renderizado-y-comunicacion.md": {
-    "mtime": 1789940617.218855,
-    "seen": 1789940639.8025706,
-    "ast_hash": "a93f8a95e638a5a57fab8fb2985200a3",
+    "mtime": 1790056121.720026,
+    "seen": 1790056264.207221,
+    "ast_hash": "0295516236e79a4c6caa87138504f292",
     "semantic_hash": ""
   },
   "docs/concepts/03-backend-api-concurrencia-y-persistencia.md": {
@@ -1248,9 +1248,9 @@
     "semantic_hash": ""
   },
   "docs/concepts/04-datos-relacionales-y-fuentes-derivadas.md": {
-    "mtime": 1790019590.0265598,
-    "seen": 1790019792.8221793,
-    "ast_hash": "05cb153d093a401133c558582111f3c6",
+    "mtime": 1790056121.7174306,
+    "seen": 1790056264.2073357,
+    "ast_hash": "dc85d53d783d0dc3cdca4e5b72e540bd",
     "semantic_hash": ""
   },
   "docs/concepts/05-ia-llm-prompts-y-rag.md": {
@@ -1668,9 +1668,9 @@
     "semantic_hash": ""
   },
   "docs/concepts/07-calidad.md": {
-    "mtime": 1790029554.4598818,
-    "seen": 1790029684.970516,
-    "ast_hash": "f6aaf7c97e47f5a96af726fca037bc26",
+    "mtime": 1790056121.7254572,
+    "seen": 1790056264.207686,
+    "ast_hash": "380dbc541faa79dcfb1392c3c63e1358",
     "semantic_hash": ""
   },
   "docs/concepts/08-despliegue.md": {
@@ -2730,9 +2730,9 @@
     "semantic_hash": ""
   },
   "frontend/src/features/measurements/components/MeasurementsDashboard.test.tsx": {
-    "mtime": 1790052623.828137,
-    "seen": 1790053106.7700555,
-    "ast_hash": "124df154990be81c062e6bac168fe15b",
+    "mtime": 1790055023.821319,
+    "seen": 1790056264.1975844,
+    "ast_hash": "2a175070682798b0e22a59aa027ec943",
     "semantic_hash": ""
   },
   "frontend/src/features/measurements/components/MetricTrendChart.test.tsx": {
@@ -2781,6 +2781,66 @@
     "mtime": 1790053605.9502842,
     "seen": 1790053715.3683996,
     "ast_hash": "29a061a1f2005b8a4d48a25ce0834ab4",
+    "semantic_hash": ""
+  },
+  "frontend/src/features/measurements/components/MeasurementsTrackingView.test.tsx": {
+    "mtime": 1790055023.8253267,
+    "seen": 1790056264.1978762,
+    "ast_hash": "2b233dbce282a4e7232fa5e8e5cce5bd",
+    "semantic_hash": ""
+  },
+  "frontend/src/features/measurements/components/MeasurementsTrackingView.tsx": {
+    "mtime": 1790055023.824327,
+    "seen": 1790056264.1978788,
+    "ast_hash": "66c77ebe82d7e705d2604cd16e561572",
+    "semantic_hash": ""
+  },
+  "frontend/src/features/measurements/lib/tracking.test.ts": {
+    "mtime": 1790055023.824327,
+    "seen": 1790056264.1990387,
+    "ast_hash": "50c3bb53ba6baf1ab615d46b92e9c1ed",
+    "semantic_hash": ""
+  },
+  "frontend/src/features/measurements/lib/tracking.ts": {
+    "mtime": 1790055023.824327,
+    "seen": 1790056264.199043,
+    "ast_hash": "5f6f76338da578ba3beb4b3ee14b7953",
+    "semantic_hash": ""
+  },
+  "docs/ux/brand_guide_questionnaire.md": {
+    "mtime": 1790395945.542659,
+    "seen": 1790822125.722861,
+    "ast_hash": "4c40210af95aee4c4e4d67584b48325d",
+    "semantic_hash": ""
+  },
+  "docs/ux/brand_strategy_careme.md": {
+    "mtime": 1790395020.8999844,
+    "seen": 1790822125.7228646,
+    "ast_hash": "98846f46f35a6030b6fdc347b6b8917f",
+    "semantic_hash": ""
+  },
+  "docs/ux/brand_strategy_nexo.md": {
+    "mtime": 1790394304.2235305,
+    "seen": 1790822125.7228656,
+    "ast_hash": "cf46e0da1a52bd1425bdc654a9201ac6",
+    "semantic_hash": ""
+  },
+  "docs/ux/careme_brand_guide.md": {
+    "mtime": 1790397463.6724062,
+    "seen": 1790822125.7228668,
+    "ast_hash": "56f119bd7c08457292eb380b7015f389",
+    "semantic_hash": ""
+  },
+  "docs/ux/design-tokens.md": {
+    "mtime": 1790398600.5912013,
+    "seen": 1790822125.7228675,
+    "ast_hash": "b431c8652e44c444cbb8544312afc9bc",
+    "semantic_hash": ""
+  },
+  "docs/ux/guide.mdx": {
+    "mtime": 1790391010.689665,
+    "seen": 1790822125.7228684,
+    "ast_hash": "31e0382793b821676de0bb4d2fc00454",
     "semantic_hash": ""
   }
 }
