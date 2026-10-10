@@ -103,6 +103,22 @@ public enum AgentOperation {
                                     "description", "La expresión temporal original de la persona, cuando la hubo.")),
                     "required", List.of("metric", "values"))),
 
+    RECORD_PROFILE(
+            "record_profile",
+            "Guarda datos personales que la persona ha confirmado para mantener su perfil vigente, sin registrarlos como hechos clínicos.",
+            Map.of(
+                    "type", "object",
+                    "properties", Map.of(
+                            "name", Map.of("type", "string"),
+                            "date_of_birth", Map.of("type", "string", "description", "Fecha de nacimiento en formato ISO."),
+                            "sex", Map.of("type", "string"),
+                            "occupation", Map.of("type", "string"),
+                            "blood_group", Map.of("type", "string"),
+                            "rh", Map.of("type", "string"),
+                            "height_cm", Map.of("type", "number"),
+                            "confirmed", Map.of("type", "boolean", "description", "Cierto solo cuando la persona confirmó los datos.")),
+                    "required", List.of("confirmed"))),
+
     CONSULT_MEASUREMENTS(
             "consult_measurements",
             "Consulta el seguimiento de mediciones y devuelve las mediciones registradas que pueden responder la pregunta, con su métrica, su valor en la unidad de referencia de esa métrica y su fecha.",

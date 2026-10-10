@@ -104,6 +104,13 @@ public final class AgentTurnOutcome {
                 case FAILURE -> ChatMessageResponse.Status.FAILED;
             };
         }
+        if (result.profile() != null) {
+            return switch (result.profile().kind()) {
+                case COLLECTED -> ChatMessageResponse.Status.NOTED;
+                case DUPLICATE -> ChatMessageResponse.Status.DUPLICATE;
+                case FAILURE -> ChatMessageResponse.Status.FAILED;
+            };
+        }
         if (result.kind() == AgentOperationResult.Kind.REJECTED) {
             return asksForInformation(result)
                     ? ChatMessageResponse.Status.CLARIFICATION_REQUIRED

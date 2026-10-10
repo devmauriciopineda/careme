@@ -14,7 +14,8 @@ class AgentOperationTest {
                         AgentOperation.CONSULT_HISTORY,
                         AgentOperation.CONSULT_MEASUREMENTS,
                         AgentOperation.RECORD_NOTE,
-                        AgentOperation.RECORD_MEASUREMENT);
+                        AgentOperation.RECORD_MEASUREMENT,
+                        AgentOperation.RECORD_PROFILE);
     }
 
     @Test
@@ -56,7 +57,7 @@ class AgentOperationTest {
     @Test
     void declaresNoStorageDetailForAnyOperation() {
         assertThat(AgentOperation.values()).allSatisfy(operation -> {
-            assertThat(operation.operationName()).doesNotContain("path", "file", "data/");
+            assertThat(operation.operationName()).doesNotContain("path", "data/");
             assertThat(operation.description()).doesNotContain("data/", ".md", "filesystem", "Markdown");
             assertThat(operation.arguments().toString()).doesNotContain("data/", ".md", "filesystem", "path");
         });

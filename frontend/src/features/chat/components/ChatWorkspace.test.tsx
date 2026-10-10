@@ -30,7 +30,9 @@ function sentPayloads(): ChatMessageInput[] {
 }
 
 async function send(user: ReturnType<typeof userEvent.setup>, text: string) {
-  await user.type(screen.getByLabelText("Mensaje para el asistente"), text);
+  const input = screen.getByLabelText("Mensaje para el asistente");
+  await waitFor(() => expect(input).toBeEnabled());
+  await user.type(input, text);
   await user.click(screen.getByRole("button", { name: "Enviar mensaje" }));
 }
 
@@ -574,5 +576,174 @@ describe("ChatWorkspace", () => {
     expect(await screen.findByText("La consulta está cerrada.")).toBeInTheDocument();
     expect(closeConsultationMock).toHaveBeenCalledTimes(2);
     expect(screen.queryByText(/Failed to fetch/)).not.toBeInTheDocument();
+  });
+
+  it("offers the profile interview without making it mandatory", async () => {
+    const user = userEvent.setup();
+    sendChatMessageMock
+      .mockResolvedValueOnce({
+        ok: true,
+        response: {
+          conversationId: "conversation-1",
+          messageId: "message-1",
+          status: "general_conversation",
+          message: "Si quieres, podemos completar poco a poco tu perfil personal. ¿Quieres empezar?",
+          events: [],
+          profile: { fields: [{ key: "name", value: null }] },
+        },
+      })
+      .mockResolvedValue(succeeds("noted", "Lo he anotado."));
+
+    render(<ChatWorkspace />);
+    await send(user, "Hola");
+    expect(await screen.findByText(/completar poco a poco tu perfil/)).toBeInTheDocument();
+
+    await send(user, "Ayer tuve fiebre");
+
+    expect(await screen.findByText("Lo he anotado.", {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(screen.getByLabelText("Mensaje para el asistente")).toBeEnabled();
+  });
+
+  it("sends a skip or a resume as an ordinary turn, without a new payload shape", async () => {
+    const user = userEvent.setup();
+    sendChatMessageMock.mockResolvedValue(succeeds("general_conversation", "De acuerdo."));
+
+    render(<ChatWorkspace />);
+    await send(user, "Ahora no");
+
+    const [payload] = sentPayloads();
+    expect(Object.keys(payload).sort()).toEqual(["conversationId", "message", "messageId"]);
+    expect(payload.message).toBe("Ahora no");
+  });
+
+  it("shows the confirmed profile values and keeps the absent ones explicit", async () => {
+    const user = userEvent.setup();
+    sendChatMessageMock.mockResolvedValue({
+      ok: true,
+      response: {
+        conversationId: "conversation-1",
+        messageId: "message-1",
+        status: "noted",
+        message: "Lo he anotado. Quedará actualizado en tu perfil cuando cierres la consulta.",
+        events: [],
+        profile: {
+          fields: [
+            { key: "name", value: "Ana" },
+            { key: "date_of_birth", value: "1984-02-03" },
+            { key: "sex", value: null },
+            { key: "occupation", value: null },
+            { key: "blood_group", value: null },
+            { key: "rh", value: null },
+            { key: "height_cm", value: null },
+          ],
+        },
+      },
+    });
+
+    render(<ChatWorkspace />);
+    await send(user, "Me llamo Ana");
+
+    const card = await screen.findByRole("region", { name: "Tu perfil" });
+    expect(within(card).getByText("Ana")).toBeInTheDocument();
+    expect(within(card).getByText("1984-02-03")).toBeInTheDocument();
+    expect(within(card).getAllByText("Sin datos").length).toBeGreaterThan(0);
+    expect(within(card).queryByText("date_of_birth")).not.toBeInTheDocument();
+  });
+
+  it("asks for clarification about an ambiguous profile datum without exposing internals", async () => {
+    const user = userEvent.setup();
+    sendChatMessageMock.mockResolvedValue({
+      ok: true,
+      response: {
+        conversationId: "conversation-1",
+        messageId: "message-1",
+        status: "clarification_required",
+        message: "No me queda claro: ¿naciste en 1984 o en 1994?",
+        events: [],
+      },
+    });
+
+    render(<ChatWorkspace />);
+    await send(user, "Nací en el 84");
+
+    expect(await screen.findByText(/No me queda claro/)).toBeInTheDocument();
+    expect(screen.getByText("Necesita aclaración")).toBeInTheDocument();
+    expect(screen.queryByText(/prompt|stack trace|credential|data\/patient/i)).not.toBeInTheDocument();
+  });
+
+  it("offers a retry when a profile update could not be completed", async () => {
+    const user = userEvent.setup();
+    sendChatMessageMock
+      .mockResolvedValueOnce({
+        ok: true,
+        response: {
+          conversationId: "conversation-1",
+          messageId: "message-1",
+          status: "failed",
+          message: "No he podido guardar ese dato personal. ¿Puedes confirmarlo de nuevo?",
+          events: [],
+        },
+      })
+      .mockResolvedValue(succeeds("noted", "Lo he anotado."));
+
+    render(<ChatWorkspace />);
+    await send(user, "Mi estatura es 170 cm");
+
+    expect(await screen.findByText(/No he podido guardar ese dato personal/)).toBeInTheDocument();
+    const retry = screen.getByRole("button", { name: "Reintentar" });
+    await waitFor(() => expect(retry).toBeEnabled());
+    await user.click(retry);
+
+    expect(await screen.findByText("Lo he anotado.", {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(sendChatMessageMock).toHaveBeenCalledTimes(2);
+    expect(screen.queryByText(/Failed to fetch|data\/patient/)).not.toBeInTheDocument();
+  });
+
+  it("keeps the profile, the events and the measurements apart in one turn", async () => {
+    const user = userEvent.setup();
+    sendChatMessageMock.mockResolvedValue({
+      ok: true,
+      response: {
+        conversationId: "conversation-1",
+        messageId: "message-1",
+        status: "answered",
+        message: "He anotado tu perfil, tu diagnóstico y tu peso.",
+        events: [
+          {
+            code: "evt_001",
+            type: "diagnosis",
+            date: "2026-01-10",
+            datePrecision: "exact",
+            content: "Hipertensión diagnosticada",
+          },
+        ],
+        measurements: [
+          {
+            reference: "weight@2026-01-10",
+            metric: "weight",
+            label: "peso",
+            unit: "kg",
+            date: "2026-01-10",
+            values: [{ component: "value", value: "70.5" }],
+            text: "peso: 70.5 kg (2026-01-10)",
+          },
+        ],
+        profile: { fields: [{ key: "name", value: "Ana" }] },
+      },
+    });
+
+    render(<ChatWorkspace />);
+    await send(user, "Me llamo Ana, tengo hipertensión y peso 70,5 kg");
+
+    const card = await screen.findByRole("region", { name: "Tu perfil" });
+    expect(within(card).getByText("Ana")).toBeInTheDocument();
+    expect(within(card).queryByText("Hipertensión diagnosticada")).not.toBeInTheDocument();
+
+    const supporting = screen.getByRole("list", { name: "Hechos que sustentan la respuesta" });
+    expect(within(supporting).getByText("Hipertensión diagnosticada")).toBeInTheDocument();
+
+    const measurements = screen.getByRole("list", { name: "Mediciones que sustentan la respuesta" });
+    expect(within(measurements).getByText("70.5 kg")).toBeInTheDocument();
+    expect(within(measurements).queryByText("Ana")).not.toBeInTheDocument();
   });
 });

@@ -49,6 +49,24 @@ export type MeasurementSummary = {
   text: string;
 };
 
+/**
+ * One field of the current profile: its stable key and its current confirmed
+ * value, or null when the person has not confirmed it. The interface owns the
+ * label it shows, so no user-facing wording travels in the payload.
+ */
+export type ProfileField = {
+  key: string;
+  value: string | null;
+};
+
+/**
+ * The current profile snapshot. It is a current-value view: it carries neither
+ * provenance nor a previous value, and an absent field stays absent.
+ */
+export type ProfileSummary = {
+  fields: ProfileField[];
+};
+
 export type ChatResponse = {
   conversationId: string;
   messageId: string | null;
@@ -83,4 +101,9 @@ export type ChatResponse = {
    * different record, with its own unit and its own exact date.
    */
   measurements?: MeasurementSummary[];
+  /**
+   * The current profile, when the backend reports one. It lets the interface show
+   * the confirmed values and the absent ones without reading the profile itself.
+   */
+  profile?: ProfileSummary | null;
 };

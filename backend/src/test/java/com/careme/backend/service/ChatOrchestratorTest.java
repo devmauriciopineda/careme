@@ -158,6 +158,46 @@ class ChatOrchestratorTest {
         assertThat(response.operations()).isEmpty();
     }
 
+    @Test
+    void reportsTheCurrentProfileWithTheAbsentFieldsStillAbsent() {
+        when(agent.respond(anyString(), any()))
+                .thenReturn(AgentTurn.completed("Lo he anotado.", List.of()));
+        when(encounterService.currentProfile()).thenReturn(
+                new com.careme.backend.entity.PatientProfile(
+                        "Ana", null, null, null, null, null, null));
+
+        ChatMessageResponse response =
+                orchestrator.process(request("Me llamo Ana", CONVERSATION_ID, UUID.randomUUID().toString()));
+
+        assertThat(response.profile()).isNotNull();
+        assertThat(response.profile().fields())
+                .filteredOn(field -> field.value() != null)
+                .singleElement()
+                .satisfies(field -> {
+                    assertThat(field.key()).isEqualTo("name");
+                    assertThat(field.value()).isEqualTo("Ana");
+                });
+        assertThat(response.profile().fields())
+                .filteredOn(field -> field.value() == null)
+                .hasSize(6);
+    }
+
+    @Test
+    void handsTheCurrentProfileToTheAssistantSoTheInterviewCanResume() {
+        when(agent.respond(anyString(), any()))
+                .thenReturn(AgentTurn.completed("¿Cómo te llamas?", List.of()));
+        when(encounterService.currentProfile()).thenReturn(
+                new com.careme.backend.entity.PatientProfile(
+                        null, LocalDate.of(1984, 2, 3), null, null, null, null, null));
+
+        orchestrator.process(request("Hola", CONVERSATION_ID, UUID.randomUUID().toString()));
+
+        ArgumentCaptor<AgentContext> contexts = ArgumentCaptor.forClass(AgentContext.class);
+        verify(agent).respond(anyString(), contexts.capture());
+        assertThat(contexts.getValue().profile().dateOfBirth()).isEqualTo(LocalDate.of(1984, 2, 3));
+        assertThat(contexts.getValue().profile().name()).isNull();
+    }
+
     private static ChatMessageRequest request(String message, String conversationId, String messageId) {
         return new ChatMessageRequest(message, conversationId, messageId);
     }

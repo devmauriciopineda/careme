@@ -95,7 +95,11 @@ public class AgentTurnRunner {
         return Map.of(
                 "role", "user",
                 "content", AgentToolContract.userContent(
-                        message, context.referenceDate(), context.zoneId(), context.recentTurns()));
+                    message,
+                    context.referenceDate(),
+                    context.zoneId(),
+                    context.recentTurns(),
+                    context.profile()));
     }
 
     /**

@@ -2,6 +2,7 @@ package com.careme.backend.service;
 
 import com.careme.backend.dto.ChatMessageRequest;
 import com.careme.backend.dto.ChatMessageResponse;
+import com.careme.backend.dto.ProfileSummary;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.UUID;
@@ -45,7 +46,16 @@ public class ChatOrchestrator {
      * new.
      */
     public ChatMessageResponse closeConsultation(String conversationId) {
-        return encounterService.close(conversationId);
+        return withProfile(encounterService.close(conversationId));
+    }
+
+    /**
+     * Attaches the current profile snapshot to an outcome, so the client can show
+     * the confirmed values and the absent ones without reading the profile itself.
+     */
+    private ChatMessageResponse withProfile(ChatMessageResponse response) {
+        return response.withProfile(
+                ProfileSummary.of(encounterService.currentProfile()));
     }
 
     public ChatMessageResponse process(ChatMessageRequest request) {
@@ -87,7 +97,11 @@ public class ChatOrchestrator {
             turn = agent.respond(
                     message,
                     new AgentContext(
-                            conversationId, LocalDate.now(), ZoneId.systemDefault(), state.recentTurns()));
+                            conversationId,
+                            LocalDate.now(),
+                            ZoneId.systemDefault(),
+                            state.recentTurns(),
+                            encounterService.currentProfile()));
         } catch (RuntimeException exception) {
             // Nothing was executed on this path, so the clinical history is untouched
             // and the message can be repeated.
@@ -115,6 +129,6 @@ public class ChatOrchestrator {
         if (response.status() != ChatMessageResponse.Status.FAILED) {
             state.addTurn(request.message(), response.message());
         }
-        return response;
+        return withProfile(response);
     }
 }

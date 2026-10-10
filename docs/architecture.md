@@ -52,7 +52,8 @@ user accounts, one measurement per metric and day, and data precision owned by t
 | **Note** (EncounterNote) | A clinical fact the person mentioned, collected while the consultation is open; it is not a registered fact and never part of the clinical history | `backend/src/main/java/com/careme/backend/entity/EncounterNote.java` |
 | **Provenance** | The origin a registered fact declares: who contributed it, when it was registered and from which consultation it came | `backend/src/main/java/com/careme/backend/entity/ClinicalEvent.java` |
 | **Consultation close** | The explicit, idempotent operation that registers the collected notes with their provenance and keeps the derived summary | `backend/src/main/java/com/careme/backend/service/EncounterService.java` |
-| **Chat turn** (ChatMessageResponse) | The assistant response: status, message, supporting events when they apply and, when there are no records, the reason for the absence and the actions offered | `backend/src/main/java/com/careme/backend/dto/ChatMessageResponse.java` |
+| **Chat turn** (ChatMessageResponse) | The assistant response: status, message, supporting events when they apply, the current profile snapshot it reports and, when there are no records, the reason for the absence and the actions offered | `backend/src/main/java/com/careme/backend/dto/ChatMessageResponse.java` |
+| **Patient profile** | The current personal attributes of the single patient —name, date of birth, sex, occupation, blood group, Rh factor and height—, carrying only the last confirmed value of each and no dated clinical fact; age is derived from the date of birth | `backend/src/main/java/com/careme/backend/entity/PatientProfile.java`, `service/PatientProfileMarkdownStore.java` |
 
 ---
 
@@ -193,6 +194,7 @@ flowchart TB
         encSvc["EncounterService<br/>consultation life cycle: open, collect, close"]
         encStore["EncounterMarkdownStore<br/>data/encounters/"]
         encIdxWriter["EncounterIndexWriter<br/>derived index, upsert"]
+        profStore["PatientProfileMarkdownStore<br/>data/patient/ · atomic snapshot"]
         evtDomain["ClinicalEvent / ClinicalEventIntent / Encounter / EncounterNote<br/>domain records, invariants"]
         dtos["dto/*<br/>Measurement* · Import* · ChatMessage*<br/>ClinicalEventIntent · ApiResponse · ErrorResponse"]
         exc["ApiExceptionHandler<br/>@RestControllerAdvice"]
@@ -201,6 +203,7 @@ flowchart TB
     pg[("PostgreSQL")]
     fs[("data/events/<br/>Markdown")]
     encFs[("data/encounters/<br/>Markdown")]
+    profFs[("data/patient/<br/>Markdown profile")]
     ctrl --> svc
     ctrl --> imp
     ctrl --> dtos
@@ -224,6 +227,8 @@ flowchart TB
     encSvc --> encStore
     encSvc --> encIdxWriter
     encStore --> encFs
+    encSvc --> profStore
+    profStore --> profFs
     encIdxWriter --> pg
     histSvc --> composer
     histSvc --> queryRepo
@@ -249,6 +254,7 @@ flowchart TB
 | `service/` | Use cases: sort, decide create vs. replace, preview and load | `backend/.../service/MeasurementService.java`, `MeasurementImportService.java`, `MeasurementCsvParser.java` |
 | `service/` (clinical) | Chat and registration: the agent decides among a closed set of declared operations — consult the history, take note of a fact — and each operation validates its arguments and writes inside its own path; the turn ends in one single reply | `backend/.../service/ChatOrchestrator.java`, `ClinicalAgent.java`, `AgentOperation*.java`, `AgentToolContract.java`, `ClinicalHistoryQueryService.java`, `ClinicalEvent*.java` |
 | `service/` (consultation) | The consultation life cycle: it opens with the conversation, collects the facts the person mentions as notes without touching the history, and only the close registers the admissible notes as clinical events with their provenance | `backend/.../service/EncounterService.java`, `EncounterMarkdownStore.java`, `EncounterIndexWriter.java` |
+| `service/` (profile) | The current patient profile: it reads the single Markdown snapshot and replaces it atomically at the close, after the consultation's confirmed candidates pass the same checks the profile applies | `backend/.../service/PatientProfileMarkdownStore.java`, `PatientProfileResult.java` |
 | `repository/` | Port (`MeasurementRepository`) + JPA adapters. Isolates the persistence engine | `backend/.../repository/` |
 | `entity/` | Domain/mapping separation: `MetricMeasurementEntity` (mapping), `MetricMeasurement`, `Metric` and `MeasurementDraft` (annotation-free domain), `ClinicalEvent` (assistant domain) | `backend/.../entity/` |
 | `dto/` | HTTP contract, independent of the schema | `backend/.../dto/` |
@@ -462,11 +468,10 @@ the code and the READMEs.
 | ADR-010 | Coverage gate (85 % branches/lines) bound to `verify`, not to `test` | Current | Do not block fast test cycles | `mvn test` can pass with insufficient coverage |
 | ADR-011 | Java 21 pinned by `maven-enforcer-plugin` and a committed Maven wrapper | Current | Reproducible build | Builds with another JDK fail explicitly |
 | ADR-012 | User-facing text in Spanish isolated in `strings.ts`; code in English | Current | Future i18n without a refactor | Manual discipline; no automated check |
-| ADR-013 | Implicit `Patient` and clinical events in Markdown as the source of truth + derived PostgreSQL index | Current | MVP of the clinical history assistant | Markdown rules; PostgreSQL indexes and is rebuilt; the query is read-only and there is no edit or delete |
-| ADR-014 | The assistant is an agent with tools behind a port (`ClinicalAgent`): the model chooses from a **closed** set of declared operations (`consult_history`, `consult_measurements`, `record_note`, `record_measurement`), which the backend validates and executes — writing inside the operation — until one single reply closes the turn; adapters with `fake`/`openai` mode | Current | Keep the LLM provider out of the domain while letting the model handle language variation instead of classifying it in code | Supersedes the intent-interpreter/conversational-composer split. `openai` is the default and requires `CAREME_LLM_API_KEY`, otherwise the backend refuses to start; `fake` is a test double that also chooses operations. The model never reaches the filesystem and cannot invoke an undeclared operation. Registering is not a turn operation: the turn collects notes and only the consultation close writes (`openspec/specs/assistant-agent-turn/spec.md`, *Acotar las operaciones disponibles*) |
+| ADR-013 | Patient profile and clinical events remain separate Markdown source-of-truth documents with derived PostgreSQL indexes only where needed | Current | Keep current identity attributes out of dated clinical history | The profile is one atomic `data/patient/profile.md` snapshot with no history or provenance; events remain in `data/events/` and consultations in `data/encounters/` |
+| ADR-014 | The assistant is an agent with tools behind a port (`ClinicalAgent`): the model chooses from a **closed** set of declared operations (`consult_history`, `consult_measurements`, `record_note`, `record_measurement`, `record_profile`), which the backend validates and executes until one single reply closes the turn; adapters with `fake`/`openai` mode | Current | Keep the LLM provider out of the domain while letting the model handle language variation instead of classifying it in code | The model never reaches the filesystem and cannot invoke an undeclared operation. Clinical notes, measurements and profile candidates are collected during the turn; clinical records and the profile are published at consultation close. The profile interview is optional and resumable |
 
-> ADR-013 describes the implemented model. The roadmap's Fase 4.4 materialises `Patient` as a patient
-> profile, which will supersede it.
+> ADR-013 describes the implemented split between the current patient profile and dated clinical history.
 
 ---
 
@@ -485,6 +490,7 @@ only.
 | `CAREME_DB_USER` / `CAREME_DB_PASSWORD` | Database credentials | `careme` / `careme` |
 | `CAREME_CORS_ALLOWED_ORIGINS` | Origins allowed in `pre`/`prd` | No default: the app does not start without it |
 | `CAREME_EVENTS_DIRECTORY` | Directory of the Markdown source of truth | `data/events` |
+| `CAREME_PATIENT_PROFILE_DIRECTORY` | Directory of the current patient profile Markdown snapshot | `data/patient` |
 | `CAREME_LLM_MODE` | `fake` (no network) or `openai` | `openai` |
 | `CAREME_LLM_API_KEY` | LLM provider credential (backend only) | No default; required with `openai` |
 | `CAREME_LLM_BASE_URL` / `CAREME_LLM_MODEL` | OpenAI-compatible endpoint and model | `https://api.deepseek.com` / `deepseek-flash` |

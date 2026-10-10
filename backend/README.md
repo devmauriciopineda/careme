@@ -59,6 +59,12 @@ the HTTP contract.
 - Clinical events are Markdown files under `data/events/`, configurable with
   `careme.events.directory`; PostgreSQL stores only the derived index. The index is
   rebuilt at startup and with `POST /api/v1/clinical-events/reindex`.
+- The current patient profile is a single Markdown snapshot at `data/patient/profile.md`,
+  configurable with `careme.patient-profile.directory`. It stores name, date of birth, sex,
+  occupation, blood group, Rh factor and height. Profile candidates are collected through
+  `record_profile` during a consultation and published atomically when that consultation
+  closes; the profile is not a clinical event, has no history or provenance, and age is
+  derived from the date of birth.
 
 ## Architecture overview
 
@@ -174,6 +180,7 @@ instead reports:
 | `suggestedActions` | `no_records`  | `reformulate` and/or `register`; empty otherwise                                        |
 | `operations`       | always        | the operations the turn went through, in order, each with its own `status`, `events`, `absenceReason`, `suggestedActions` and `measurements` |
 | `measurements`     | `answered` from the tracking | the measurements that support the answer, each with its `metric`, `label`, `unit`, `date`, `values` and the whole measurement written out in `text` |
+| `profile`          | always        | the current profile snapshot: one entry per field, with its `key` and its `value`, `null` when the person has not confirmed that datum |
 
 `operations` is additive and optional, so a client that does not know it keeps
 working. `message` is the single answer the turn produced, and `operations` lets a
@@ -484,6 +491,7 @@ cd backend
 | `spring.jpa.hibernate.ddl-auto` | `validate`                                    |
 | `careme.cors.allowed-origins`  | `http://localhost:3000`                        |
 | `careme.events.directory`      | `data/events` (`CAREME_EVENTS_DIRECTORY`)      |
+| `careme.patient-profile.directory` | `data/patient` (`CAREME_PATIENT_PROFILE_DIRECTORY`) |
 
 `careme.events.directory` holds the Markdown source of truth for clinical events.
 It must be writable by the user that runs the process and must outlive the

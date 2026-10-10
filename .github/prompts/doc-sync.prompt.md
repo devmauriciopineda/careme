@@ -1,5 +1,5 @@
 ---
-description: "Verifica la documentación contra la especificación (SDD) y corrige el drift de los cambios recientes (openspec/changes/archive): READMEs, docs/architecture.md, docs/data-model.md y estados de use-cases.md"
+description: "Verifica la documentación contra la especificación (SDD) y corrige el drift de los cambios recientes (openspec/changes/archive): READMEs, docs/architecture.md, docs/data-model.md, docs/use-cases/ y docs/roadmap/"
 argument-hint: "Cambio archivado a verificar (p.ej. 2026-09-13-uc-004). Si se omite, usa el más reciente."
 agent: "agent"
 ---
@@ -21,12 +21,13 @@ El procedimiento es **idempotente**: si la documentación ya está correcta, no 
 - `frontend/README.md`
 - `docs/architecture.md`
 - `docs/data-model.md`
-- `docs/roadmap/use-cases.md` — **solo los estados** (ver Paso 4b). Nunca sus descripciones.
+- `docs/use-cases/**` — los documentos formales de cada UC y sus criterios de aceptación
+  (`UC-XXX.md`, `UC-XXX-acceptance-criteria.md`).
+- `docs/roadmap/**` — alcance del MVP, hoja de ruta e índice `use-cases.md` (ver Paso 4b).
 
 **Fuera de alcance (no editar, no reestructurar):**
 
-- `docs/use-cases/**` (los documentos formales de cada UC)
-- Resto de `docs/roadmap/**`
+- Resto de `docs/**` (`concepts/`, `standards/`, `testing/`, `ux/`)
 - `frontend/AGENTS.md`, `frontend/CLAUDE.md`
 - `graphify-out/**` (generado por `graphify`)
 - `openspec/**` (solo lectura: es la fuente de verdad de los cambios)
@@ -36,7 +37,9 @@ El procedimiento es **idempotente**: si la documentación ya está correcta, no 
 `docs/use-cases/` en español. Respeta el idioma de cada documento: no lo traduzcas ni
 lo cambies de idioma por tu cuenta.
 
-Si un cambio archivado afecta a descripciones o alcances de use cases, **menciónalo como aviso y no los edites**.
+Los documentos de `docs/use-cases/` y `docs/roadmap/` describen comportamiento y alcance en prosa:
+corrige solo lo que la especificación contradiga y conserva la estructura, el idioma y el estilo de
+cada documento.
 
 # Paso 1 — Identificar el cambio disparador
 
@@ -89,20 +92,29 @@ Para cada documento del alcance, comprueba:
   Resuelve los `⚠️ NOT DETECTED` que los specs ya permitan confirmar.
 - `docs/data-model.md`: entidades **implementadas** vs **propuestas**, campos, validaciones,
   migraciones y diagrama ER.
+- `docs/use-cases/**`: identificación y actor, precondiciones, flujo principal, flujos alternos y
+  excepciones, postcondiciones, reglas de negocio, requisitos no funcionales, fuera de alcance y
+  frontera con otros UC; y en los criterios de aceptación, cada escenario Given/When/Then con sus
+  referencias. Contrasta cada afirmación con el contrato vigente de su capability.
+- `docs/roadmap/**`: alcance del MVP, hoja de ruta e índice `use-cases.md` (estados, avance y
+  fronteras entre fases).
 
 Clasifica cada hallazgo como: **DESACTUALIZADO**, **FALTA**, **OBSOLETO** o **MARCADOR RESUELTO**
 (un `⚠️ NOT DETECTED` que ya puede confirmarse).
 
-# Paso 4b — Estados en `docs/roadmap/use-cases.md` (solo estados)
+# Paso 4b — Avance en `docs/roadmap/use-cases.md`
 
-Actualiza **únicamente los estados**, nunca las descripciones ni los alcances:
+Actualiza siempre los estados y las cifras de avance, y corrige la prosa solo cuando la
+especificación la contradiga:
 
 - Las líneas `**Estado:** …` de cada UC.
 - El encabezado *Control de avance* (`N de M implementados · …`) y la línea *Implementación actual*.
+- Las frases que resumen qué está implementado dentro de un bloque (p. ej. el enunciado que abre la
+  Fase 4).
 
 Determina el estado desde los specs: un UC pasa a ✅ **Implementado** cuando su capability existe en
 `openspec/specs/` con las historias exigidas; 🟡 **Cubierto** o ⬜ **Pendiente** según ese mismo
-criterio. **No reescribas** el texto descriptivo de cada UC ni añadas ni elimines UCs.
+criterio. **No añadas ni elimines UCs** y no reescribas sus descripciones cuando no haya drift.
 
 # Paso 5 — Reporte (en el chat)
 
@@ -111,9 +123,8 @@ Presenta una tabla:
 | Documento | Sección | Afirma | Realidad (evidencia) | Acción propuesta |
 | --- | --- | --- | --- | --- |
 
-Añade un veredicto por documento (OK / con drift) y la propuesta de cambios de estado en
-`docs/roadmap/use-cases.md`. Si un cambio afecta descripciones o alcances de use cases,
-menciónalo como aviso (**sin editar**). Si no hay drift, dilo y termina sin tocar archivos.
+Añade un veredicto por documento (OK / con drift), incluidos `docs/use-cases/**` y el resto de
+`docs/roadmap/**`. Si no hay drift, dilo y termina sin tocar archivos.
 
 # Paso 6 — Aplicar correcciones con confirmación
 
@@ -134,5 +145,6 @@ menciónalo como aviso (**sin editar**). Si no hay drift, dilo y termina sin toc
   ediciones** (solo el veredicto OK), sin cambios de formato ni de redacción.
 - La especificación manda (SDD): no audites el código; solo consultas puntuales cuando haga falta.
 - Mantén el idioma y el tono/estilo de cada documento, según la tabla de idioma del Alcance.
-- No edites código ni `openspec/`. En `docs/roadmap/use-cases.md` toca **solo los estados**; en el
-  resto de `docs/roadmap/` y en `docs/use-cases/` no edites nada.
+- No edites código ni `openspec/`.
+- En `docs/use-cases/` y `docs/roadmap/`, sé conservador: corrige solo lo que la especificación
+  contradiga, mantén cada documento en su idioma y su estructura, y no reformules prosa correcta.

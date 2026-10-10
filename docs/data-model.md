@@ -180,6 +180,19 @@ it.
 > It is still a single patient; what changes is that the system stops being blind
 > to who it belongs to.
 
+### 2.4 Patient profile
+
+The patient profile is the current-value identity model for UC-015, separate from dated
+clinical history. It contains `name`, `date_of_birth`, `sex`, `occupation`, `blood_group`,
+`rh` and `height_cm`; absent values remain absent and `age` is derived from `date_of_birth`.
+
+The source of truth is the Markdown snapshot `data/patient/profile.md`, configurable with
+`careme.patient-profile.directory`. A consultation collects confirmed candidates in its
+`profile_updates`; closing the consultation applies them in order and replaces the complete
+profile snapshot using an atomic temporary-file move. A failed publication leaves the prior
+snapshot unchanged so the close can be retried. Profile values do not receive clinical-event
+provenance or a version history.
+
 **Relationships:**
 
 - `events`: one-to-many relationship with the ClinicalEvent model

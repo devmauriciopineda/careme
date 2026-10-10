@@ -329,6 +329,7 @@ the scenarios assert that directory starts **empty**:
 cd backend
 CAREME_EVENTS_DIRECTORY="$PWD/target/e2e-events" \
 CAREME_ENCOUNTERS_DIRECTORY="$PWD/target/e2e-encounters" \
+CAREME_PATIENT_PROFILE_DIRECTORY="$PWD/target/e2e-patient" \
 CAREME_DB_URL="jdbc:postgresql://[::1]:5432/careme" \
 ./mvnw spring-boot:run                 # Windows: .\mvnw.cmd spring-boot:run
 
@@ -347,9 +348,18 @@ history before and after a turn:
 ```powershell
 # Windows
 $env:CAREME_EVENTS_DIRECTORY = "C:\path\to\careme\backend\target\e2e-events"
+# The profile scenarios of UC-015 read the profile document and start from an absent one:
+$env:CAREME_PATIENT_PROFILE_DIRECTORY = "C:\path\to\careme\backend\target\e2e-patient"
 cd frontend
 pnpm exec playwright test --project=interface e2e/playwright/uc-014b.spec.ts
 ```
+
+> The backend must be run against a database the run owns. A database that still holds
+> `encounter_index` rows from an earlier run fails the next consultation with
+> `duplicate key value violates unique constraint "encounter_index_code_key"`, because the
+> Markdown reserve restarts at `enc_001` while the derived index has not been rebuilt:
+> point `CAREME_DB_URL` at a scratch database, or restart the backend so the index is rebuilt
+> from the Markdown it is derived from.
 
 ```bash
 # Linux / macOS

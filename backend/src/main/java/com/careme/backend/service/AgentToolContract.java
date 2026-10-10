@@ -1,6 +1,7 @@
 package com.careme.backend.service;
 
 import com.careme.backend.dto.AgentOperation;
+import com.careme.backend.entity.PatientProfile;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -45,13 +46,38 @@ public final class AgentToolContract {
      */
     public static String userContent(
             String message, LocalDate referenceDate, ZoneId zoneId, List<String> recentTurns) {
+        return userContent(message, referenceDate, zoneId, recentTurns, null);
+    }
+
+    public static String userContent(
+            String message,
+            LocalDate referenceDate,
+            ZoneId zoneId,
+            List<String> recentTurns,
+            PatientProfile profile) {
         StringBuilder content = new StringBuilder()
                 .append("Fecha de referencia: ").append(referenceDate)
                 .append(". Zona horaria: ").append(zoneId);
         if (recentTurns != null && !recentTurns.isEmpty()) {
             content.append(". Turnos recientes: ").append(String.join(" || ", recentTurns));
         }
+        if (profile != null) {
+            content.append(". Perfil vigente: ").append(profileSummary(profile));
+        }
         return content.append(". Mensaje: ").append(message).toString();
+    }
+
+    private static String profileSummary(PatientProfile profile) {
+        PatientProfile current = profile == null ? PatientProfile.empty() : profile;
+        List<String> missing = new ArrayList<>();
+        if (current.name() == null) missing.add("name");
+        if (current.dateOfBirth() == null) missing.add("date_of_birth");
+        if (current.sex() == null) missing.add("sex");
+        if (current.occupation() == null) missing.add("occupation");
+        if (current.bloodGroup() == null) missing.add("blood_group");
+        if (current.rh() == null) missing.add("rh");
+        if (current.heightCm() == null) missing.add("height_cm");
+        return missing.isEmpty() ? "completo" : "faltan " + String.join(", ", missing);
     }
 
     /**

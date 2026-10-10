@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ArrowUp, HeartPulse, LoaderCircle, RotateCcw, Scale } from "lucide-react";
-import { FormEvent, useState, useTransition } from "react";
+import { FormEvent, useState } from "react";
 
 import { closeConsultation, sendChatMessage } from "../actions";
 import type { ChatResponse } from "../types";
@@ -69,6 +69,23 @@ const suggestedActionLabels: Record<
 };
 
 /**
+ * Names each profile field in Spanish. The label belongs to the interface, so a
+ * field the interface does not know is not shown rather than rendered raw.
+ */
+const profileFieldLabels: Record<string, string> = {
+  name: "Nombre",
+  date_of_birth: "Fecha de nacimiento",
+  sex: "Sexo",
+  occupation: "Ocupación",
+  blood_group: "Grupo sanguíneo",
+  rh: "Factor Rh",
+  height_cm: "Estatura (cm)",
+};
+
+/** What an absent profile field reads as, so absence is explicit and not blank. */
+const PROFILE_ABSENT_LABEL = "Sin datos";
+
+/**
  * Names the precision the backend reported instead of presenting every date as
  * exact, so an approximate or unknown date stays approximate or unknown.
  */
@@ -98,7 +115,10 @@ export function ChatWorkspace() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [closed, setClosed] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
-  const [isPending, startTransition] = useTransition();
+  /** True while a turn is in flight, so the composer never opens a second one. */
+  const [isSending, setIsSending] = useState(false);
+  /** The latest profile the backend reported, so the person sees what is confirmed. */
+  const [profile, setProfile] = useState<ChatResponse["profile"]>();
 
   /** Keeps the failed turn available so the retry can send it again. */
   function recordFailure(messageId: string, text: string) {
@@ -117,13 +137,23 @@ export function ChatWorkspace() {
   function submit(event: FormEvent, text = draft) {
     event.preventDefault();
     const message = text.trim();
-    if (!message || isPending || closed || isClosing) return;
+    if (!message || isSending || closed || isClosing) return;
 
     const messageId = crypto.randomUUID();
     setDraft("");
     setMessages((current) => [...current, { id: messageId, role: "user", text: message }]);
 
-    startTransition(async () => {
+    void sendTurn(message, messageId);
+  }
+
+  /**
+   * Sends one turn and renders its outcome. The sending flag is set around the
+   * whole call —not only around its start— so the composer stays closed until the
+   * turn actually finished, and it is cleared whatever the outcome is.
+   */
+  async function sendTurn(message: string, messageId: string) {
+    setIsSending(true);
+    try {
       let outcome: Awaited<ReturnType<typeof sendChatMessage>>;
 
       try {
@@ -141,6 +171,7 @@ export function ChatWorkspace() {
       }
 
       setConversationId(outcome.response.conversationId);
+      setProfile(outcome.response.profile);
       setMessages((current) => [
         ...current,
         {
@@ -153,9 +184,14 @@ export function ChatWorkspace() {
           suggestedActions: outcome.response.suggestedActions,
           operations: outcome.response.operations,
           measurements: outcome.response.measurements,
+          // A turn the assistant could not complete is retryable, exactly like a
+          // turn that never reached it: the person keeps control of the retry.
+          retryText: outcome.response.status === "failed" ? message : undefined,
         },
       ]);
-    });
+    } finally {
+      setIsSending(false);
+    }
   }
 
   /**
@@ -182,6 +218,7 @@ export function ChatWorkspace() {
         return;
       }
       setClosed(true);
+      setProfile(outcome.response.profile);
       setMessages((current) => [
         ...current,
         {
@@ -313,7 +350,7 @@ export function ChatWorkspace() {
                 )}
               </div>
             ))}
-            {(isPending || isClosing) && (
+            {(isSending || isClosing) && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
                 <LoaderCircle aria-hidden="true" className="size-4 animate-spin" />
                 {isClosing ? "Cerrando la consulta..." : "Procesando tu mensaje..."}
@@ -356,8 +393,8 @@ export function ChatWorkspace() {
           ) : (
             <form className="mt-4 flex items-end gap-2 rounded-2xl border border-border bg-card p-2 shadow-sm" onSubmit={submit}>
               <label className="sr-only" htmlFor="chat-message">Mensaje para el asistente</label>
-              <textarea className="min-h-12 flex-1 resize-none border-0 bg-transparent px-3 py-3 text-sm outline-none placeholder:text-muted-foreground" disabled={isPending} id="chat-message" onChange={(event) => setDraft(event.target.value)} placeholder="Escribe un hecho médico..." value={draft} />
-              <button aria-label="Enviar mensaje" className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40" disabled={!draft.trim() || isPending} title="Enviar mensaje" type="submit">
+              <textarea className="min-h-12 flex-1 resize-none border-0 bg-transparent px-3 py-3 text-sm outline-none placeholder:text-muted-foreground" disabled={isSending} id="chat-message" onChange={(event) => setDraft(event.target.value)} placeholder="Escribe un hecho médico..." value={draft} />
+              <button aria-label="Enviar mensaje" className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40" disabled={!draft.trim() || isSending} title="Enviar mensaje" type="submit">
                 <ArrowUp aria-hidden="true" className="size-5" />
               </button>
             </form>
@@ -367,6 +404,23 @@ export function ChatWorkspace() {
         <aside className="hidden border-l border-border/70 pl-6 lg:block">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Tu espacio</p>
           <p className="mt-3 text-sm leading-6 text-muted-foreground">Los hechos registrados pasan a formar parte de tu historia clínica. Las preguntas generales no crean registros.</p>
+          {profile && profile.fields.length > 0 && (
+            <section aria-labelledby="profile-heading" className="mt-5 rounded-xl border border-border/70 bg-card/70 p-3">
+              <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground" id="profile-heading">Tu perfil</h2>
+              <dl className="mt-2 space-y-1">
+                {profile.fields
+                  .filter((field) => profileFieldLabels[field.key] !== undefined)
+                  .map((field) => (
+                    <div className="flex items-baseline justify-between gap-2" key={field.key}>
+                      <dt className="text-xs text-muted-foreground">{profileFieldLabels[field.key]}</dt>
+                      <dd className={field.value === null ? "text-xs italic text-muted-foreground" : "text-xs font-medium text-foreground"}>
+                        {field.value ?? PROFILE_ABSENT_LABEL}
+                      </dd>
+                    </div>
+                  ))}
+              </dl>
+            </section>
+          )}
         </aside>
       </section>
     </main>

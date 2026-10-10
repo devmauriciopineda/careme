@@ -106,7 +106,10 @@ conversation, failure, answers grounded in the clinical history with their
 supporting events, answers grounded in the measurements with their values, unit
 and date —a compound metric as one measurement—, and no-records outcomes
 distinctly, with the absence reason the backend reported and the continuation it
-offered. It also offers the **Terminar consulta** action,
+offered. The current profile the backend reports is shown too — each confirmed
+value and each field still absent, under Spanish labels — and the profile
+interview stays optional: it can be skipped and resumed, and skipping it never
+blocks a turn. It also offers the **Terminar consulta** action,
 which closes the consultation through a Server Action, exposes a busy state
 without creating a second request, and shows the close outcome — the measurements
 and the facts the backend reports as registered, nothing registered, or a

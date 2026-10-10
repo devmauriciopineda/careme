@@ -7,7 +7,8 @@ búsqueda basado en `tsvector`, `tsquery` y `ts_rank`.
 
 La persistencia tiene dos partes con funciones distintas: PostgreSQL almacena
 datos estructurados y un índice derivado; el sistema de archivos conserva los
-documentos Markdown que son la fuente de verdad de los hechos clínicos.
+documentos Markdown que son la fuente de verdad de los hechos clínicos y del
+estado vigente.
 
 ## Índice
 
@@ -379,11 +380,12 @@ flowchart LR
 El índice PostgreSQL no inventa el texto clínico. Se rellena a partir de los
 documentos y puede borrarse y reconstruirse sin perder la fuente original.
 
-### 7.1 Dos fuentes de verdad y dos índices
+### 7.1 Varias fuentes de verdad y sus índices
 
-Careme tiene dos documentos canónicos distintos, no uno: los hechos clínicos en
-`data/events/` y las **consultas** en `data/encounters/`. Cada uno se indexa en
-su propia tabla derivada:
+Un sistema puede tener más de un documento canónico, y cada uno puede tener su
+propia representación derivada o ninguna. En Careme, los hechos clínicos viven en
+`data/events/` y las **consultas** en `data/encounters/`; cada uno se indexa en su
+propia tabla derivada:
 
 | Documento | Tabla derivada | Uso |
 | --- | --- | --- |
@@ -450,6 +452,41 @@ La dimensión que la vista no puede expresar se sirve con una **lectura nueva**,
 describe el modelo actual sin las restricciones del contrato antiguo. Las dos formas
 conviven sobre la misma fuente de verdad: la antigua se sigue componiendo y la nueva
 se lee tal cual, y ninguna de las dos guarda nada.
+
+### 7.3 Estado vigente frente a hechos acumulados
+
+Un registro canónico puede representar dos cosas distintas, y la diferencia no es
+de formato sino de semántica. Un **registro de hechos** acumula acontecimientos
+fechados: cada uno se añade y ninguno se sustituye, de modo que el conjunto crece
+y su valor está en la serie completa. Un **registro de estado vigente** representa
+los atributos actuales de una entidad: escribir un valor nuevo **sustituye** al
+anterior en lugar de sumarse a él, y el registro no conserva por sí mismo cómo
+llegó a su estado actual. Un historial de cambios no es una propiedad del segundo
+modelo, sino una decisión distinta que hay que tomar aparte.
+
+La diferencia se propaga a la escritura y a la lectura. En el registro de hechos,
+la unidad de escritura es el hecho y la fuente crece; en el de estado, la unidad de
+escritura es la **instantánea completa**, que se publica en una sola operación
+indivisible para que nadie observe un estado a medias y para que un fallo de
+publicación deje vigente el valor anterior. Y cambia lo que significa que falte un
+dato: en el registro de hechos, la ausencia de un acontecimiento es una creencia
+sobre lo ocurrido —«no consta»—; en el de estado, un atributo **ausente** es un
+valor que no se conoce, y confundirlo con un valor por defecto, con una cadena
+vacía o con una suposición incorpora un dato que nadie declaró. Enunciar la
+ausencia como un estado propio del modelo es lo que permite distinguir «no se
+sabe» de «se sabe que no hay».
+
+Careme necesita ambos modelos a la vez. Los hechos clínicos y las mediciones son
+un registro de hechos: fechados, con precisión temporal y con procedencia. El
+perfil de la persona es un registro de estado: sus atributos son vigentes y no
+fechados, y un valor nuevo descarta el anterior sin dejar rastro. Mantenerlos en
+documentos canónicos separados evita que un atributo vigente se presente como un
+hecho fechado —y que un hecho fechado se degrade a un atributo sin fecha—. De ahí
+que el perfil no lleve procedencia ni historial, y que un valor que puede
+calcularse a partir de otro dato del propio registro —una edad a partir de una
+fecha de nacimiento— no se almacene: un valor derivado que se guarda puede
+contradecir a su fuente, mientras que uno calculado al leer no puede quedar
+desfasado.
 
 ## 8. Búsqueda full-text de PostgreSQL
 

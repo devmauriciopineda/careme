@@ -39,7 +39,112 @@ class FakeClinicalAgentTest {
         assertThat(turn.failed()).isFalse();
         assertThat(turn.operations()).isEmpty();
         assertThat(turn.message()).isNotBlank();
+        assertThat(turn.message()).contains("perfil");
         verifyNoInteractions(executor);
+    }
+
+    @Test
+    void letsThePersonSkipTheOptionalProfileInterview() {
+        AgentTurn turn = agent.respond("No, gracias", CONTEXT);
+
+        assertThat(turn.operations()).isEmpty();
+        assertThat(turn.message()).contains("retomar");
+        verifyNoInteractions(executor);
+    }
+
+    @Test
+    void resumesTheInterviewByAskingOnlyForTheFirstMissingField() {
+        AgentContext afterInvitation = new AgentContext(
+                "conversation-1",
+                CONTEXT.referenceDate(),
+                CONTEXT.zoneId(),
+                List.of("Usuario: Hola | Asistente: perfil personal"));
+
+        AgentTurn turn = agent.respond("Quiero completar mi perfil", afterInvitation);
+
+        assertThat(turn.operations()).isEmpty();
+        assertThat(turn.message()).contains("cómo te llamas");
+        verifyNoInteractions(executor);
+    }
+
+    @Test
+    void asksForEachRemainingFieldInTurn() {
+        assertThat(resumeWith(new com.careme.backend.entity.PatientProfile(
+                "Ana", null, null, null, null, null, null))).contains("fecha de nacimiento");
+        assertThat(resumeWith(new com.careme.backend.entity.PatientProfile(
+                "Ana", LocalDate.of(1984, 2, 3), null, null, null, null, null))).contains("sexo");
+        assertThat(resumeWith(new com.careme.backend.entity.PatientProfile(
+                "Ana", LocalDate.of(1984, 2, 3), "mujer", null, null, null, null)))
+                .contains("ocupación");
+        assertThat(resumeWith(new com.careme.backend.entity.PatientProfile(
+                "Ana", LocalDate.of(1984, 2, 3), "mujer", "Médica", null, null, null)))
+                .contains("grupo sanguíneo");
+        assertThat(resumeWith(new com.careme.backend.entity.PatientProfile(
+                "Ana", LocalDate.of(1984, 2, 3), "mujer", "Médica", "O", "positivo", null)))
+                .contains("estatura");
+    }
+
+    @Test
+    void greetsWithoutInvitingWhenTheProfileIsAlreadyComplete() {
+        AgentContext complete = new AgentContext(
+                "conversation-1",
+                CONTEXT.referenceDate(),
+                CONTEXT.zoneId(),
+                List.of(),
+                new com.careme.backend.entity.PatientProfile(
+                        "Ana", LocalDate.of(1984, 2, 3), "mujer", "Médica", "O", "positivo",
+                        new java.math.BigDecimal("170")));
+
+        AgentTurn turn = agent.respond("Hola", complete);
+
+        assertThat(turn.message()).doesNotContain("perfil");
+        verifyNoInteractions(executor);
+    }
+
+    @Test
+    void recordsBirthDateHeightAndBloodGroupInOneMessage() {
+        when(executor.execute(any(), any(), any())).thenReturn(profiled());
+
+        agent.respond("Nací el 1984-02-03, mido 170 cm y mi grupo sanguíneo es O positivo.", CONTEXT);
+
+        AgentOperationCall call = capturedCall();
+        assertThat(call.operation()).isEqualTo(AgentOperation.RECORD_PROFILE);
+        assertThat(call.arguments().path("date_of_birth").asText()).isEqualTo("1984-02-03");
+        assertThat(call.arguments().path("height_cm").asText()).isEqualTo("170");
+        assertThat(call.arguments().path("blood_group").asText()).isEqualTo("O");
+        assertThat(call.arguments().path("rh").asText()).isEqualTo("positivo");
+    }
+
+    @Test
+    void keepsANonProfileStatementOnTheClinicalChannel() {
+        when(executor.execute(any(), any(), any())).thenReturn(noted());
+
+        // The word "soy" points at the profile, but the message carries no profile datum,
+        // so the turn must not invent one.
+        agent.respond("Soy profesora desde hace diez años.", CONTEXT);
+
+        assertThat(capturedCall().operation()).isEqualTo(AgentOperation.RECORD_NOTE);
+    }
+
+    @Test
+    void readsAnotherNaturalNameFormulation() {
+        when(executor.execute(any(), any(), any())).thenReturn(profiled());
+
+        agent.respond("Mi nombre es Ana Pérez.", CONTEXT);
+
+        AgentOperationCall call = capturedCall();
+        assertThat(call.operation()).isEqualTo(AgentOperation.RECORD_PROFILE);
+        assertThat(call.arguments().path("name").asText()).isEqualTo("Ana Pérez");
+    }
+
+    private String resumeWith(com.careme.backend.entity.PatientProfile profile) {
+        AgentContext context = new AgentContext(
+                "conversation-1",
+                CONTEXT.referenceDate(),
+                CONTEXT.zoneId(),
+                List.of("Usuario: Hola | Asistente: perfil personal"),
+                profile);
+        return agent.respond("Sí, quiero completarlo", context).message();
     }
 
     @Test
@@ -111,6 +216,27 @@ class FakeClinicalAgentTest {
         assertThat(call.arguments().path("date_precision").asText()).isEqualTo("approximate");
         assertThat(call.arguments().path("date_text").asText()).isEqualTo("hace");
     }
+
+        @Test
+        void recordsAnExplicitConfirmedProfileValueThroughTheProfileChannel() {
+            when(executor.execute(any(), any(), any())).thenReturn(profiled());
+
+            agent.respond("Me llamo Ana.", CONTEXT);
+
+            AgentOperationCall call = capturedCall();
+            assertThat(call.operation()).isEqualTo(AgentOperation.RECORD_PROFILE);
+            assertThat(call.arguments().path("name").asText()).isEqualTo("Ana");
+            assertThat(call.arguments().path("confirmed").asBoolean()).isTrue();
+        }
+
+        @Test
+        void keepsAClinicalFactOutOfTheProfileChannel() {
+            when(executor.execute(any(), any(), any())).thenReturn(noted());
+
+            agent.respond("Me diagnosticaron hipertensión.", CONTEXT);
+
+            assertThat(capturedCall().operation()).isEqualTo(AgentOperation.RECORD_NOTE);
+        }
 
     @Test
     void resolvesTodayAgainstTheReferenceDateOfTheTurn() {
@@ -216,6 +342,16 @@ class FakeClinicalAgentTest {
                 AgentOperation.RECORD_NOTE,
                 new EncounterNoteResult(EncounterNoteResult.Kind.COLLECTED, note(), "Lo he anotado."));
     }
+
+        private static AgentOperationResult profiled() {
+        return AgentOperationResult.of(
+            AgentOperation.RECORD_PROFILE,
+            new PatientProfileResult(
+                PatientProfileResult.Kind.COLLECTED,
+                new com.careme.backend.entity.PatientProfileUpdate(
+                    "Ana", null, null, null, null, null, null, true),
+                "Lo he anotado."));
+        }
 
     private static EncounterNote note() {
         return new EncounterNote(

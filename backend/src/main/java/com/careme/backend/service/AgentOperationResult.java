@@ -26,7 +26,8 @@ public record AgentOperationResult(
         ClinicalEventRegistrationResult registration,
         EncounterNoteResult note,
         EncounterMeasurementResult measurement,
-        MeasurementAnswerResult measurementAnswer) {
+        MeasurementAnswerResult measurementAnswer,
+        PatientProfileResult profile) {
 
     public AgentOperationResult {
         payload = payload == null ? Map.of() : Collections.unmodifiableMap(payload);
@@ -69,7 +70,7 @@ public record AgentOperationResult(
         payload.put("answer", answer.message() == null ? "" : answer.message());
         payload.put("events", events(answer.events()));
         payload.put("absence_reason", answer.absenceReason() == null ? "" : answer.absenceReason().value());
-        return new AgentOperationResult(operation, kind, null, answer.message(), payload, answer, null, null, null, null);
+        return new AgentOperationResult(operation, kind, null, answer.message(), payload, answer, null, null, null, null, null);
     }
 
     /**
@@ -89,7 +90,7 @@ public record AgentOperationResult(
         payload.put("absence_reason", answer.absenceReason() == null ? "" : answer.absenceReason().value());
         Rejection rejection = kind == Kind.REJECTED ? Rejection.NOT_ADMISSIBLE : null;
         return new AgentOperationResult(
-                operation, kind, rejection, answer.message(), payload, null, null, null, null, answer);
+                operation, kind, rejection, answer.message(), payload, null, null, null, null, answer, null);
     }
 
     private static List<Map<String, Object>> measurements(List<MeasurementFact> facts) {
@@ -114,7 +115,7 @@ public record AgentOperationResult(
         payload.put("noted", note.kind() == EncounterNoteResult.Kind.COLLECTED);
         payload.put("duplicate", note.kind() == EncounterNoteResult.Kind.DUPLICATE);
         payload.put("content", note.note() == null ? "" : note.note().content());
-        return new AgentOperationResult(operation, kind, null, note.message(), payload, null, null, note, null, null);
+        return new AgentOperationResult(operation, kind, null, note.message(), payload, null, null, note, null, null, null);
     }
 
     /** The outcome of collecting a measurement in the open consultation's notes. */
@@ -127,7 +128,7 @@ public record AgentOperationResult(
         payload.put("duplicate", measurement.kind() == EncounterMeasurementResult.Kind.DUPLICATE);
         payload.put("metric", measurement.note() == null ? "" : measurement.note().metricCode());
         return new AgentOperationResult(
-                operation, kind, null, measurement.message(), payload, null, null, null, measurement, null);
+                operation, kind, null, measurement.message(), payload, null, null, null, measurement, null, null);
     }
 
     /** The outcome of a registration of clinical facts. */
@@ -139,7 +140,7 @@ public record AgentOperationResult(
         payload.put("registered", !registration.events().isEmpty());
         payload.put("events", events(registration.events()));
         return new AgentOperationResult(
-                operation, kind, null, registration.message(), payload, null, registration, null, null, null);
+                operation, kind, null, registration.message(), payload, null, registration, null, null, null, null);
     }
 
     /**
@@ -148,7 +149,15 @@ public record AgentOperationResult(
      */
     static AgentOperationResult rejected(Rejection rejection, String message) {
         return new AgentOperationResult(
-                null, Kind.REJECTED, rejection, message, Map.of(), null, null, null, null, null);
+                null, Kind.REJECTED, rejection, message, Map.of(), null, null, null, null, null, null);
+    }
+
+    static AgentOperationResult of(AgentOperation operation, PatientProfileResult profile) {
+        Kind kind = profile.kind() == PatientProfileResult.Kind.FAILURE ? Kind.FAILED : Kind.COMPLETED;
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("confirmed", profile.update() != null && profile.update().confirmed());
+        return new AgentOperationResult(operation, kind, null, profile.message(), payload,
+                null, null, null, null, null, profile);
     }
 
     private static List<Map<String, Object>> events(List<ClinicalEvent> events) {

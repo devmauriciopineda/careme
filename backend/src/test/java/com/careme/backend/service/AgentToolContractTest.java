@@ -3,6 +3,7 @@ package com.careme.backend.service;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.careme.backend.dto.AgentOperation;
+import com.careme.backend.entity.PatientProfile;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDate;
@@ -25,7 +26,8 @@ class AgentToolContractTest {
                 .allSatisfy(tool -> assertThat(tool.get("type")).isEqualTo("function"));
         assertThat(names())
                 .containsExactlyInAnyOrder(
-                        "consult_history", "consult_measurements", "record_note", "record_measurement");
+                        "consult_history", "consult_measurements", "record_note", "record_measurement",
+                        "record_profile");
     }
 
     @Test
@@ -62,6 +64,59 @@ class AgentToolContractTest {
     }
 
     @Test
+    void carriesOnlyTheMissingProfileFieldsToTheAssistant() {
+        String content = AgentToolContract.userContent(
+                "Hola", REFERENCE_DATE, ZONE, List.of(),
+                new PatientProfile("Ana", null, null, null, null, null, null));
+
+        assertThat(content).contains("Perfil vigente: faltan date_of_birth, sex, occupation, blood_group, rh, height_cm");
+        assertThat(content).doesNotContain("Ana");
+    }
+
+    @Test
+    void reportsEachSingleMissingProfileFieldOnItsOwn() {
+        assertThat(profileWithMissing("name")).contains("faltan name");
+        assertThat(profileWithMissing("date_of_birth")).contains("faltan date_of_birth");
+        assertThat(profileWithMissing("sex")).contains("faltan sex");
+        assertThat(profileWithMissing("occupation")).contains("faltan occupation");
+        assertThat(profileWithMissing("blood_group")).contains("faltan blood_group");
+        assertThat(profileWithMissing("rh")).contains("faltan rh");
+        assertThat(profileWithMissing("height_cm")).contains("faltan height_cm");
+    }
+
+    private static String profileWithMissing(String missing) {
+        PatientProfile profile = new PatientProfile(
+                missing.equals("name") ? null : "Ana",
+                missing.equals("date_of_birth") ? null : LocalDate.of(1984, 2, 3),
+                missing.equals("sex") ? null : "mujer",
+                missing.equals("occupation") ? null : "Médica",
+                missing.equals("blood_group") ? null : "O",
+                missing.equals("rh") ? null : "positivo",
+                missing.equals("height_cm") ? null : new java.math.BigDecimal("170"));
+        return AgentToolContract.userContent("Hola", REFERENCE_DATE, ZONE, List.of(), profile);
+    }
+
+    @Test
+    void reportsACompleteProfileWithoutNamingTheFields() {
+        String content = AgentToolContract.userContent(
+                "Hola", REFERENCE_DATE, ZONE, List.of(),
+                new PatientProfile(
+                        "Ana", LocalDate.of(1984, 2, 3), "mujer", "Médica", "O", "positivo",
+                        new java.math.BigDecimal("170")));
+
+        assertThat(content).contains("Perfil vigente: completo");
+        assertThat(content).doesNotContain("Ana");
+    }
+
+    @Test
+    void carriesNoProfileWhenThereIsNoneToCarry() {
+        String content = AgentToolContract.userContent(
+                "Hola", REFERENCE_DATE, ZONE, List.of(), null);
+
+        assertThat(content).doesNotContain("Perfil vigente");
+    }
+
+    @Test
     void readsTheOperationsTheAssistantAskedForInOrder() throws Exception {
         JsonNode message = objectMapper.readTree("""
                 {"role":"assistant","content":null,"tool_calls":[
@@ -81,8 +136,31 @@ class AgentToolContractTest {
     }
 
     @Test
-    void readsNoCallForAnOperationThatIsNotAvailable() throws Exception {
+    void readsAProfileCallTheAssistantAskedFor() throws Exception {
         JsonNode message = objectMapper.readTree("""
+                {"content":null,"tool_calls":[
+                  {"id":"1","type":"function","function":{"name":"record_profile",
+                   "arguments":"{\\"name\\":\\"Ana\\",\\"confirmed\\":true}"}}
+                ]}
+                """);
+
+        List<AgentOperationCall> calls = AgentToolContract.toolCalls(message);
+
+        assertThat(calls).singleElement()
+                .satisfies(call -> assertThat(call.operation()).isEqualTo(AgentOperation.RECORD_PROFILE));
+        assertThat(calls.getFirst().arguments().path("name").asText()).isEqualTo("Ana");
+    }
+
+    @Test
+    void readsNoCallFromAToolCallWithoutAFunction() throws Exception {
+        JsonNode message = objectMapper.readTree("{\"content\":null,\"tool_calls\":[{\"id\":\"1\"}]}");
+
+        assertThat(AgentToolContract.toolCalls(message)).isEmpty();
+        assertThat(AgentToolContract.operationCall(null)).isNull();
+    }
+
+    @Test
+    void readsNoCallForAnOperationThatIsNotAvailable() throws Exception {        JsonNode message = objectMapper.readTree("""
                 {"content":null,"tool_calls":[
                   {"id":"1","type":"function","function":{"name":"delete_event","arguments":"{}"}}
                 ]}

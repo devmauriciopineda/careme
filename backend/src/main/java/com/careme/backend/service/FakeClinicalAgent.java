@@ -76,6 +76,10 @@ public class FakeClinicalAgent implements ClinicalAgent {
     private static final String GREETING_REPLY =
             "Hola. Cuéntame un hecho médico y lo registro, o pregúntame por lo que tienes registrado.";
 
+        private static final String PROFILE_INVITATION =
+            "Si quieres, podemos completar poco a poco tu perfil personal. Puedes omitirlo y continuar "
+                + "con la conversación. ¿Quieres empezar?";
+
     /**
      * The labels the tracking knows, as the catalogue names them. A question that
      * names one is answered by the measurement channel.
@@ -99,6 +103,21 @@ public class FakeClinicalAgent implements ClinicalAgent {
     /** A question about the measurements in general, without naming any of them. */
     private static final Pattern MEASUREMENTS_IN_GENERAL =
             Pattern.compile("\\bmediciones?\\b");
+
+        private static final Pattern PROFILE_EVIDENCE = Pattern.compile(
+            "\\b(me llamo|mi nombre|nac[íi]|fecha de nacimiento|soy|trabajo de|mi grupo sangu[íi]neo|mi rh|mido)\\b");
+        private static final Pattern PROFILE_REQUEST = Pattern.compile(
+            "\\b(completar|retomar|continuar).{0,20}perfil\\b|\\bentrevista del perfil\\b");
+        private static final Pattern PROFILE_SKIP = Pattern.compile(
+            "^(no|ahora no|más tarde|mas tarde|prefiero no|omitir|saltar)\\b");
+
+    /**
+     * An affirmative answer, which only means "resume the interview" when the previous
+     * turn offered one. The delimiter is explicit: a word boundary does not count an
+     * accented letter as a word character, so "sí," would never match one.
+     */
+    private static final Pattern AFFIRMATIVE = Pattern.compile(
+            "^(sí|si|vale|de acuerdo|claro|quiero)(\\s|,|\\.|;|!|$).*");
 
     private static Map.Entry<Pattern, String> metricLabel(String label, String metric) {
         return Map.entry(Pattern.compile("\\b" + Pattern.quote(label) + "\\b"), metric);
@@ -127,7 +146,18 @@ public class FakeClinicalAgent implements ClinicalAgent {
     public AgentTurn respond(String message, AgentContext context) {
         String normalized = message.trim().toLowerCase(Locale.ROOT);
         if (GREETING.matcher(normalized).find()) {
-            return AgentTurn.completed(GREETING_REPLY, List.of());
+            return AgentTurn.completed(
+                    hasMissingProfile(context.profile()) ? PROFILE_INVITATION : GREETING_REPLY,
+                    List.of());
+        }
+        if (PROFILE_SKIP.matcher(normalized).find()) {
+            return AgentTurn.completed(
+                    "De acuerdo. Puedes continuar con la conversación y retomar tu perfil más adelante.",
+                    List.of());
+        }
+        if (PROFILE_REQUEST.matcher(normalized).find()
+                || (isAffirmative(normalized) && recentProfileInvitation(context.recentTurns()))) {
+            return AgentTurn.completed(profileQuestion(context.profile()), List.of());
         }
         if (ADVICE_REQUEST.matcher(normalized).find()) {
             // A request for advice about a measurement is declined while the registered
@@ -167,6 +197,10 @@ public class FakeClinicalAgent implements ClinicalAgent {
         if (normalized.length() < 12) {
             return AgentTurn.completed(NOTHING_REGISTERED, List.of());
         }
+        AgentOperationCall profile = profileUpdate(message, normalized);
+        if (profile != null) {
+            return run(profile, context);
+        }
         // A message that mentions a measurement goes through the measurement channel:
         // it is never collected as a clinical fact.
         AgentOperationCall measurement = measurement(message, normalized, context.referenceDate());
@@ -184,6 +218,39 @@ public class FakeClinicalAgent implements ClinicalAgent {
         }
         return AgentTurn.completed(
                 result.message() == null ? NOTHING_REGISTERED : result.message(), List.of(result));
+    }
+
+    private static boolean hasMissingProfile(com.careme.backend.entity.PatientProfile profile) {
+        return profile == null || profile.name() == null || profile.dateOfBirth() == null
+                || profile.sex() == null || profile.occupation() == null || profile.bloodGroup() == null
+                || profile.rh() == null || profile.heightCm() == null;
+    }
+
+    private static boolean isAffirmative(String normalized) {
+        return AFFIRMATIVE.matcher(normalized).matches();
+    }
+
+    private static boolean recentProfileInvitation(List<String> recentTurns) {
+        return recentTurns.stream().anyMatch(turn -> turn.toLowerCase(Locale.ROOT).contains("perfil"));
+    }
+
+    private static String profileQuestion(com.careme.backend.entity.PatientProfile profile) {
+        if (profile == null || profile.name() == null) {
+            return "Para empezar, ¿cómo te llamas?";
+        }
+        if (profile.dateOfBirth() == null) {
+            return "¿Cuál es tu fecha de nacimiento? Puedes omitirla si no la conoces.";
+        }
+        if (profile.sex() == null) {
+            return "¿Quieres indicar tu sexo? Puedes omitir este dato.";
+        }
+        if (profile.occupation() == null) {
+            return "¿Cuál es tu ocupación? Puedes omitir este dato.";
+        }
+        if (profile.bloodGroup() == null || profile.rh() == null) {
+            return "¿Conoces tu grupo sanguíneo y factor Rh? Puedes omitirlos.";
+        }
+        return "¿Cuál es tu estatura en centímetros? Puedes omitirla.";
     }
 
     /**
@@ -256,6 +323,35 @@ public class FakeClinicalAgent implements ClinicalAgent {
             arguments.put("date_precision", ClinicalEvent.DatePrecision.UNKNOWN.name().toLowerCase(Locale.ROOT));
         }
         return new AgentOperationCall(AgentOperation.RECORD_NOTE, arguments);
+    }
+
+    private static AgentOperationCall profileUpdate(String message, String normalized) {
+        if (!PROFILE_EVIDENCE.matcher(normalized).find()) {
+            return null;
+        }
+        ObjectNode arguments = OBJECT_MAPPER.createObjectNode();
+        Matcher name = Pattern.compile("(?:me llamo|mi nombre es)\\s+(.+?)[.!?]?$", Pattern.CASE_INSENSITIVE)
+                .matcher(message.trim());
+        if (name.find()) {
+            arguments.put("name", name.group(1).trim());
+        }
+        Matcher birth = Pattern.compile("(\\d{4}-\\d{2}-\\d{2})").matcher(normalized);
+        if (birth.find() && normalized.contains("nac")) {
+            arguments.put("date_of_birth", birth.group(1));
+        }
+        Matcher height = Pattern.compile("(\\d+(?:[.,]\\d+)?)\\s*(?:cm|cent[íi]metros?)").matcher(normalized);
+        if (height.find() && normalized.contains("mido")) {
+            arguments.put("height_cm", height.group(1).replace(',', '.'));
+        }
+        if (normalized.contains("grupo sanguíneo") || normalized.contains("grupo sanguineo")) {
+            Matcher group = Pattern.compile("\\b(a|b|ab|o)\\s*(positivo|negativo|[+-])\\b").matcher(normalized);
+            if (group.find()) {
+                arguments.put("blood_group", group.group(1).toUpperCase(Locale.ROOT));
+                arguments.put("rh", group.group(2));
+            }
+        }
+        arguments.put("confirmed", true);
+        return arguments.size() == 1 ? null : new AgentOperationCall(AgentOperation.RECORD_PROFILE, arguments);
     }
 
     /**

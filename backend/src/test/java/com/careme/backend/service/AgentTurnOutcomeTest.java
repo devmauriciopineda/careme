@@ -40,6 +40,51 @@ class AgentTurnOutcomeTest {
     }
 
     @Test
+    void reportsTheOutcomeOfAProfileOperationOnItsOwn() {
+        assertThat(AgentTurnOutcome.status(AgentTurn.completed("Lo he anotado.", List.of(profileCollected()))))
+                .isEqualTo(ChatMessageResponse.Status.NOTED);
+        assertThat(AgentTurnOutcome.status(AgentTurn.completed("Ya estaba.", List.of(profileDuplicate()))))
+                .isEqualTo(ChatMessageResponse.Status.DUPLICATE);
+        assertThat(AgentTurnOutcome.status(AgentTurn.failed("No pude guardarlo.", List.of(profileFailed()))))
+                .isEqualTo(ChatMessageResponse.Status.FAILED);
+    }
+
+    @Test
+    void keepsTheProfileOutOfTheEventsAProfileTurnSupports() {
+        AgentTurn turn = AgentTurn.completed("Lo he anotado.", List.of(profileCollected()));
+
+        ChatMessageResponse response =
+                AgentTurnOutcome.respond("conversation-1", "message-1", turn);
+
+        assertThat(response.status()).isEqualTo(ChatMessageResponse.Status.NOTED);
+        assertThat(response.events()).isEmpty();
+        assertThat(response.measurements()).isEmpty();
+        assertThat(response.operations()).hasSize(1);
+    }
+
+    private static AgentOperationResult profileCollected() {
+        return AgentOperationResult.of(
+                AgentOperation.RECORD_PROFILE,
+                new PatientProfileResult(
+                        PatientProfileResult.Kind.COLLECTED,
+                        new com.careme.backend.entity.PatientProfileUpdate(
+                                "Ana", null, null, null, null, null, null, true),
+                        "Lo he anotado."));
+    }
+
+    private static AgentOperationResult profileDuplicate() {
+        return AgentOperationResult.of(
+                AgentOperation.RECORD_PROFILE,
+                new PatientProfileResult(PatientProfileResult.Kind.DUPLICATE, null, "Ya estaba."));
+    }
+
+    private static AgentOperationResult profileFailed() {
+        return AgentOperationResult.of(
+                AgentOperation.RECORD_PROFILE,
+                new PatientProfileResult(PatientProfileResult.Kind.FAILURE, null, "No pude guardarlo."));
+    }
+
+    @Test
     void reportsAFailureWhenAnyOperationDidNotComplete() {
         AgentTurn turn = AgentTurn.failed("No pude buscar en tu historia.",
                 List.of(noted(), failedAnswer()));

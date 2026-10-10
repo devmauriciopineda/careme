@@ -293,12 +293,13 @@ class ChatControllerTest {
     void normalizesOptionalChatResponseCollections() {
                 var response = new ChatMessageResponse(
                                 "conversation-1", "message-1", ChatMessageResponse.Status.FAILED,
-                                "No se pudo", null, null, null, null, null);
+                                "No se pudo", null, null, null, null, null, null);
 
                 assertThat(response.events()).isEmpty();
                 assertThat(response.suggestedActions()).isEmpty();
                 assertThat(response.operations()).isEmpty();
                 assertThat(response.measurements()).isEmpty();
+                assertThat(response.profile()).isNull();
         }
 
     @Test

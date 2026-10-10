@@ -7,6 +7,8 @@ import com.careme.backend.entity.ClinicalEvent;
 import com.careme.backend.entity.EncounterMeasurementNote;
 import com.careme.backend.entity.MeasurementUnit;
 import com.careme.backend.entity.Metric;
+import com.careme.backend.entity.PatientProfile;
+import com.careme.backend.entity.PatientProfileUpdate;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -95,7 +97,65 @@ public class AgentOperationExecutor {
             case CONSULT_MEASUREMENTS -> consultMeasurements(conversationId, call.arguments());
             case RECORD_NOTE -> collect(conversationId, call.arguments(), referenceDate);
             case RECORD_MEASUREMENT -> collectMeasurement(conversationId, call.arguments(), referenceDate);
+            case RECORD_PROFILE -> collectProfile(conversationId, call.arguments());
         };
+    }
+
+    /**
+     * Collects a confirmed profile candidate in the open consultation.
+     *
+     * <p>The candidate passes the same deterministic checks the profile applies before it is
+     * published, and it passes them here: a datum that cannot be admitted never enters the
+     * consultation, so an invalid datum asks for a correction instead of failing the whole close
+     * and taking the consultation's other admissible data down with it.
+     */
+    private AgentOperationResult collectProfile(String conversationId, JsonNode arguments) {
+        PatientProfileUpdate update;
+        try {
+            update = new PatientProfileUpdate(
+                    text(arguments, "name"),
+                    date(arguments, "date_of_birth"),
+                    text(arguments, "sex"),
+                    text(arguments, "occupation"),
+                    text(arguments, "blood_group"),
+                    text(arguments, "rh"),
+                    decimal(arguments, "height_cm"),
+                    flag(arguments, "confirmed"));
+        } catch (RuntimeException exception) {
+            log.warn("Rejected a profile candidate that could not be read conversationId={}", conversationId);
+            return AgentOperationResult.rejected(
+                    AgentOperationResult.Rejection.NOT_ADMISSIBLE,
+                    "No he podido leer ese dato personal. ¿Puedes repetirlo?");
+        }
+        if (!update.confirmed() || allEmpty(update)) {
+            return AgentOperationResult.rejected(
+                    AgentOperationResult.Rejection.NOT_ADMISSIBLE,
+                    "Necesito que confirmes un dato personal antes de guardarlo.");
+        }
+        try {
+            PatientProfile.empty().apply(update);
+        } catch (IllegalArgumentException inadmissible) {
+            log.warn("Rejected an inadmissible profile candidate conversationId={}", conversationId);
+            return AgentOperationResult.rejected(
+                    AgentOperationResult.Rejection.NOT_ADMISSIBLE,
+                    "Ese dato personal no parece correcto. ¿Quieres confirmarlo o corregirlo?");
+        }
+        try {
+            return AgentOperationResult.of(
+                    AgentOperation.RECORD_PROFILE,
+                    encounterService.collectProfile(conversationId, update));
+        } catch (RuntimeException exception) {
+            log.error("Could not collect the profile candidate conversationId={}", conversationId, exception);
+            return AgentOperationResult.rejected(
+                    AgentOperationResult.Rejection.NOT_ADMISSIBLE,
+                    "No he podido guardar ese dato personal. ¿Puedes confirmarlo de nuevo?");
+        }
+    }
+
+    private static boolean allEmpty(PatientProfileUpdate update) {
+        return update.name() == null && update.dateOfBirth() == null && update.sex() == null
+                && update.occupation() == null && update.bloodGroup() == null && update.rh() == null
+                && update.heightCm() == null;
     }
 
     private AgentOperationResult consult(String conversationId, JsonNode arguments) {
@@ -166,6 +226,11 @@ public class AgentOperationExecutor {
     private static boolean flag(JsonNode arguments, String field) {
         JsonNode node = arguments == null ? null : arguments.path(field);
         return node != null && node.asBoolean(false);
+    }
+
+    private static BigDecimal decimal(JsonNode arguments, String field) {
+        JsonNode node = arguments == null ? null : arguments.path(field);
+        return node == null || !node.isNumber() ? null : node.decimalValue();
     }
 
     private AgentOperationResult collect(String conversationId, JsonNode arguments, LocalDate referenceDate) {

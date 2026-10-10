@@ -4,6 +4,7 @@ import com.careme.backend.entity.ClinicalEvent;
 import com.careme.backend.entity.Encounter;
 import com.careme.backend.entity.EncounterMeasurementNote;
 import com.careme.backend.entity.EncounterNote;
+import com.careme.backend.entity.PatientProfileUpdate;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.math.BigDecimal;
@@ -38,6 +39,8 @@ public class EncounterMarkdownStore {
     private static final String NOTE_BLOCK = "\n## Nota\n\n";
 
     private static final String MEASUREMENT_NOTE_BLOCK = "\n## Medición\n\n";
+
+    private static final String PROFILE_UPDATE_BLOCK = "\n## Perfil\n\n";
 
     private static final String VALUE_PREFIX = "value_";
 
@@ -228,6 +231,17 @@ public class EncounterMarkdownStore {
                     .append("- ").append(VALUE_PREFIX).append(component).append(": ")
                     .append(value.toPlainString()).append('\n'));
         }
+                for (PatientProfileUpdate update : encounter.profileUpdates()) {
+                    markdown.append(PROFILE_UPDATE_BLOCK)
+                        .append("- confirmed: ").append(update.confirmed()).append('\n')
+                        .append("- name: ").append(quoted(update.name())).append('\n')
+                        .append("- date_of_birth: ").append(update.dateOfBirth() == null ? "" : update.dateOfBirth()).append('\n')
+                        .append("- sex: ").append(quoted(update.sex())).append('\n')
+                        .append("- occupation: ").append(quoted(update.occupation())).append('\n')
+                        .append("- blood_group: ").append(quoted(update.bloodGroup())).append('\n')
+                        .append("- rh: ").append(quoted(update.rh())).append('\n')
+                        .append("- height_cm: ").append(update.heightCm() == null ? "" : update.heightCm()).append('\n');
+                }
         return markdown.toString();
     }
 
@@ -247,7 +261,26 @@ public class EncounterMarkdownStore {
                 optional(metadata, "summary").map(EncounterMarkdownStore::unquoted).orElse(null),
                 OffsetDateTime.parse(required(metadata, "created_at")),
                 optional(metadata, "closed_at").map(OffsetDateTime::parse).orElse(null),
-                measurementNotes(sections[1]));
+                measurementNotes(sections[1]),
+                profileUpdates(sections[1]));
+    }
+
+    private static List<PatientProfileUpdate> profileUpdates(String body) {
+        List<PatientProfileUpdate> updates = new ArrayList<>();
+        String[] blocks = body.split(PROFILE_UPDATE_BLOCK);
+        for (int index = 1; index < blocks.length; index++) {
+            Map<String, String> fields = parseFields(blocks[index]);
+            updates.add(new PatientProfileUpdate(
+                    optional(fields, "name").map(EncounterMarkdownStore::unquoted).orElse(null),
+                    optional(fields, "date_of_birth").map(LocalDate::parse).orElse(null),
+                    optional(fields, "sex").map(EncounterMarkdownStore::unquoted).orElse(null),
+                    optional(fields, "occupation").map(EncounterMarkdownStore::unquoted).orElse(null),
+                    optional(fields, "blood_group").map(EncounterMarkdownStore::unquoted).orElse(null),
+                    optional(fields, "rh").map(EncounterMarkdownStore::unquoted).orElse(null),
+                    optional(fields, "height_cm").map(BigDecimal::new).orElse(null),
+                    Boolean.parseBoolean(fields.getOrDefault("confirmed", "false"))));
+        }
+        return updates;
     }
 
     /** The measurement notes of the document body, in the order they were collected. */

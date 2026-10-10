@@ -99,6 +99,21 @@ const operationSummarySchema = z.object({
   measurements: z.array(measurementSummarySchema).optional(),
 });
 
+/**
+ * One field of the current profile: its stable key and its value, absent when the
+ * person has not confirmed it. The label the interface shows is not sent: it is
+ * part of the interface, so no user-facing wording travels in the payload.
+ */
+const profileFieldSchema = z.object({
+  key: z.string(),
+  value: z.string().nullable(),
+});
+
+/** The current profile snapshot, absent when the backend does not report one. */
+const profileSchema = z.object({
+  fields: z.array(profileFieldSchema),
+});
+
 /** One turn as the backend returns it. */
 export const chatResponseSchema = z.object({
   conversationId: z.string(),
@@ -110,4 +125,5 @@ export const chatResponseSchema = z.object({
   suggestedActions: z.array(suggestedActionSchema).optional(),
   operations: z.array(operationSummarySchema).optional(),
   measurements: z.array(measurementSummarySchema).optional(),
+  profile: profileSchema.nullish(),
 });

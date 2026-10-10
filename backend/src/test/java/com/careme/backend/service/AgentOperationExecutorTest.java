@@ -188,6 +188,98 @@ class AgentOperationExecutorTest {
         verifyNoInteractions(historyQueryService, encounterService);
     }
 
+    @Test
+    void collectsAConfirmedProfileDatumAsOneCandidate() {
+        when(encounterService.collectProfile(anyString(), any()))
+                .thenReturn(new PatientProfileResult(
+                        PatientProfileResult.Kind.COLLECTED,
+                        new com.careme.backend.entity.PatientProfileUpdate(
+                                "Ana", null, null, null, null, null, null, true),
+                        "Lo he anotado."));
+
+        AgentOperationResult result = executor.execute(
+                CONVERSATION_ID,
+                new AgentOperationCall(
+                        AgentOperation.RECORD_PROFILE,
+                        arguments("{\"name\":\"Ana\",\"confirmed\":true}")),
+                TODAY);
+
+        assertThat(result.operation()).isEqualTo(AgentOperation.RECORD_PROFILE);
+        assertThat(result.kind()).isEqualTo(AgentOperationResult.Kind.COMPLETED);
+        assertThat(result.profile()).isNotNull();
+        org.mockito.ArgumentCaptor<com.careme.backend.entity.PatientProfileUpdate> update =
+                org.mockito.ArgumentCaptor.forClass(com.careme.backend.entity.PatientProfileUpdate.class);
+        verify(encounterService).collectProfile(anyString(), update.capture());
+        assertThat(update.getValue().name()).isEqualTo("Ana");
+        assertThat(update.getValue().confirmed()).isTrue();
+    }
+
+    @Test
+    void readsEveryProfileFieldTheAssistantSent() {
+        when(encounterService.collectProfile(anyString(), any()))
+                .thenReturn(new PatientProfileResult(PatientProfileResult.Kind.COLLECTED, null, "Lo he anotado."));
+
+        executor.execute(
+                CONVERSATION_ID,
+                new AgentOperationCall(
+                        AgentOperation.RECORD_PROFILE,
+                        arguments("{\"name\":\"Ana\",\"date_of_birth\":\"1984-02-03\",\"sex\":\"mujer\","
+                                + "\"occupation\":\"Médica\",\"blood_group\":\"O\",\"rh\":\"positivo\","
+                                + "\"height_cm\":170,\"confirmed\":true}")),
+                TODAY);
+
+        org.mockito.ArgumentCaptor<com.careme.backend.entity.PatientProfileUpdate> update =
+                org.mockito.ArgumentCaptor.forClass(com.careme.backend.entity.PatientProfileUpdate.class);
+        verify(encounterService).collectProfile(anyString(), update.capture());
+        assertThat(update.getValue().dateOfBirth()).isEqualTo(LocalDate.of(1984, 2, 3));
+        assertThat(update.getValue().sex()).isEqualTo("mujer");
+        assertThat(update.getValue().occupation()).isEqualTo("Médica");
+        assertThat(update.getValue().bloodGroup()).isEqualTo("O");
+        assertThat(update.getValue().rh()).isEqualTo("positivo");
+        assertThat(update.getValue().heightCm()).isEqualByComparingTo("170");
+    }
+
+    @Test
+    void rejectsAnUnconfirmedProfileDatumWithoutCollectingIt() {
+        AgentOperationResult result = executor.execute(
+                CONVERSATION_ID,
+                new AgentOperationCall(
+                        AgentOperation.RECORD_PROFILE,
+                        arguments("{\"name\":\"Ana\",\"confirmed\":false}")),
+                TODAY);
+
+        assertThat(result.kind()).isEqualTo(AgentOperationResult.Kind.REJECTED);
+        assertThat(result.rejection()).isEqualTo(AgentOperationResult.Rejection.NOT_ADMISSIBLE);
+        verify(encounterService, never()).collectProfile(anyString(), any());
+    }
+
+    @Test
+    void rejectsAConfirmedProfileOperationThatCarriesNoDatumAtAll() {
+        AgentOperationResult result = executor.execute(
+                CONVERSATION_ID,
+                new AgentOperationCall(
+                        AgentOperation.RECORD_PROFILE,
+                        arguments("{\"confirmed\":true}")),
+                TODAY);
+
+        assertThat(result.kind()).isEqualTo(AgentOperationResult.Kind.REJECTED);
+        verify(encounterService, never()).collectProfile(anyString(), any());
+    }
+
+    @Test
+    void rejectsAProfileDatumThatDoesNotPassValidation() {
+        AgentOperationResult result = executor.execute(
+                CONVERSATION_ID,
+                new AgentOperationCall(
+                        AgentOperation.RECORD_PROFILE,
+                        arguments("{\"height_cm\":999,\"confirmed\":true}")),
+                TODAY);
+
+        assertThat(result.kind()).isEqualTo(AgentOperationResult.Kind.REJECTED);
+        assertThat(result.message()).doesNotContain("999").doesNotContain("Exception");
+        verify(encounterService, never()).collectProfile(anyString(), any());
+    }
+
     private AgentOperationCall consultation(String json) {
         return new AgentOperationCall(AgentOperation.CONSULT_HISTORY, arguments(json));
     }

@@ -6,6 +6,8 @@ import com.careme.backend.entity.ClinicalEvent;
 import com.careme.backend.entity.Encounter;
 import com.careme.backend.entity.EncounterMeasurementNote;
 import com.careme.backend.entity.EncounterNote;
+import com.careme.backend.entity.PatientProfile;
+import com.careme.backend.entity.PatientProfileUpdate;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -18,6 +20,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -63,6 +66,7 @@ public class EncounterService {
     private final ClinicalEventRegistrationService registrationService;
     private final ClinicalEventDateNormalizer dateNormalizer;
     private final MeasurementRegistrationService measurementRegistrationService;
+    private final PatientProfileMarkdownStore patientProfileMarkdownStore;
 
     /** Close outcomes already produced, so repeating a close has no new effect. */
     private final Map<String, ChatMessageResponse> closeOutcomes = new HashMap<>();
@@ -75,11 +79,24 @@ public class EncounterService {
             ClinicalEventRegistrationService registrationService,
             ClinicalEventDateNormalizer dateNormalizer,
             MeasurementRegistrationService measurementRegistrationService) {
+        this(markdownStore, indexWriter, registrationService, dateNormalizer, measurementRegistrationService,
+                new PatientProfileMarkdownStore("data/patient"));
+    }
+
+    @Autowired
+    public EncounterService(
+            EncounterMarkdownStore markdownStore,
+            EncounterIndexWriter indexWriter,
+            ClinicalEventRegistrationService registrationService,
+            ClinicalEventDateNormalizer dateNormalizer,
+            MeasurementRegistrationService measurementRegistrationService,
+            PatientProfileMarkdownStore patientProfileMarkdownStore) {
         this.markdownStore = markdownStore;
         this.indexWriter = indexWriter;
         this.registrationService = registrationService;
         this.dateNormalizer = dateNormalizer;
         this.measurementRegistrationService = measurementRegistrationService;
+        this.patientProfileMarkdownStore = patientProfileMarkdownStore;
     }
 
     /**
@@ -121,6 +138,16 @@ public class EncounterService {
         } catch (IOException exception) {
             log.error("Could not open the consultation conversationId={}", conversationId, exception);
             throw new IllegalStateException("Could not open the consultation", exception);
+        }
+    }
+
+    /** Reads the current profile for the assistant context. */
+    public PatientProfile currentProfile() {
+        try {
+            return patientProfileMarkdownStore.read();
+        } catch (IOException exception) {
+            log.warn("Could not read the patient profile", exception);
+            return PatientProfile.empty();
         }
     }
 
@@ -179,6 +206,30 @@ public class EncounterService {
         }
         return new EncounterMeasurementResult(
                 EncounterMeasurementResult.Kind.COLLECTED, note, MEASUREMENT_COLLECTED);
+    }
+
+    /** Collects a confirmed profile candidate without writing the profile yet. */
+    public synchronized PatientProfileResult collectProfile(
+            String conversationId, PatientProfileUpdate update) {
+        Encounter encounter = current(conversationId);
+        boolean duplicate = encounter.profileUpdates().stream().anyMatch(existing -> existing.equals(update));
+        if (duplicate) {
+            return new PatientProfileResult(
+                    PatientProfileResult.Kind.DUPLICATE, update, "Ese dato personal ya estaba anotado en esta consulta.");
+        }
+        try {
+            Encounter updated = encounter.withProfileUpdate(update);
+            markdownStore.replace(updated);
+            indexWriter.write(updated);
+            return new PatientProfileResult(
+                    PatientProfileResult.Kind.COLLECTED,
+                    update,
+                    "Lo he anotado. Quedará actualizado en tu perfil cuando cierres la consulta.");
+        } catch (Exception exception) {
+            log.error("Could not collect profile update conversationId={}", conversationId, exception);
+            return new PatientProfileResult(
+                    PatientProfileResult.Kind.FAILURE, null, "No he podido anotar ese dato personal. Puedes reintentarlo.");
+        }
     }
 
     /** Two mentions of the same metric, day and values are the same measurement. */
@@ -273,6 +324,19 @@ public class EncounterService {
             return failure(
                     encounter.conversationId(),
                     measurements.registered() > 0 ? PARTIAL_CLOSE : COULD_NOT_CLOSE);
+        }
+
+        if (!encounter.profileUpdates().isEmpty()) {
+            try {
+                com.careme.backend.entity.PatientProfile profile = patientProfileMarkdownStore.read();
+                for (PatientProfileUpdate update : encounter.profileUpdates()) {
+                    profile = profile.apply(update);
+                }
+                patientProfileMarkdownStore.write(profile);
+            } catch (Exception exception) {
+                log.error("Could not update patient profile conversationId={}", encounter.conversationId(), exception);
+                return failure(encounter.conversationId(), COULD_NOT_CLOSE);
+            }
         }
 
         List<ClinicalEvent> registered = registration.events();

@@ -2,9 +2,10 @@
 
 > **MVP cerrado el 2026-09-18.** 8 de 11 implementados · 3 cubiertos.
 >
-> Implementación actual: **UC-001 → UC-004, UC-007, UC-008, UC-010, UC-011, UC-012, UC-013, UC-013b, UC-014 y UC-014b**.
+> Implementación actual: **UC-001 → UC-004, UC-007, UC-008, UC-010, UC-011, UC-012, UC-013, UC-013b, UC-014, UC-014b y UC-015 (Fase 4)**.
 >
-> Todos los casos de uso del MVP están implementados o cubiertos.
+> Todos los casos de uso del MVP están implementados o cubiertos. De la Fase 4, **6 de 15** están
+> implementados (UC-012, UC-013, UC-013b, UC-014, UC-014b y UC-015) y los 9 restantes siguen pendientes.
 >
 > Los casos de uso de la Fase 4 se enuncian al final del documento, en un bloque que señala que **no
 > forman parte del MVP**.
@@ -111,8 +112,8 @@ Casos de uso previstos para la Fase 4 del
 —agente con herramientas, consulta y modelo de mediciones—, el perfil del paciente y la ampliación del
 modelo clínico.
 
-Se enuncian aquí para fijar el alcance de la fase. **UC-012, UC-013, UC-013b, UC-014 y UC-014b ya están
-implementados; los demás siguen pendientes de escribir.**
+Se enuncian aquí para fijar el alcance de la fase. **UC-012, UC-013, UC-013b, UC-014, UC-014b y UC-015 ya
+están implementados; los demás siguen pendientes de escribir.**
 
 ## UC-012 — Operar el asistente como agente con herramientas y proveedor LLM real por defecto
 
@@ -172,7 +173,7 @@ Documento: [`UC-014b.md`](../use-cases/UC-014b.md) · [criterios de aceptación]
 
 ## UC-015 — Construir y actualizar el perfil del paciente
 
-**Estado:** ⬜ Pendiente
+**Estado:** ✅ Implementado
 
 Entrevista inicial saltable y retomable, y actualización cuando el usuario reporta un cambio; el perfil conserva únicamente los valores vigentes.
 

@@ -12,7 +12,8 @@ public record ChatMessageResponse(
         AbsenceReason absenceReason,
         List<SuggestedAction> suggestedActions,
         List<OperationSummary> operations,
-        List<MeasurementSummary> measurements) {
+        List<MeasurementSummary> measurements,
+        ProfileSummary profile) {
 
     public ChatMessageResponse {
         events = events == null ? List.of() : List.copyOf(events);
@@ -28,7 +29,7 @@ public record ChatMessageResponse(
             Status status,
             String message,
             List<EventSummary> events) {
-        this(conversationId, messageId, status, message, events, null, null, null, null);
+        this(conversationId, messageId, status, message, events, null, null, null, null, null);
     }
 
     /** Outcome that carries an absence but no operation detail. */
@@ -40,7 +41,7 @@ public record ChatMessageResponse(
             List<EventSummary> events,
             AbsenceReason absenceReason,
             List<SuggestedAction> suggestedActions) {
-        this(conversationId, messageId, status, message, events, absenceReason, suggestedActions, null, null);
+        this(conversationId, messageId, status, message, events, absenceReason, suggestedActions, null, null, null);
     }
 
     public static ChatMessageResponse of(
@@ -55,6 +56,7 @@ public record ChatMessageResponse(
                 status,
                 message,
                 events == null ? List.of() : events.stream().map(EventSummary::from).toList(),
+                null,
                 null,
                 null,
                 null,
@@ -82,6 +84,7 @@ public record ChatMessageResponse(
                 absenceReason,
                 suggestedActions,
                 null,
+                null,
                 null);
     }
 
@@ -100,7 +103,26 @@ public record ChatMessageResponse(
                 absenceReason,
                 suggestedActions,
                 operations,
-                measurements);
+                measurements,
+                profile);
+    }
+
+    /**
+     * The same outcome, carrying the current profile so a client can show the
+     * confirmed values and the absent ones without reading the profile document.
+     */
+    public ChatMessageResponse withProfile(ProfileSummary profile) {
+        return new ChatMessageResponse(
+                conversationId,
+                messageId,
+                status,
+                message,
+                events,
+                absenceReason,
+                suggestedActions,
+                operations,
+                measurements,
+                profile);
     }
 
     /**
@@ -117,7 +139,8 @@ public record ChatMessageResponse(
                 absenceReason,
                 suggestedActions,
                 operations,
-                measurements);
+                measurements,
+                profile);
     }
 
     /**

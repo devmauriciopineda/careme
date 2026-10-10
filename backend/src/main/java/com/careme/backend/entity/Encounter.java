@@ -26,7 +26,8 @@ public record Encounter(
         String summary,
         OffsetDateTime createdAt,
         OffsetDateTime closedAt,
-        List<EncounterMeasurementNote> measurementNotes) {
+        List<EncounterMeasurementNote> measurementNotes,
+        List<PatientProfileUpdate> profileUpdates) {
 
     private static final Pattern CODE_PATTERN = Pattern.compile("enc_[0-9]{3,}");
 
@@ -44,7 +45,7 @@ public record Encounter(
             String summary,
             OffsetDateTime createdAt,
             OffsetDateTime closedAt) {
-        this(id, code, conversationId, status, notes, motive, summary, createdAt, closedAt, List.of());
+        this(id, code, conversationId, status, notes, motive, summary, createdAt, closedAt, List.of(), List.of());
     }
 
     public Encounter {
@@ -71,6 +72,7 @@ public record Encounter(
         }
         notes = notes == null ? List.of() : List.copyOf(notes);
         measurementNotes = measurementNotes == null ? List.of() : List.copyOf(measurementNotes);
+        profileUpdates = profileUpdates == null ? List.of() : List.copyOf(profileUpdates);
     }
 
     public enum Status {
@@ -81,7 +83,7 @@ public record Encounter(
     /** A consultation that has just started, with no notes and no close. */
     public static Encounter opened(UUID id, String code, String conversationId, OffsetDateTime createdAt) {
         return new Encounter(
-                id, code, conversationId, Status.OPEN, List.of(), null, null, createdAt, null, List.of());
+            id, code, conversationId, Status.OPEN, List.of(), null, null, createdAt, null, List.of(), List.of());
     }
 
     /** The same consultation with one more note collected during the conversation. */
@@ -90,7 +92,8 @@ public record Encounter(
         List<EncounterNote> collected = new ArrayList<>(notes);
         collected.add(note);
         return new Encounter(
-                id, code, conversationId, status, collected, motive, summary, createdAt, closedAt, measurementNotes);
+            id, code, conversationId, status, collected, motive, summary, createdAt, closedAt,
+            measurementNotes, profileUpdates);
     }
 
     /** The same consultation with one more measurement collected during the conversation. */
@@ -99,7 +102,18 @@ public record Encounter(
         List<EncounterMeasurementNote> collected = new ArrayList<>(measurementNotes);
         collected.add(note);
         return new Encounter(
-                id, code, conversationId, status, notes, motive, summary, createdAt, closedAt, collected);
+            id, code, conversationId, status, notes, motive, summary, createdAt, closedAt,
+            collected, profileUpdates);
+        }
+
+        /** The same consultation with one profile update collected during the conversation. */
+        public Encounter withProfileUpdate(PatientProfileUpdate update) {
+        requireOpen();
+        List<PatientProfileUpdate> collected = new ArrayList<>(profileUpdates);
+        collected.add(update);
+        return new Encounter(
+            id, code, conversationId, status, notes, motive, summary, createdAt, closedAt,
+            measurementNotes, collected);
     }
 
     /**
@@ -111,7 +125,7 @@ public record Encounter(
         requireOpen();
         return new Encounter(
                 id, code, conversationId, Status.CLOSED, notes, motive, summary, createdAt, closedAt,
-                measurementNotes);
+            measurementNotes, profileUpdates);
     }
 
     public boolean isOpen() {
